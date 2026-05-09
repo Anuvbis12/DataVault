@@ -1,13 +1,33 @@
 [package]
-name = "DataVault"
-version = "0.1.0"
+name = "aegis-vault"
+version = "0.2.0"
 edition = "2021"
 
 [dependencies]
-aes = "0.8.3"
-cbc = "0.1.2"
-sha2 = "0.10.8"
-rand = "0.8.5"
-hex = "0.4.3"
-eframe = "0.26.2"
-rfd = "0.13.0"
+# GUI
+eframe         = { version = "0.27", features = ["default"] }
+egui           = "0.27"
+
+# Kriptografi
+aes            = "0.8"
+pbkdf2         = { version = "0.12", features = ["hmac"] }
+hmac           = "0.12"
+sha2           = "0.10"
+rand           = "0.8"
+hex            = "0.4"
+zeroize        = "1.7"
+
+# Database
+rusqlite       = { version = "0.31", features = ["bundled"] }
+
+# File dialog
+rfd            = "0.14"
+
+# UUID
+uuid           = { version = "1.8", features = ["v4"] }
+
+[profile.release]
+opt-level     = 3
+lto           = true
+codegen-units = 1
+strip         = true
