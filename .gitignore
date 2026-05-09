@@ -1,0 +1,5 @@
+/target
+/vault_storage
+**/*.rs.bk
+*.pdb
+*.exe
