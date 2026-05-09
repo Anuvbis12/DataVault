@@ -121,6 +121,16 @@ git stash pop
 
 ---
 
+## 👥 Tim Pengembang
+
+Proyek ini dikembangkan oleh:
+- **Rizma Indra Pramudya** (25051204370)
+- **Izora Elverda Narulita Putri** (25051204287)
+- **Putera Al Khalidi** (25051204362)
+- **Muhammad Abdullah Ro'in** (25051204270)
+
+---
+
 <div align="center">
   Dibuat dengan ❤️ dan 🦀 (Rust) | Open Source
 </div>
