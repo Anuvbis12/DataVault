@@ -161,6 +161,7 @@ impl VaultDb {
         Ok(())
     }
 
+    #[allow(dead_code)]
     pub fn find_by_vault_filename(&self, vault_filename: &str) -> Result<Option<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename,

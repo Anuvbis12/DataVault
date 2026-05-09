@@ -30,7 +30,6 @@ pub struct EncryptionResult {
     pub encrypted_filename: String,
     pub file_hash:          String,
     pub iv:                 [u8; 16],
-    pub salt:               [u8; SALT_LEN],
 }
 
 // ── PBKDF2 Key Derivation ─────────────────────────────────
@@ -160,7 +159,6 @@ pub fn secure_encrypt_file(
         encrypted_filename,
         file_hash,
         iv,
-        salt: [0u8; SALT_LEN], // salt diisi oleh caller dari derive_key
     })
 }
 
@@ -177,7 +175,7 @@ impl std::fmt::Display for DecryptError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             DecryptError::Io(e)               => write!(f, "IO error: {}", e),
-            DecryptError::HashMismatch { .. }  => write!(f, "Integritas file gagal — hash tidak cocok"),
+            DecryptError::HashMismatch { expected, actual }  => write!(f, "Integritas file gagal — hash tidak cocok (expected: {}, actual: {})", expected, actual),
             DecryptError::InvalidPadding       => write!(f, "Padding tidak valid — kemungkinan kunci salah"),
         }
     }
