@@ -1,136 +1,172 @@
 <div align="center">
-  <h1>🛡️ Aegis Vault 🛡️</h1>
-  <p><strong>Akses Aman ke Data Anda</strong></p>
   
-  [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg)](https://www.rust-lang.org/)
-  [![GUI](https://img.shields.io/badge/GUI-egui-blue.svg)](https://github.com/emilk/egui)
-  [![Security](https://img.shields.io/badge/Security-AES--256-green.svg)](#)
-  [![License](https://img.shields.io/badge/License-MIT-lightgray.svg)](#)
+# 🛡️ DataVault (Aegis Vault)
+
+**Akses Aman & Privasi Penuh untuk Data Anda**
+
+[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
+[![egui](https://img.shields.io/badge/GUI-egui-blue.svg?style=for-the-badge)](https://github.com/emilk/egui)
+[![Security](https://img.shields.io/badge/Security-AES--256-green.svg?style=for-the-badge&logo=security)](#)
+[![License](https://img.shields.io/badge/License-MIT-lightgray.svg?style=for-the-badge)](#)
+
+*Brankas digital modern yang memadukan performa tangguh Rust dengan antarmuka memukau.*
+
+**[📥 Unduh Rilis Terbaru](#) • [🚀 Cara Penggunaan](#-cara-penggunaan) • [🐛 Laporkan Bug](#)**
+
 </div>
 
 ---
 
-**Aegis Vault** adalah aplikasi desktop modern dan aman yang dirancang untuk menjadi "brankas" digital bagi file-file rahasia Anda. Dibangun menggunakan performa tangguh bahasa **Rust** dan dibalut antarmuka cantik *glassmorphism* dari **`egui`**, aplikasi ini menjaga kerahasiaan data Anda tanpa mengorbankan pengalaman pengguna.
+<details open>
+<summary><b>📑 Daftar Isi</b> (Klik untuk menyembunyikan/menampilkan)</summary>
 
-![Aegis Vault Demo](https://via.placeholder.com/800x450.png?text=Aegis+Vault+UI+Screenshot) <!-- Ganti URL ini dengan screenshot UI aplikasimu nanti -->
+- [🌟 Tentang Proyek](#-tentang-proyek)
+- [✨ Fitur Unggulan](#-fitur-unggulan)
+- [🚀 Panduan Memulai (Quick Start)](#-panduan-memulai-quick-start)
+- [📖 Cara Penggunaan](#-cara-penggunaan)
+- [📂 Struktur Penyimpanan](#-struktur-penyimpanan)
+- [🛠️ Teknologi yang Digunakan](#️-teknologi-yang-digunakan)
+- [👥 Tim Pengembang](#-tim-pengembang)
+
+</details>
+
+---
+
+## 🌟 Tentang Proyek
+
+**DataVault (Aegis Vault)** adalah aplikasi desktop modern yang dirancang untuk menjadi "brankas" digital bagi file-file rahasia Anda. Dibangun menggunakan performa tinggi dari bahasa pemrograman **Rust** dan dibalut dengan antarmuka interaktif dari **`egui`**, aplikasi ini menjaga kerahasiaan data Anda tanpa mengorbankan pengalaman pengguna.
+
+> 💡 **Misi Kami:** Menyediakan alat keamanan data tingkat tinggi yang mudah digunakan oleh siapa saja, dengan antarmuka yang bersih, cepat, dan responsif.
+
+[⬆ Kembali ke Atas](#-datavault-aegis-vault)
 
 ---
 
 ## ✨ Fitur Unggulan
 
-🛡️ **Keamanan Kelas Militer**
-Setiap file dienkripsi menggunakan standar **AES-256**. Kunci enkripsi didapatkan menggunakan metode **PBKDF2-HMAC-SHA256** dan *salting* acak, mencegah serangan *brute-force*.
+| Fitur | Deskripsi |
+| :--- | :--- |
+| 🛡️ **Keamanan Kelas Militer** | Menggunakan standar enkripsi **AES-256** dan **PBKDF2-HMAC-SHA256** untuk mencegah serangan *brute-force*. |
+| 🔑 **Sistem PIN Pintar** | Akses cepat dengan PIN 6-digit. PIN di-hash dengan aman dan tidak pernah disimpan dalam *plaintext*. |
+| ✅ **Validasi Integritas** | Hash **SHA-256** memastikan data Anda tidak pernah rusak atau dimodifikasi oleh pihak ketiga. |
+| 🗄️ **Database Lokal Terpusat**| Manajemen metadata pintar menggunakan **SQLite**, memastikan sinkronisasi data yang cepat dan aman. |
+| 🎨 **Desain Modern** | Antarmuka pengguna *glassmorphism* yang elegan, responsif, dan memanjakan mata. |
 
-🔑 **Akses Berbasis PIN yang Simpel**
-Lupakan password yang panjang dan rumit untuk akses cepat! Cukup gunakan PIN Anda untuk membuka vault. PIN Anda tidak pernah disimpan dalam bentuk *plaintext* (selalu di-hash).
-
-✅ **Validasi Integritas Data**
-Aegis Vault memvalidasi file menggunakan hash **SHA-256** sebelum proses dekripsi. Ini memastikan tidak ada satupun *byte* yang rusak atau dimodifikasi oleh pihak tak bertanggung jawab.
-
-🗄️ **Manajemen File Cerdas**
-Semua rekaman dan metadata file disimpan dengan rapi di dalam database lokal **SQLite**, memudahkan pencarian dan pengelolaan tanpa membahayakan data aslinya.
-
-🔥 **Penghapusan Ekstra Aman (Secure Delete)** *(Coming Soon / Built-in)*
-Saat Anda memasukkan file ke dalam vault, file sumber akan melalui proses *3-pass wipe* agar jejak digital aslinya tidak bisa dipulihkan menggunakan *recovery tools*.
+[⬆ Kembali ke Atas](#-datavault-aegis-vault)
 
 ---
 
-## 🚀 Cara Menjalankan Aplikasi
+## 🚀 Panduan Memulai (Quick Start)
 
-Ikuti panduan mudah ini untuk mulai mengamankan file Anda!
+Amankan data Anda hanya dalam beberapa langkah mudah!
 
-### 1. Persiapan Sistem (Prerequisites)
-Pastikan Anda sudah menginstal **Rust** dan **Cargo**. Jika belum, instal melalui [rustup.rs](https://rustup.rs/):
+<details>
+<summary><b>🛠️ 1. Persiapan Sistem (Klik untuk melihat instruksi)</b></summary>
+<br>
+Pastikan Anda sudah menginstal <b>Rust</b> dan <b>Cargo</b>.
 
 ```bash
-# Untuk Linux/macOS
+# Instalasi untuk Linux/macOS
 curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
-*(Untuk Windows, cukup unduh installer `rustup-init.exe` dari website resminya).*
+> *Pengguna Windows dapat mengunduh installer `rustup-init.exe` dari [rustup.rs](https://rustup.rs/).*
+</details>
 
-### 2. Kloning Repositori & Instalasi
-Buka terminal/CMD/PowerShell, lalu jalankan:
+<details>
+<summary><b>📦 2. Kloning & Instalasi (Klik untuk melihat instruksi)</b></summary>
+<br>
 
 ```bash
-# 1. Kloning repositori (atau masuk ke folder jika sudah diunduh)
-git clone https://github.com/username_kamu/AegisVault.git
-cd AegisVault
+# Kloning repositori
+git clone https://github.com/username_kamu/DataVault.git
+cd DataVault
 
-# 2. Build proyek untuk mengunduh semua dependency (Opsional, tapi disarankan)
+# Build proyek (Opsional namun disarankan untuk setup awal)
 cargo build --release
 ```
+</details>
 
-### 3. Menjalankan Aegis Vault
-Sangat disarankan untuk selalu menjalankan aplikasi ini dalam mode `--release`. Operasi kriptografi (seperti derivasi kunci PBKDF2) membutuhkan proses komputasi berat; mode *release* membuat aplikasi berjalan **ratusan kali lebih cepat** dibandingkan mode *debug*.
+### 3. Jalankan Aplikasi
+> [!IMPORTANT]
+> **Selalu jalankan dalam mode `--release`!** Operasi kriptografi membutuhkan komputasi berat. Mode release membuat aplikasi berjalan ratusan kali lebih cepat dibandingkan mode debug.
 
 ```bash
-# Jalankan aplikasi!
 cargo run --release
 ```
 
----
-
-## 🔒 Panduan Penggunaan (Quick Start)
-
-1. **Setup Awal**: Saat pertama kali aplikasi terbuka, Anda akan diminta untuk membuat **PIN** (minimal 4 digit angka). *Jangan sampai lupa! PIN ini adalah kunci utama Anda.*
-2. **Dashboard**: Setelah masuk, klik tombol melayang **➕** di sudut kanan bawah.
-3. **Pilih File**: Pilih file apapun (Dokumen, Foto, Video) yang ingin Anda sembunyikan. File tersebut akan terenkripsi dan disimpan di folder `vault_storage/`.
-4. **Pulihkan (Decrypt)**: Untuk mengambil file Anda kembali, cukup klik tombol gembok terbuka (🔓) di sebelah nama file pada daftar. Pilih direktori tujuan, dan file akan kembali ke bentuk aslinya!
+[⬆ Kembali ke Atas](#-datavault-aegis-vault)
 
 ---
 
-## 📂 Struktur Direktori & Perhatian Penting
+## 📖 Cara Penggunaan
 
-Saat aplikasi pertama kali mendeteksi file, ia akan membuat direktori lokal:
+1. **Setup Awal 🔐**
+   Saat pertama kali dijalankan, buat **PIN 6-digit** Anda. Ini adalah kunci utama ke brankas Anda. *Jangan sampai lupa!*
+2. **Amankan File ➕**
+   Klik ikon tambah (+), lalu pilih dokumen, foto, atau video yang ingin disembunyikan. File akan dienkripsi secara otomatis.
+3. **Pulihkan Data 🔓**
+   Klik ikon gembok pada file di dalam brankas, pilih lokasi penyimpanan tujuan, dan file Anda akan kembali ke format aslinya.
+
+[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+
+---
+
+## 📂 Struktur Penyimpanan
+
+DataVault mengelola file Anda dengan rapi dan aman di dalam direktori `vault_storage/`:
+
+<details>
+<summary><b>📂 Tampilkan Pohon Direktori</b></summary>
+<br>
+
 ```text
-📦 AegisVault
- ┣ 📂 src/
- ┣ 📂 vault_storage/      <-- TEMPAT FILE TERENKRIPSI DISIMPAN
- ┃  ┣ 📜 vault.db         <-- Database metadata (Jangan dihapus!)
- ┃  ┗ 📜 <uuid_file>      <-- File Anda yang sudah diamankan
+📦 DataVault
+ ┣ 📂 src/                  # Source code aplikasi
+ ┣ 📂 vault_storage/        # ⚠️ AREA TERENKRIPSI (JANGAN DIUBAH)
+ ┃  ┣ 📜 vault.db           # Database metadata SQLite
+ ┃  ┗ 📜 <uuid_file>        # File terenkripsi Anda
  ┗ 📜 Cargo.toml
 ```
 
-> ⚠️ **PERINGATAN KRITIS**: **DILARANG KERAS** menghapus, memindahkan, atau mengubah nama file apapun di dalam folder `vault_storage/` secara manual melalui *File Explorer*. Hal ini dapat merusak struktur database dan mengakibatkan data Anda hilang secara **permanen**.
+</details>
+
+> [!CAUTION]
+> **DILARANG KERAS** mengubah, menghapus, atau memindahkan file di dalam `vault_storage/` secara manual melalui File Explorer. Hal ini dapat menyebabkan kerusakan database dan kehilangan data permanen!
+
+[⬆ Kembali ke Atas](#-datavault-aegis-vault)
 
 ---
 
-## 🔧 Troubleshooting Git (Khusus Developer)
+## 🛠️ Teknologi yang Digunakan
 
-Jika Anda berkolaborasi menggunakan Git dan menemui error saat `git pull` atau `git merge` seperti:
-`error: Your local changes to the following files would be overwritten by merge: target/...` atau `vault_storage/vault.db`
+Aplikasi ini didukung oleh ekosistem Rust yang luar biasa:
 
-**Penyebabnya:** File *build* (folder `target/`) atau *database lokal* Anda (`vault_storage/`) bertabrakan dengan repositori.
+* **[egui](https://github.com/emilk/egui)**: Framework GUI *Immediate Mode* yang cepat.
+* **[RustCrypto](https://github.com/RustCrypto)**: Implementasi murni Rust untuk algoritma kriptografi (`aes`, `pbkdf2`, `sha2`).
+* **[rusqlite](https://github.com/rusqlite/rusqlite)**: Binding aman untuk SQLite.
+* **[rfd](https://github.com/PolyMeilex/rfd)**: Dialog file *native* lintas platform.
 
-**Solusinya:**
-Pastikan folder `target/` dan `vault_storage/` sudah ada di dalam file `.gitignore`. Jika error sudah terlanjur terjadi, simpan perubahan lokal Anda sementara menggunakan stash sebelum pull:
-```bash
-git stash
-git pull
-git stash pop
-```
-
----
-
-## 🛠️ Dibangun Dengan
-
-- [**eframe** & **egui**](https://github.com/emilk/egui) - GUI Framework yang *Fast & Immediate Mode*
-- [**RustCrypto**](https://github.com/RustCrypto) - *Crates* kriptografi murni (`aes`, `pbkdf2`, `sha2`, dll.)
-- [**rusqlite**](https://github.com/rusqlite/rusqlite) - SQLite binding untuk Rust
-- [**rfd**](https://github.com/PolyMeilex/rfd) - Dialog file *native* lintas platform
+[⬆ Kembali ke Atas](#-datavault-aegis-vault)
 
 ---
 
 ## 👥 Tim Pengembang
 
-Proyek ini dikembangkan oleh:
-- **Rizma Indra Pramudya** (25051204370)
-- **Izora Elverda Narulita Putri** (25051204287)
-- **Putera Al Khalidi** (25051204362)
-- **Muhammad Abdullah Ro'in** (25051204270)
+Proyek ini dikembangkan dengan dedikasi oleh:
+
+<details>
+<summary><b>👑 Lihat Anggota Tim</b></summary>
+<br>
+
+* 👨‍💻 **Rizma Indra Pramudya** (25051204370)
+* 👩‍💻 **Izora Elverda Narulita Putri** (25051204287)
+* 👨‍💻 **Putera Al Khalidi** (25051204362)
+* 👨‍💻 **Muhammad Abdullah Ro'in** (25051204270)
+
+</details>
 
 ---
 
 <div align="center">
-  Dibuat dengan ❤️ dan 🦀 (Rust) | Open Source
+  <p>Dibuat dengan ❤️ dan 🦀 (Rust) | Open Source</p>
 </div>
