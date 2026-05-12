@@ -189,4 +189,10 @@ impl VaultDb {
             Err(e)                             => Err(e),
         }
     }
+
+    /// Eksekusi SQL statement langsung (untuk operasi admin)
+    pub fn conn_exec(&self, sql: &str) -> Result<()> {
+        self.conn.execute_batch(sql)?;
+        Ok(())
+    }
 }

@@ -26,8 +26,18 @@ rfd            = "0.14"
 # UUID
 uuid           = { version = "1.8", features = ["v4"] }
 
+# TOTP (2FA)
+sha1           = "0.10"
+data-encoding  = "2.6"
+qrcode         = "0.14"
+
 [profile.release]
 opt-level     = 3
 lto           = true
 codegen-units = 1
 strip         = true
+
+[package.metadata.android]
+apk_label = "Aegis Vault"
+target_sdk_version = 33
+min_sdk_version = 24
