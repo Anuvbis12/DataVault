@@ -114,6 +114,15 @@ impl VaultDb {
         self.get_meta("pin_salt")
     }
 
+    /// Reset seluruh database (Hapus semua record dan meta)
+    pub fn reset_database(&self) -> Result<()> {
+        self.conn.execute("DELETE FROM file_records", [])?;
+        self.conn.execute("DELETE FROM vault_meta", [])?;
+        // Kosongkan konfigurasi TOTP jika ada
+        let _ = self.conn.execute("DELETE FROM totp_config", []);
+        Ok(())
+    }
+
     // ── File Records ──────────────────────────────────────
 
     pub fn insert_file(&self, record: &FileRecord) -> Result<()> {

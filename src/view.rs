@@ -181,8 +181,59 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                 });
                 ui.add_space(10.0);
             }
+
+            ui.add_space(20.0);
+            let link_resp = ui.add(egui::Label::new(
+                egui::RichText::new("Lupa PIN? Reset Vault")
+                    .size(12.0)
+                    .color(TEXT_MUTED)
+            ).sense(egui::Sense::click()));
+            if link_resp.hovered() {
+                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
+            }
+            if link_resp.clicked() {
+                state.show_reset_confirm = true;
+            }
         });
     });
+
+    // Overlay Reset Confirm
+    if state.show_reset_confirm {
+        egui::Area::new(egui::Id::new("reset_confirm_overlay"))
+            .order(egui::Order::Foreground)
+            .show(ui.ctx(), |ui| {
+                let rect = ui.ctx().screen_rect();
+                filled_rect(ui, rect, Color32::from_black_alpha(220), Stroke::NONE, 0.0);
+
+                let dialog_size = egui::vec2(340.0, 180.0);
+                let dialog_rect = egui::Rect::from_center_size(rect.center(), dialog_size);
+
+                ui.allocate_ui_at_rect(dialog_rect, |ui| {
+                    theme::card_frame().show(ui, |ui| {
+                        ui.vertical_centered(|ui| {
+                            ui.add_space(10.0);
+                            ui.label(egui::RichText::new("⚠  Hapus Seluruh Vault?").color(WARN_COLOR).size(18.0).strong());
+                            ui.add_space(12.0);
+                            ui.label(egui::RichText::new("Tindakan ini akan menghapus semua file yang ada di vault secara permanen karena PIN lama tidak dapat dipulihkan.").color(TEXT_BODY).size(13.0));
+                            ui.add_space(24.0);
+                            
+                            // Letakkan tombol di tengah
+                            ui.horizontal(|ui| {
+                                ui.add_space((ui.available_width() - 260.0) / 2.0);
+                                if ghost_btn(ui, "Batal", 120.0).clicked() {
+                                    state.show_reset_confirm = false;
+                                }
+                                ui.add_space(20.0);
+                                if teal_btn(ui, "Ya, Reset Vault", 120.0).clicked() {
+                                    ctrl.reset_vault(state);
+                                }
+                            });
+                            ui.add_space(10.0);
+                        });
+                    });
+                });
+            });
+    }
 }
 
 // ── Screen: Setup PIN ─────────────────────────────────────

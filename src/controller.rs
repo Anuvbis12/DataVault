@@ -129,6 +129,34 @@ impl Controller {
         state.status         = None;
     }
 
+    /// Reset Vault: Hapus semua file terenkripsi dan reset database.
+    pub fn reset_vault(&self, state: &mut AppState) {
+        // Hapus semua file fisik di direktori vault
+        if let Ok(entries) = std::fs::read_dir(VAULT_DIR) {
+            for entry in entries.flatten() {
+                let path = entry.path();
+                // Hapus file .vlt
+                if path.extension().and_then(|s| s.to_str()) == Some("vlt") {
+                    let _ = std::fs::remove_file(path);
+                }
+            }
+        }
+        
+        // Reset DB
+        {
+            let db = self.db.lock().unwrap();
+            let _ = db.reset_database();
+        }
+        
+        // Reset State dan kembali ke Setup
+        self.logout(state);
+        state.show_reset_confirm = false;
+        state.pin_input = String::new();
+        state.pin_confirm = String::new();
+        state.screen = AppScreen::SetupPin;
+        state.set_status("Vault telah di-reset. Silakan buat PIN baru.", true);
+    }
+
     // ── File operations ───────────────────────────────────
 
     /// Muat ulang daftar file dari database
