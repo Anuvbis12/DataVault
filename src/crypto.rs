@@ -8,8 +8,7 @@ use aes::cipher::{
     BlockDecrypt, BlockEncrypt, KeyInit,
     generic_array::{GenericArray, typenum::U16},
 };
-use hmac::Hmac;
-use pbkdf2::pbkdf2;
+use argon2::Argon2;
 use rand::{thread_rng, RngCore};
 use sha2::{Digest, Sha256};
 use std::fs::{File, OpenOptions};
@@ -20,7 +19,7 @@ use zeroize::Zeroize;
 // ── Konstanta ─────────────────────────────────────────────
 pub const BUFFER_SIZE:      usize = 64 * 1024; // 64 KB — optimal untuk cache L2 ARM
 pub const CUSTOM_EXTENSION: &str  = ".vlt";
-pub const PBKDF2_ITERATIONS: u32  = 310_000;   // OWASP 2024 recommendation
+// OWASP 2024 recommendation for Argon2id is used by default in the crate
 pub const SALT_LEN:          usize = 16;
 pub const KEY_LEN:           usize = 32;        // AES-256
 
@@ -32,7 +31,7 @@ pub struct EncryptionResult {
     pub iv:                 [u8; 16],
 }
 
-// ── PBKDF2 Key Derivation ─────────────────────────────────
+// ── Argon2id Key Derivation ─────────────────────────────────
 
 /// Generate salt acak 16 byte
 pub fn generate_salt() -> [u8; SALT_LEN] {
@@ -41,21 +40,18 @@ pub fn generate_salt() -> [u8; SALT_LEN] {
     salt
 }
 
-/// Derivasi kunci AES-256 dari PIN + salt menggunakan PBKDF2-HMAC-SHA256
+/// Derivasi kunci AES-256 dari PIN + salt menggunakan Argon2id
 /// Kunci dikembalikan dalam Box agar mudah di-zeroize setelah pakai
 pub fn derive_key(pin: &str, salt: &[u8; SALT_LEN]) -> Box<[u8; KEY_LEN]> {
     let mut key = Box::new([0u8; KEY_LEN]);
-    pbkdf2::<Hmac<Sha256>>(
-        pin.as_bytes(),
-        salt,
-        PBKDF2_ITERATIONS,
-        key.as_mut(),
-    ).expect("PBKDF2 tidak boleh gagal dengan parameter valid");
+    let argon2 = Argon2::default();
+    argon2.hash_password_into(pin.as_bytes(), salt, key.as_mut())
+        .expect("Argon2id tidak boleh gagal dengan parameter valid");
     key
 }
 
 /// Verifikasi PIN: derivasi kunci lalu cek hash PIN yang tersimpan
-/// Hash PIN disimpan sebagai: SHA-256(PBKDF2(pin, salt))
+/// Hash PIN disimpan sebagai: SHA-256(Argon2id(pin, salt))
 pub fn hash_pin(pin: &str, salt: &[u8; SALT_LEN]) -> String {
     let mut key = derive_key(pin, salt);
     let hash    = Sha256::digest(key.as_ref());

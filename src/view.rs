@@ -8,6 +8,7 @@ use rfd::FileDialog;
 
 use crate::app_state::{AppScreen, AppState};
 use crate::controller::{format_size, Controller};
+use crate::db::FileRecord;
 use crate::theme::{self, *};
 
 // ── Root render ───────────────────────────────────────────
@@ -23,6 +24,32 @@ pub fn render(
         ctx.request_repaint();
     }
 
+    // Overlay Toast Notification
+    if state.toast_timer > 0.0 {
+        if let Some(msg) = state.toast_message.clone() {
+            let toast_alpha = (state.toast_timer * 2.0).clamp(0.0, 1.0);
+            let y_pos = 30.0 - (1.0 - toast_alpha) * 20.0;
+            
+            egui::Area::new(egui::Id::new("toast_overlay"))
+                .fixed_pos(egui::pos2(ctx.screen_rect().width() / 2.0 - 150.0, y_pos))
+                .order(egui::Order::Tooltip)
+                .show(ctx, |ui| {
+                    let rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(300.0, 44.0));
+                    filled_rect(ui, rect, Color32::from_rgb(20, 25, 35), Stroke::new(1.0, TEAL_STRONG), 22.0);
+                    ui.painter().text(
+                        rect.center(), egui::Align2::CENTER_CENTER, &msg,
+                        FontId::new(14.0, FontFamily::Proportional), Color32::WHITE
+                    );
+                });
+            
+            state.toast_timer -= ctx.input(|i| i.stable_dt);
+            if state.toast_timer <= 0.0 {
+                state.toast_message = None;
+            }
+            ctx.request_repaint();
+        }
+    }
+
     egui::CentralPanel::default()
         .frame(egui::Frame::none())
         .show(ctx, |ui| {
@@ -34,6 +61,7 @@ pub fn render(
                 AppScreen::Decrypting(fname) => render_decrypt_panel(ui, state, controller, &fname.clone()),
                 AppScreen::TotpSetup         => render_totp_setup(ui, state, controller),
                 AppScreen::TotpVerify        => render_totp_verify(ui, state, controller),
+                AppScreen::RecycleBin        => render_recycle_bin(ui, state, controller),
             }
         });
 }
@@ -127,6 +155,8 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
             ];
             for row in keys {
                 ui.horizontal(|ui| {
+                    let total_w = 72.0 * 3.0 + ui.spacing().item_spacing.x * 2.0;
+                    ui.add_space((ui.available_width() - total_w) / 2.0);
                     for key in *row {
                         let resp = numpad_btn(ui, key);
                         if resp.clicked() {
@@ -277,11 +307,11 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
 
     // Sesi aktif badge
     let badge_rect = egui::Rect::from_center_size(
-        egui::pos2(avail.right() - 110.0, topbar_rect.center().y), Vec2::new(90.0, 22.0)
+        egui::pos2(avail.right() - 162.0, topbar_rect.center().y), Vec2::new(76.0, 22.0)
     );
     filled_rect(ui, badge_rect, Color32::from_rgb(12,31,24), Stroke::new(0.5, BORDER_ACCENT), 20.0);
     ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "🔒 Sesi aktif",
-                      FontId::new(11.0, FontFamily::Proportional), TEAL_LIGHT);
+                      FontId::new(10.0, FontFamily::Proportional), TEAL_LIGHT);
 
     // Logout button
     let logout_rect = egui::Rect::from_center_size(
@@ -295,7 +325,6 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         return;
     }
 
-    // TOTP toggle button (kiri dari logout)
     let totp_label = if state.totp_enabled { "🔐 2FA" } else { "🔓 2FA" };
     let totp_rect = egui::Rect::from_center_size(
         egui::pos2(avail.right() - 74.0, topbar_rect.center().y), Vec2::new(36.0, 26.0),
@@ -313,6 +342,21 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         } else {
             ctrl.begin_totp_setup(state);
         }
+        return;
+    }
+
+    // Trash Button (kiri dari TOTP)
+    let trash_rect = egui::Rect::from_center_size(
+        egui::pos2(avail.right() - 116.0, topbar_rect.center().y), Vec2::new(32.0, 26.0)
+    );
+    let trash_resp = ui.allocate_rect(trash_rect, egui::Sense::click());
+    let trash_border = if trash_resp.hovered() { TEAL_STRONG } else { BORDER_DEFAULT };
+    filled_rect(ui, trash_rect, Color32::TRANSPARENT, Stroke::new(0.5, trash_border), 6.0);
+    ui.painter().text(trash_rect.center(), egui::Align2::CENTER_CENTER, "🗑",
+                      FontId::new(14.0, FontFamily::Proportional), TEXT_MUTED);
+    if trash_resp.clicked() {
+        ctrl.load_deleted_files(state);
+        state.screen = AppScreen::RecycleBin;
         return;
     }
 
@@ -370,6 +414,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     );
 
     let mut to_decrypt: Option<String> = None;
+    let mut to_soft_delete: Option<String> = None;
 
     egui::ScrollArea::vertical()
         .id_source("file_scroll")
@@ -432,6 +477,21 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                                       egui::Align2::LEFT_TOP, &meta,
                                       FontId::new(11.0, FontFamily::Proportional), TEXT_DIMMED);
 
+                    // Tombol hapus (soft delete)
+                    let del_btn_rect = egui::Rect::from_min_size(
+                        egui::pos2(card_rect.right() - 94.0, card_rect.center().y - 16.0),
+                        Vec2::new(38.0, 32.0),
+                    );
+                    let del_btn_resp   = ui.allocate_rect(del_btn_rect, egui::Sense::click());
+                    let del_btn_border = if del_btn_resp.hovered() { ERROR_COLOR } else { BORDER_DEFAULT };
+                    let del_btn_icon_c = if del_btn_resp.hovered() { ERROR_COLOR } else { TEXT_MUTED };
+                    filled_rect(ui, del_btn_rect, BG_SURFACE, Stroke::new(0.5, del_btn_border), 7.0);
+                    ui.painter().text(del_btn_rect.center(), egui::Align2::CENTER_CENTER, "🗑",
+                                      FontId::new(14.0, FontFamily::Proportional), del_btn_icon_c);
+                    if del_btn_resp.clicked() {
+                        to_soft_delete = Some(record.id.clone());
+                    }
+
                     // Tombol dekripsi
                     let btn_rect = egui::Rect::from_min_size(
                         egui::pos2(card_rect.right() - 50.0, card_rect.center().y - 16.0),
@@ -485,6 +545,9 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     // Navigasi ke panel dekripsi
     if let Some(fname) = to_decrypt {
         ctrl.open_decrypt_panel(state, &fname);
+    }
+    if let Some(id) = to_soft_delete {
+        ctrl.soft_delete_file(state, &id);
     }
 }
 
@@ -815,4 +878,146 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
             }
         });
     });
+}
+
+// ── Screen: Recycle Bin ───────────────────────────────────
+fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
+    let avail = ui.available_rect_before_wrap();
+    let pad   = 16.0;
+
+    // ─ Topbar ─
+    let topbar_rect = egui::Rect::from_min_size(avail.min, Vec2::new(avail.width(), 52.0));
+    filled_rect(ui, topbar_rect, Color32::from_rgb(14,16,22), Stroke::new(0.5, BORDER_SUBTLE), 0.0);
+
+    let back_rect = egui::Rect::from_min_size(topbar_rect.min + Vec2::new(18.0, 12.0), Vec2::splat(28.0));
+    let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
+    filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, BORDER_DEFAULT), 7.0);
+    ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+                      FontId::new(15.0, FontFamily::Proportional), TEXT_MUTED);
+    if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
+
+    ui.painter().text(
+        egui::pos2(back_rect.right() + 10.0, topbar_rect.center().y),
+        egui::Align2::LEFT_CENTER, "Recycle Bin",
+        FontId::new(16.0, FontFamily::Proportional), TEXT_PRIMARY,
+    );
+
+    let mut cursor_y = topbar_rect.bottom() + 14.0;
+    
+    // Warning banner
+    let banner_rect = egui::Rect::from_min_size(
+        egui::pos2(avail.left() + pad, cursor_y),
+        Vec2::new(avail.width() - pad * 2.0, 44.0),
+    );
+    filled_rect(ui, banner_rect, Color32::from_rgb(30, 20, 20), Stroke::new(0.5, ERROR_COLOR), 8.0);
+    ui.painter().text(banner_rect.center(), egui::Align2::CENTER_CENTER,
+                      "⚠️ File di bawah dapat dipulihkan atau dihapus permanen.",
+                      FontId::new(12.0, FontFamily::Proportional), Color32::from_rgb(255, 100, 100));
+    
+    cursor_y += 58.0;
+
+    let scroll_rect = egui::Rect::from_min_max(
+        egui::pos2(avail.left(), cursor_y),
+        egui::pos2(avail.right(), avail.bottom() - 20.0),
+    );
+
+    let mut to_perm_delete: Option<FileRecord> = None;
+    let mut to_restore: Option<String> = None;
+
+    egui::ScrollArea::vertical()
+        .id_source("trash_scroll")
+        .show_viewport(ui, |ui, _vp| {
+            ui.set_clip_rect(scroll_rect);
+            if state.deleted_list.is_empty() {
+                let c = scroll_rect.center();
+                ui.painter().text(c, egui::Align2::CENTER_CENTER,
+                                  "Recycle Bin Kosong",
+                                  FontId::new(16.0, FontFamily::Proportional), TEXT_MUTED);
+            } else {
+                let card_h   = 68.0;
+                let card_gap = 8.0;
+                for (idx, record) in state.deleted_list.clone().iter().enumerate() {
+                    let card_y = scroll_rect.top() + idx as f32 * (card_h + card_gap) + 4.0;
+                    if card_y + card_h > scroll_rect.bottom() { break; }
+
+                    let card_rect = egui::Rect::from_min_size(
+                        egui::pos2(avail.left() + pad, card_y),
+                        Vec2::new(avail.width() - pad * 2.0, card_h),
+                    );
+                    let card_hovered = ui.rect_contains_pointer(card_rect);
+                    let card_fill    = if card_hovered { BG_CARD } else { BG_SURFACE };
+                    let card_stroke  = if card_hovered {
+                        Stroke::new(0.5, WARN_COLOR)
+                    } else {
+                        Stroke::new(0.5, BORDER_DEFAULT)
+                    };
+                    filled_rect(ui, card_rect, card_fill, card_stroke, 10.0);
+
+                    // Badge ikon
+                    let ext         = file_ext(&record.original_name);
+                    let (icon, badge) = file_badge(ext);
+                    let badge_rect  = egui::Rect::from_min_size(
+                        egui::pos2(card_rect.left() + 14.0, card_rect.center().y - 18.0),
+                        Vec2::splat(36.0),
+                    );
+                    filled_rect(ui, badge_rect, badge.0, Stroke::new(0.5, badge.1), 8.0);
+                    ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, icon,
+                                      FontId::new(16.0, FontFamily::Proportional), badge.1);
+
+                    // Info teks
+                    let info_x = badge_rect.right() + 12.0;
+                    let name_truncated = if record.original_name.len() > 28 {
+                        format!("{}…", &record.original_name[..26])
+                    } else {
+                        record.original_name.clone()
+                    };
+                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 16.0),
+                                      egui::Align2::LEFT_TOP, &name_truncated,
+                                      FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                    let meta = format!("{}…  ·  Dihapus: {}",
+                                       &record.sha256_hash[..6],
+                                       record.deleted_at.as_deref().unwrap_or(""));
+                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 36.0),
+                                      egui::Align2::LEFT_TOP, &meta,
+                                      FontId::new(11.0, FontFamily::Proportional), ERROR_COLOR);
+
+                    // Tombol Hapus Permanen
+                    let perm_del_rect = egui::Rect::from_min_size(
+                        egui::pos2(card_rect.right() - 94.0, card_rect.center().y - 16.0),
+                        Vec2::new(38.0, 32.0),
+                    );
+                    let perm_del_resp = ui.allocate_rect(perm_del_rect, egui::Sense::click());
+                    let perm_del_border = if perm_del_resp.hovered() { ERROR_COLOR } else { BORDER_DEFAULT };
+                    let perm_del_icon_c = if perm_del_resp.hovered() { ERROR_COLOR } else { TEXT_MUTED };
+                    filled_rect(ui, perm_del_rect, BG_SURFACE, Stroke::new(0.5, perm_del_border), 7.0);
+                    ui.painter().text(perm_del_rect.center(), egui::Align2::CENTER_CENTER, "❌",
+                                      FontId::new(14.0, FontFamily::Proportional), perm_del_icon_c);
+                    if perm_del_resp.clicked() {
+                        to_perm_delete = Some(record.clone());
+                    }
+
+                    // Tombol Restore
+                    let restore_rect = egui::Rect::from_min_size(
+                        egui::pos2(card_rect.right() - 50.0, card_rect.center().y - 16.0),
+                        Vec2::new(38.0, 32.0),
+                    );
+                    let restore_resp   = ui.allocate_rect(restore_rect, egui::Sense::click());
+                    let restore_border = if restore_resp.hovered() { TEAL_STRONG } else { BORDER_DEFAULT };
+                    let restore_icon_c = if restore_resp.hovered() { TEAL_STRONG } else { TEXT_MUTED };
+                    filled_rect(ui, restore_rect, BG_SURFACE, Stroke::new(0.5, restore_border), 7.0);
+                    ui.painter().text(restore_rect.center(), egui::Align2::CENTER_CENTER, "♻",
+                                      FontId::new(16.0, FontFamily::Proportional), restore_icon_c);
+                    if restore_resp.clicked() {
+                        to_restore = Some(record.id.clone());
+                    }
+                }
+            }
+        });
+
+    if let Some(record) = to_perm_delete {
+        ctrl.permanent_delete_file(state, &record);
+    }
+    if let Some(id) = to_restore {
+        ctrl.restore_file(state, &id);
+    }
 }

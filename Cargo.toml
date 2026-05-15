@@ -10,7 +10,7 @@ egui           = "0.27"
 
 # Kriptografi
 aes            = "0.8"
-pbkdf2         = { version = "0.12", features = ["hmac"] }
+argon2         = "0.5"
 hmac           = "0.12"
 sha2           = "0.10"
 rand           = "0.8"

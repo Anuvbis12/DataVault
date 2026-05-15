@@ -18,6 +18,8 @@ pub struct FileRecord {
     pub iv_hex:         String,
     pub salt_hex:       String,
     pub encrypted_at:   String,
+    pub is_deleted:     bool,
+    pub deleted_at:     Option<String>,
 }
 
 // ── Database ──────────────────────────────────────────────
@@ -50,7 +52,9 @@ impl VaultDb {
                 file_size       INTEGER NOT NULL DEFAULT 0,
                 iv_hex          TEXT NOT NULL,
                 salt_hex        TEXT NOT NULL,
-                encrypted_at    TEXT NOT NULL
+                encrypted_at    TEXT NOT NULL,
+                is_deleted      BOOLEAN NOT NULL DEFAULT 0,
+                deleted_at      TEXT
             );
 
             CREATE INDEX IF NOT EXISTS idx_encrypted_at
@@ -61,6 +65,11 @@ impl VaultDb {
                 value   TEXT NOT NULL
             );
         ")?;
+        
+        // Migrasi untuk tabel lama
+        let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0", []);
+        let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN deleted_at TEXT", []);
+        
         Ok(())
     }
 
@@ -111,8 +120,8 @@ impl VaultDb {
         self.conn.execute(
             "INSERT INTO file_records
              (id, original_name, original_path, vault_filename,
-              sha256_hash, file_size, iv_hex, salt_hex, encrypted_at)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9)",
+              sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
             params![
                 record.id,
                 record.original_name,
@@ -123,6 +132,8 @@ impl VaultDb {
                 record.iv_hex,
                 record.salt_hex,
                 record.encrypted_at,
+                record.is_deleted,
+                record.deleted_at,
             ],
         )?;
         Ok(())
@@ -131,8 +142,9 @@ impl VaultDb {
     pub fn get_all_files(&self) -> Result<Vec<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename,
-                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at
+                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at
              FROM file_records
+             WHERE is_deleted = 0
              ORDER BY encrypted_at DESC"
         )?;
 
@@ -147,13 +159,15 @@ impl VaultDb {
                 iv_hex:         row.get(6)?,
                 salt_hex:       row.get(7)?,
                 encrypted_at:   row.get(8)?,
+                is_deleted:     row.get(9)?,
+                deleted_at:     row.get(10)?,
             })
         })?.collect::<Result<Vec<_>>>()?;
 
         Ok(records)
     }
 
-    pub fn delete_file(&self, id: &str) -> Result<()> {
+    pub fn permanent_delete_file(&self, id: &str) -> Result<()> {
         self.conn.execute(
             "DELETE FROM file_records WHERE id = ?1",
             params![id],
@@ -161,11 +175,55 @@ impl VaultDb {
         Ok(())
     }
 
+    pub fn soft_delete_file(&self, id: &str, deleted_at: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_records SET is_deleted = 1, deleted_at = ?2 WHERE id = ?1",
+            params![id, deleted_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn restore_file(&self, id: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_records SET is_deleted = 0, deleted_at = NULL WHERE id = ?1",
+            params![id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_deleted_files(&self) -> Result<Vec<FileRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, original_name, original_path, vault_filename,
+                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at
+             FROM file_records
+             WHERE is_deleted = 1
+             ORDER BY deleted_at DESC"
+        )?;
+
+        let records = stmt.query_map([], |row| {
+            Ok(FileRecord {
+                id:             row.get(0)?,
+                original_name:  row.get(1)?,
+                original_path:  row.get(2)?,
+                vault_filename: row.get(3)?,
+                sha256_hash:    row.get(4)?,
+                file_size:      row.get(5)?,
+                iv_hex:         row.get(6)?,
+                salt_hex:       row.get(7)?,
+                encrypted_at:   row.get(8)?,
+                is_deleted:     row.get(9)?,
+                deleted_at:     row.get(10)?,
+            })
+        })?.collect::<Result<Vec<_>>>()?;
+
+        Ok(records)
+    }
+
     #[allow(dead_code)]
     pub fn find_by_vault_filename(&self, vault_filename: &str) -> Result<Option<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename,
-                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at
+                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at
              FROM file_records WHERE vault_filename = ?1"
         )?;
 
@@ -180,6 +238,8 @@ impl VaultDb {
                 iv_hex:         row.get(6)?,
                 salt_hex:       row.get(7)?,
                 encrypted_at:   row.get(8)?,
+                is_deleted:     row.get(9)?,
+                deleted_at:     row.get(10)?,
             })
         });
 

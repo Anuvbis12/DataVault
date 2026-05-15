@@ -165,6 +165,8 @@ impl Controller {
                     iv_hex:         hex::encode(result.iv),
                     salt_hex:       hex::encode(salt),
                     encrypted_at:   timestamp_now(),
+                    is_deleted:     false,
+                    deleted_at:     None,
                 };
 
                 let db  = self.db.lock().unwrap();
@@ -203,7 +205,7 @@ impl Controller {
 
         match secure_decrypt_file(&vault_path, &out_path, &key, &record.sha256_hash) {
             Ok(()) => {
-                { let db = self.db.lock().unwrap(); let _ = db.delete_file(&record.id); }
+                { let db = self.db.lock().unwrap(); let _ = db.permanent_delete_file(&record.id); }
                 let _ = std::fs::remove_file(&vault_path);
                 self.load_files(state);
                 state.set_status(
@@ -223,6 +225,43 @@ impl Controller {
             state.decrypt_target     = Some(rec_clone);
             state.screen             = AppScreen::Decrypting(vault_filename.to_string());
         }
+    }
+
+    // ── Recycle Bin / Trash ───────────────────────────────
+
+    pub fn soft_delete_file(&self, state: &mut AppState, id: &str) {
+        let db = self.db.lock().unwrap();
+        let _ = db.soft_delete_file(id, &timestamp_now());
+        drop(db);
+        self.load_files(state);
+        self.load_deleted_files(state);
+        state.set_status("Data dipindah ke Recycle Bin.", true);
+    }
+
+    pub fn restore_file(&self, state: &mut AppState, id: &str) {
+        let db = self.db.lock().unwrap();
+        let _ = db.restore_file(id);
+        drop(db);
+        self.load_files(state);
+        self.load_deleted_files(state);
+        state.set_status("Data berhasil dipulihkan.", true);
+    }
+
+    pub fn load_deleted_files(&self, state: &mut AppState) {
+        let db = self.db.lock().unwrap();
+        state.deleted_list = db.get_deleted_files().unwrap_or_default();
+    }
+
+    pub fn permanent_delete_file(&self, state: &mut AppState, record: &FileRecord) {
+        let vault_path = Path::new(VAULT_DIR).join(&record.vault_filename);
+        let _ = crate::crypto::secure_delete(&vault_path); // 3-pass delete
+
+        let db = self.db.lock().unwrap();
+        let _ = db.permanent_delete_file(&record.id);
+        drop(db);
+
+        self.load_deleted_files(state);
+        state.set_status("Data terhapus permanen.", true);
     }
 
     // ── TOTP (2FA) ────────────────────────────────────────

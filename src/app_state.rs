@@ -16,6 +16,7 @@ pub enum AppScreen {
     Decrypting(String), // vault_filename target
     TotpSetup,          // setup QR + verifikasi awal
     TotpVerify,         // verifikasi 2FA saat login
+    RecycleBin,         // fitur trash
 }
 
 // ── Status message ────────────────────────────────────────
@@ -43,9 +44,12 @@ pub struct AppState {
 
     // Data file
     pub file_list: Vec<FileRecord>,
+    pub deleted_list: Vec<FileRecord>,
 
-    // Status bar
+    // Status bar & Toast
     pub status: Option<StatusMsg>,
+    pub toast_message: Option<String>,
+    pub toast_timer: f32,
 
     // Dekripsi
     pub decrypt_target:   Option<FileRecord>,
@@ -72,7 +76,10 @@ impl Default for AppState {
             session_key:      None,
             session_salt:     None,
             file_list:        Vec::new(),
+            deleted_list:     Vec::new(),
             status:           None,
+            toast_message:    None,
+            toast_timer:      0.0,
             decrypt_target:   None,
             decrypt_out_name: String::new(),
             totp_enabled:     false,
@@ -88,12 +95,18 @@ impl Default for AppState {
 impl AppState {
     pub fn set_status(&mut self, text: &str, success: bool) {
         self.status = Some(StatusMsg { text: text.to_string(), success });
+        // Set juga untuk toast notification
+        self.toast_message = Some(text.to_string());
+        self.toast_timer = 3.0; // Tampil selama 3 detik
     }
 
+    #[allow(dead_code)]
     pub fn clear_status(&mut self) {
         self.status = None;
+        self.toast_message = None;
     }
 
+    #[allow(dead_code)]
     pub fn is_authenticated(&self) -> bool {
         self.session_key.is_some()
     }
