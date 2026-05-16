@@ -220,12 +220,12 @@ impl FileUnlockApp {
                 // ── "Diamankan oleh" ──
                 ui.label(
                     egui::RichText::new("Diamankan oleh")
-                        .size(13.0).color(TEXT_MUTED),
+                        .size(13.0).color(text_muted()),
                 );
                 ui.add_space(2.0);
                 ui.label(
                     egui::RichText::new("AEGIS VAULT")
-                        .size(22.0).color(TEAL_LIGHT).strong(),
+                        .size(22.0).color(teal_light()).strong(),
                 );
 
                 ui.add_space(16.0);
@@ -236,8 +236,8 @@ impl FileUnlockApp {
                     let (card_rect, _) = ui.allocate_exact_size(
                         Vec2::new(card_w, 52.0), egui::Sense::hover(),
                     );
-                    filled_rect(ui, card_rect, BG_SURFACE,
-                                Stroke::new(0.5, BORDER_DEFAULT), 10.0);
+                    filled_rect(ui, card_rect, bg_surface(),
+                                Stroke::new(0.5, border_default()), 10.0);
 
                     let ext = file_ext(&rec.original_name);
                     let (icon, badge) = file_badge(ext);
@@ -264,13 +264,13 @@ impl FileUnlockApp {
                     ui.painter().text(
                         egui::pos2(info_x, card_rect.top() + 12.0),
                         egui::Align2::LEFT_TOP, &name_display,
-                        FontId::new(13.0, FontFamily::Proportional), TEXT_PRIMARY,
+                        FontId::new(13.0, FontFamily::Proportional), text_primary(),
                     );
                     ui.painter().text(
                         egui::pos2(info_x, card_rect.top() + 30.0),
                         egui::Align2::LEFT_TOP,
                         &crate::controller::format_size(rec.file_size as u64),
-                        FontId::new(11.0, FontFamily::Proportional), TEXT_DIMMED,
+                        FontId::new(11.0, FontFamily::Proportional), text_dimmed(),
                     );
                 }
 
@@ -279,7 +279,7 @@ impl FileUnlockApp {
                 // ── "Masukkan PIN" ──
                 ui.label(
                     egui::RichText::new("Masukkan PIN untuk membuka")
-                        .size(13.0).color(TEXT_MUTED),
+                        .size(13.0).color(text_muted()),
                 );
 
                 ui.add_space(12.0);
@@ -306,11 +306,11 @@ impl FileUnlockApp {
                     let cy = dots_rect.center().y;
                     let filled = i < self.pin_digits.len();
                     let color = if self.pin_error.is_some() {
-                        ERROR_COLOR
+                        error_color()
                     } else if filled {
-                        TEAL_STRONG
+                        teal_strong()
                     } else {
-                        BORDER_DEFAULT
+                        border_default()
                     };
                     let fill = if filled { color } else { Color32::TRANSPARENT };
                     ui.painter().circle(
@@ -322,7 +322,7 @@ impl FileUnlockApp {
                 if let Some(err) = &self.pin_error {
                     ui.add_space(8.0);
                     ui.label(
-                        egui::RichText::new(err).color(ERROR_COLOR).size(12.0),
+                        egui::RichText::new(err).color(error_color()).size(12.0),
                     );
                 }
 
@@ -379,7 +379,7 @@ impl FileUnlockApp {
                 // Status
                 if let Some((msg, ok)) = &self.status {
                     ui.add_space(10.0);
-                    let c = if *ok { SUCCESS_COLOR } else { ERROR_COLOR };
+                    let c = if *ok { success_color() } else { error_color() };
                     ui.label(egui::RichText::new(msg).color(c).size(12.0));
                 }
             });
@@ -399,18 +399,18 @@ impl FileUnlockApp {
                 ui.add_space(16.0);
                 ui.label(
                     egui::RichText::new("File Berhasil Dipulihkan")
-                        .size(18.0).color(SUCCESS_COLOR).strong(),
+                        .size(18.0).color(success_color()).strong(),
                 );
                 ui.add_space(8.0);
                 if let Some((msg, _)) = &self.status {
                     ui.label(
-                        egui::RichText::new(msg).size(12.0).color(TEXT_MUTED),
+                        egui::RichText::new(msg).size(12.0).color(text_muted()),
                     );
                 }
                 ui.add_space(24.0);
                 ui.label(
                     egui::RichText::new("Anda bisa menutup jendela ini.")
-                        .size(12.0).color(TEXT_DIMMED),
+                        .size(12.0).color(text_dimmed()),
                 );
             });
         });
@@ -432,11 +432,11 @@ impl FileUnlockApp {
                 ui.add_space(16.0);
                 ui.label(
                     egui::RichText::new("Diamankan oleh")
-                        .size(13.0).color(TEXT_MUTED),
+                        .size(13.0).color(text_muted()),
                 );
                 ui.label(
                     egui::RichText::new("AEGIS VAULT")
-                        .size(22.0).color(TEAL_LIGHT).strong(),
+                        .size(22.0).color(teal_light()).strong(),
                 );
 
                 ui.add_space(24.0);
@@ -452,7 +452,7 @@ impl FileUnlockApp {
                         ui.set_width(avail.width() - pad * 2.0);
                         ui.horizontal_top(|ui| {
                             ui.label(
-                                egui::RichText::new("⚠").size(18.0).color(WARN_COLOR),
+                                egui::RichText::new("⚠").size(18.0).color(warn_color()),
                             );
                             ui.add_space(8.0);
                             let msg = self.db_error.as_deref()
@@ -470,7 +470,7 @@ impl FileUnlockApp {
                 ui.add_space(16.0);
                 ui.label(
                     egui::RichText::new(format!("File: {}", self.vault_filename))
-                        .size(11.0).color(TEXT_DIMMED),
+                        .size(11.0).color(text_dimmed()),
                 );
             });
         });

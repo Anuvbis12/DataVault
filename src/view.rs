@@ -35,7 +35,7 @@ pub fn render(
                 .order(egui::Order::Tooltip)
                 .show(ctx, |ui| {
                     let rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(300.0, 44.0));
-                    filled_rect(ui, rect, Color32::from_rgb(20, 25, 35), Stroke::new(1.0, TEAL_STRONG), 22.0);
+                    filled_rect(ui, rect, Color32::from_rgb(20, 25, 35), Stroke::new(1.0, teal_strong()), 22.0);
                     ui.painter().text(
                         rect.center(), egui::Align2::CENTER_CENTER, &msg,
                         FontId::new(14.0, FontFamily::Proportional), Color32::WHITE
@@ -62,6 +62,7 @@ pub fn render(
                 AppScreen::TotpSetup         => render_totp_setup(ui, state, controller),
                 AppScreen::TotpVerify        => render_totp_verify(ui, state, controller),
                 AppScreen::RecycleBin        => render_recycle_bin(ui, state, controller),
+                AppScreen::PreviewMedia => render_preview_panel(ui, state),
             }
         });
 }
@@ -93,19 +94,19 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
 
             // Shield icon
             let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(56.0), egui::Sense::hover());
-            filled_rect(ui, icon_rect, TEAL_DARK, Stroke::NONE, 14.0);
+            filled_rect(ui, icon_rect, teal_dark(), Stroke::NONE, 14.0);
             ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
-                              FontId::new(26.0, FontFamily::Proportional), TEAL_FAINT);
+                              FontId::new(26.0, FontFamily::Proportional), teal_faint());
 
             ui.add_space(14.0);
-            ui.label(egui::RichText::new("Aegis Vault").size(20.0).color(TEXT_BODY).strong());
+            ui.label(egui::RichText::new("Aegis Vault").size(20.0).color(text_body()).strong());
             ui.add_space(4.0);
-            ui.label(egui::RichText::new("Akses aman ke data kamu").size(13.0).color(TEXT_MUTED));
+            ui.label(egui::RichText::new("Akses aman ke data kamu").size(13.0).color(text_muted()));
 
             if !pin_set {
                 ui.add_space(32.0);
-                ui.label(egui::RichText::new("Vault baru terdeteksi.").color(WARN_COLOR).size(13.0));
-                ui.label(egui::RichText::new("Buat PIN untuk memulai.").color(TEXT_MUTED).size(13.0));
+                ui.label(egui::RichText::new("Vault baru terdeteksi.").color(warn_color()).size(13.0));
+                ui.label(egui::RichText::new("Buat PIN untuk memulai.").color(text_muted()).size(13.0));
                 ui.add_space(20.0);
                 if teal_btn(ui, "⚙  Setup PIN", 200.0).clicked() {
                     state.screen = AppScreen::SetupPin;
@@ -131,9 +132,9 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                 let cx = dots_rect.left() + shake_off + i as f32 * (dot_size + dot_gap) + dot_size / 2.0;
                 let cy = dots_rect.center().y;
                 let filled = i < state.pin_digits.len();
-                let color  = if state.pin_error.is_some() { ERROR_COLOR }
-                             else if filled               { TEAL_STRONG }
-                             else                         { BORDER_DEFAULT };
+                let color  = if state.pin_error.is_some() { error_color() }
+                             else if filled               { teal_strong() }
+                             else                         { border_default() };
                 let fill   = if filled { color } else { Color32::TRANSPARENT };
                 ui.painter().circle(egui::pos2(cx, cy), dot_size / 2.0, fill, Stroke::new(1.5, color));
             }
@@ -141,7 +142,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
             // Error label
             if let Some(err) = &state.pin_error {
                 ui.add_space(10.0);
-                ui.label(egui::RichText::new(err).color(ERROR_COLOR).size(13.0));
+                ui.label(egui::RichText::new(err).color(error_color()).size(13.0));
             }
 
             ui.add_space(24.0);
@@ -186,7 +187,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
             let link_resp = ui.add(egui::Label::new(
                 egui::RichText::new("Lupa PIN? Reset Vault")
                     .size(12.0)
-                    .color(TEXT_MUTED)
+                    .color(text_muted())
             ).sense(egui::Sense::click()));
             if link_resp.hovered() {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
@@ -212,9 +213,9 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                     theme::card_frame().show(ui, |ui| {
                         ui.vertical_centered(|ui| {
                             ui.add_space(10.0);
-                            ui.label(egui::RichText::new("⚠  Hapus Seluruh Vault?").color(WARN_COLOR).size(18.0).strong());
+                            ui.label(egui::RichText::new("⚠  Hapus Seluruh Vault?").color(warn_color()).size(18.0).strong());
                             ui.add_space(12.0);
-                            ui.label(egui::RichText::new("Tindakan ini akan menghapus semua file yang ada di vault secara permanen karena PIN lama tidak dapat dipulihkan.").color(TEXT_BODY).size(13.0));
+                            ui.label(egui::RichText::new("Tindakan ini akan menghapus semua file yang ada di vault secara permanen karena PIN lama tidak dapat dipulihkan.").color(text_body()).size(13.0));
                             ui.add_space(24.0);
                             
                             // Letakkan tombol di tengah
@@ -247,13 +248,13 @@ fn render_setup_pin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         ui.horizontal(|ui| {
             ui.add_space(36.0);
             let (rect, _) = ui.allocate_exact_size(Vec2::splat(38.0), egui::Sense::hover());
-            filled_rect(ui, rect, BG_SURFACE, Stroke::new(0.5, BORDER_DEFAULT), 10.0);
+            filled_rect(ui, rect, bg_surface(), Stroke::new(0.5, border_default()), 10.0);
             ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "🔑",
-                              FontId::new(18.0, FontFamily::Proportional), TEAL_STRONG);
+                              FontId::new(18.0, FontFamily::Proportional), teal_strong());
             ui.add_space(10.0);
             ui.vertical(|ui| {
-                ui.label(egui::RichText::new("Buat PIN baru").size(15.0).color(TEXT_BODY).strong());
-                ui.label(egui::RichText::new("Harus 6 digit angka").size(12.0).color(TEXT_MUTED));
+                ui.label(egui::RichText::new("Buat PIN baru").size(15.0).color(text_body()).strong());
+                ui.label(egui::RichText::new("Harus 6 digit angka").size(12.0).color(text_muted()));
             });
         });
 
@@ -263,15 +264,15 @@ fn render_setup_pin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             .inner_margin(egui::Margin::symmetric(36.0, 0.0))
             .show(ui, |ui| {
                 // Field PIN baru
-                ui.label(egui::RichText::new("PIN baru").size(12.0).color(TEXT_MUTED));
+                ui.label(egui::RichText::new("PIN baru").size(12.0).color(text_muted()));
                 ui.add_space(6.0);
                 egui::Frame::none()
-                    .fill(BG_SURFACE).stroke(Stroke::new(0.5, BORDER_DEFAULT))
+                    .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("🔒").size(16.0).color(TEXT_MUTED));
+                            ui.label(egui::RichText::new("🔒").size(16.0).color(text_muted()));
                             ui.add_space(8.0);
                             ui.add(egui::TextEdit::singleline(&mut state.pin_input)
                                 .password(true).hint_text("6 digit angka")
@@ -284,12 +285,12 @@ fn render_setup_pin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                 ui.add_space(14.0);
 
                 // Field konfirmasi
-                ui.label(egui::RichText::new("Konfirmasi PIN").size(12.0).color(TEXT_MUTED));
+                ui.label(egui::RichText::new("Konfirmasi PIN").size(12.0).color(text_muted()));
                 ui.add_space(6.0);
-                let accent = if !state.pin_confirm.is_empty() { TEAL_STRONG } else { BORDER_DEFAULT };
-                let icon_c = if !state.pin_confirm.is_empty() { TEAL_STRONG } else { TEXT_MUTED };
+                let accent = if !state.pin_confirm.is_empty() { teal_strong() } else { border_default() };
+                let icon_c = if !state.pin_confirm.is_empty() { teal_strong() } else { text_muted() };
                 egui::Frame::none()
-                    .fill(BG_SURFACE).stroke(Stroke::new(0.5, accent))
+                    .fill(bg_surface()).stroke(Stroke::new(0.5, accent))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
@@ -309,24 +310,24 @@ fn render_setup_pin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                 // Info banner
                 egui::Frame::none()
                     .fill(Color32::from_rgb(12, 31, 24))
-                    .stroke(Stroke::new(0.5, BORDER_ACCENT))
+                    .stroke(Stroke::new(0.5, border_accent()))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.horizontal_top(|ui| {
-                            ui.label(egui::RichText::new("ℹ").size(16.0).color(TEAL_STRONG));
+                            ui.label(egui::RichText::new("ℹ").size(16.0).color(teal_strong()));
                             ui.add_space(8.0);
                             ui.add(egui::Label::new(egui::RichText::new(
                                 "PIN di-hash dengan PBKDF2-HMAC-SHA256 (310.000 iterasi) \
                                  dan salt unik. Tidak ada cara memulihkan PIN yang hilang."
-                            ).size(12.0).color(TEAL_LIGHT)).wrap(true));
+                            ).size(12.0).color(teal_light())).wrap(true));
                         });
                     });
 
                 ui.add_space(24.0);
 
                 if let Some(err) = state.pin_error.clone() {
-                    ui.label(egui::RichText::new(&err).color(ERROR_COLOR).size(13.0));
+                    ui.label(egui::RichText::new(&err).color(error_color()).size(13.0));
                     ui.add_space(8.0);
                 }
 
@@ -344,17 +345,17 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     // ─ Topbar ─
     let topbar_h = 60.0;
     let topbar_rect = egui::Rect::from_min_size(avail.min, Vec2::new(avail.width(), topbar_h));
-    filled_rect(ui, topbar_rect, Color32::from_rgb(14, 16, 22), Stroke::new(0.5, BORDER_SUBTLE), 0.0);
+    filled_rect(ui, topbar_rect, Color32::from_rgb(14, 16, 22), Stroke::new(0.5, border_subtle()), 0.0);
     
     // Logo
     let brand_pos = egui::pos2(avail.left() + 20.0, topbar_rect.center().y);
     ui.painter().text(brand_pos, egui::Align2::LEFT_CENTER, "Aegis.Vault",
-                      FontId::new(22.0, FontFamily::Proportional), TEXT_PRIMARY);
+                      FontId::new(22.0, FontFamily::Proportional), text_primary());
     
     // Topbar Icons
     let notif_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 60.0, topbar_rect.center().y), Vec2::splat(32.0));
     let notif_resp = ui.allocate_rect(notif_rect, egui::Sense::click());
-    ui.painter().text(notif_rect.center(), egui::Align2::CENTER_CENTER, "🔔", FontId::new(18.0, FontFamily::Proportional), if notif_resp.hovered() { TEAL_STRONG } else { TEXT_MUTED });
+    ui.painter().text(notif_rect.center(), egui::Align2::CENTER_CENTER, "🔔", FontId::new(18.0, FontFamily::Proportional), if notif_resp.hovered() { teal_strong() } else { text_muted() });
     if notif_resp.clicked() { 
         state.dashboard_tab = DashboardTab::Notifications; 
         ctrl.load_audit_logs(state);
@@ -362,7 +363,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
 
     let profile_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 20.0, topbar_rect.center().y), Vec2::splat(32.0));
     let profile_resp = ui.allocate_rect(profile_rect, egui::Sense::click());
-    ui.painter().text(profile_rect.center(), egui::Align2::CENTER_CENTER, "👤", FontId::new(18.0, FontFamily::Proportional), if profile_resp.hovered() { TEAL_STRONG } else { TEXT_MUTED });
+    ui.painter().text(profile_rect.center(), egui::Align2::CENTER_CENTER, "👤", FontId::new(18.0, FontFamily::Proportional), if profile_resp.hovered() { teal_strong() } else { text_muted() });
     if profile_resp.clicked() { state.dashboard_tab = DashboardTab::Profile; }
 
     // ─ Bottom Navigation ─
@@ -371,7 +372,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         egui::pos2(avail.left(), avail.bottom() - bottom_h),
         Vec2::new(avail.width(), bottom_h),
     );
-    filled_rect(ui, bottom_rect, Color32::from_rgb(18, 18, 17), Stroke::new(1.0, BORDER_SUBTLE), 0.0);
+    filled_rect(ui, bottom_rect, Color32::from_rgb(18, 18, 17), Stroke::new(1.0, border_subtle()), 0.0);
     
     let tab_w = avail.width() / 5.0;
     let mut tab_x = avail.left() + tab_w / 2.0;
@@ -391,9 +392,9 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             let fab_size = Vec2::splat(56.0);
             let fab_rect = egui::Rect::from_center_size(egui::pos2(tab_x, bottom_rect.top() - 10.0), fab_size);
             let fab_resp = ui.allocate_rect(fab_rect, egui::Sense::click());
-            let fab_fill = if fab_resp.hovered() { TEAL_LIGHT } else { TEAL_STRONG };
-            filled_rect(ui, fab_rect, fab_fill, Stroke::new(4.0, BG_BASE), 28.0);
-            ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(24.0, FontFamily::Proportional), BG_BASE);
+            let fab_fill = if fab_resp.hovered() { teal_light() } else { teal_strong() };
+            filled_rect(ui, fab_rect, fab_fill, Stroke::new(4.0, bg_base()), 28.0);
+            ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(24.0, FontFamily::Proportional), bg_base());
             if fab_resp.clicked() {
                 if let Some(path) = rfd::FileDialog::new().pick_file() {
                     ctrl.encrypt_file(state, path);
@@ -403,7 +404,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             let item_rect = egui::Rect::from_center_size(egui::pos2(tab_x, tab_y), Vec2::new(tab_w, bottom_h));
             let item_resp = ui.allocate_rect(item_rect, egui::Sense::click());
             let is_active = state.dashboard_tab == *tab;
-            let color = if is_active || item_resp.hovered() { TEAL_STRONG } else { TEXT_MUTED };
+            let color = if is_active || item_resp.hovered() { teal_strong() } else { text_muted() };
             
             ui.painter().text(egui::pos2(tab_x, tab_y - 10.0), egui::Align2::CENTER_CENTER, *icon, FontId::new(20.0, FontFamily::Proportional), color);
             ui.painter().text(egui::pos2(tab_x, tab_y + 12.0), egui::Align2::CENTER_CENTER, *label, FontId::new(10.0, FontFamily::Proportional), color);
@@ -424,8 +425,29 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     let mut to_decrypt: Option<String> = None;
     let mut to_soft_delete: Option<String> = None;
 
+
+    // Animation Logic
+    if state.previous_tab != state.dashboard_tab {
+        state.previous_tab = state.dashboard_tab.clone();
+        state.transition_start = Some(std::time::Instant::now());
+    }
+
+    let mut opacity = 1.0;
+    if let Some(start) = state.transition_start {
+        let elapsed = start.elapsed().as_secs_f32();
+        let duration = 0.2; // 200ms
+        if elapsed < duration {
+            opacity = elapsed / duration;
+            ui.ctx().request_repaint();
+        } else {
+            state.transition_start = None;
+        }
+    }
+
     ui.allocate_ui_at_rect(content_rect, |ui| {
+        ui.set_opacity(opacity);
         egui::ScrollArea::vertical().id_source("dashboard_scroll").show(ui, |ui| {
+
              ui.add_space(20.0);
              match state.dashboard_tab {
                  DashboardTab::Home => render_tab_home(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
@@ -453,16 +475,16 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.horizontal(|ui| {
         ui.add_space(pad);
         let stats = [
-            ("Locked Files", format!("{}", state.file_list.len()), "📄", TEAL_STRONG),
-            ("Encrypted", format_size(state.total_vault_size()), "💽", TEAL_STRONG),
-            ("Standard", "AES-256".to_string(), "🛡️", TEAL_STRONG),
+            ("Locked Files", format!("{}", state.file_list.len()), "📄", teal_strong()),
+            ("Encrypted", format_size(state.total_vault_size()), "💽", teal_strong()),
+            ("Standard", "AES-256".to_string(), "🛡️", teal_strong()),
         ];
         for (label, val, icon, color) in stats.iter() {
             let (rect, _) = ui.allocate_exact_size(Vec2::new(stat_w, stat_h), egui::Sense::hover());
-            filled_rect(ui, rect, BG_SURFACE, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
+            filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 16.0);
             ui.painter().text(egui::pos2(rect.center().x, rect.top() + 20.0), egui::Align2::CENTER_CENTER, *icon, FontId::new(20.0, FontFamily::Proportional), *color);
-            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 45.0), egui::Align2::CENTER_CENTER, val, FontId::new(18.0, FontFamily::Proportional), TEXT_PRIMARY);
-            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 65.0), egui::Align2::CENTER_CENTER, *label, FontId::new(10.0, FontFamily::Proportional), TEXT_MUTED);
+            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 45.0), egui::Align2::CENTER_CENTER, val, FontId::new(18.0, FontFamily::Proportional), text_primary());
+            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 65.0), egui::Align2::CENTER_CENTER, *label, FontId::new(10.0, FontFamily::Proportional), text_muted());
             ui.add_space(12.0);
         }
     });
@@ -470,35 +492,35 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
     
     // Hardware Metrics
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("HARDWARE METRICS").size(12.0).color(TEXT_MUTED).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("HARDWARE METRICS").size(12.0).color(text_muted()).strong()); });
     ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.add_space(pad);
         let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 140.0), egui::Sense::hover());
-        filled_rect(ui, rect, BG_SURFACE, Stroke::new(1.0, BORDER_DEFAULT), 20.0);
+        filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 20.0);
         
-        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 25.0), egui::Align2::LEFT_CENTER, "⚙️ Encryption Engine", FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 25.0), egui::Align2::LEFT_CENTER, "⚙️ Encryption Engine", FontId::new(14.0, FontFamily::Proportional), text_primary());
         
         let badge_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 40.0, rect.top() + 25.0), Vec2::new(60.0, 20.0));
         filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(182, 102, 210, 25), Stroke::new(1.0, Color32::from_rgba_unmultiplied(182, 102, 210, 50)), 10.0);
-        ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "High-tier", FontId::new(10.0, FontFamily::Proportional), TEAL_STRONG);
+        ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "High-tier", FontId::new(10.0, FontFamily::Proportional), teal_strong());
         
-        let metrics = [("CPU", 0.55, TEAL_STRONG), ("RAM", 0.78, SUCCESS_COLOR), ("I/O", 0.32, WARN_COLOR)];
+        let metrics = [("CPU", 0.55, teal_strong()), ("RAM", 0.78, success_color()), ("I/O", 0.32, warn_color())];
         for (i, (lbl, val, color)) in metrics.iter().enumerate() {
             let y = rect.top() + 60.0 + i as f32 * 25.0;
-            ui.painter().text(egui::pos2(rect.left() + 20.0, y), egui::Align2::LEFT_CENTER, *lbl, FontId::new(12.0, FontFamily::Proportional), TEXT_MUTED);
+            ui.painter().text(egui::pos2(rect.left() + 20.0, y), egui::Align2::LEFT_CENTER, *lbl, FontId::new(12.0, FontFamily::Proportional), text_muted());
             let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 60.0, y - 3.0), Vec2::new(rect.width() - 120.0, 6.0));
-            filled_rect(ui, bar_bg, BG_CARD, Stroke::NONE, 3.0);
+            filled_rect(ui, bar_bg, bg_card(), Stroke::NONE, 3.0);
             let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 60.0, y - 3.0), Vec2::new((rect.width() - 120.0) * val, 6.0));
             filled_rect(ui, bar_fg, *color, Stroke::NONE, 3.0);
-            ui.painter().text(egui::pos2(rect.right() - 20.0, y), egui::Align2::RIGHT_CENTER, format!("{}%", (val * 100.0) as i32), FontId::new(12.0, FontFamily::Proportional), TEXT_PRIMARY);
+            ui.painter().text(egui::pos2(rect.right() - 20.0, y), egui::Align2::RIGHT_CENTER, format!("{}%", (val * 100.0) as i32), FontId::new(12.0, FontFamily::Proportional), text_primary());
         }
     });
 
     ui.add_space(24.0);
 
     // Active Vaults
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("ACTIVE VAULTS").size(12.0).color(TEXT_MUTED).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("ACTIVE VAULTS").size(12.0).color(text_muted()).strong()); });
     ui.add_space(12.0);
     egui::ScrollArea::horizontal().id_source("vaults_scroll").show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -509,7 +531,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
             ];
             for (name, cap, prog, locked) in vaults.iter() {
                 let (rect, _) = ui.allocate_exact_size(Vec2::new(220.0, 140.0), egui::Sense::hover());
-                let color = if *locked { TEAL_STRONG } else { SUCCESS_COLOR };
+                let color = if *locked { teal_strong() } else { success_color() };
                 let bg_color = if *locked { Color32::from_rgba_unmultiplied(182, 102, 210, 12) } else { Color32::from_rgba_unmultiplied(74, 222, 128, 12) };
                 
                 filled_rect(ui, rect, bg_color, Stroke::new(1.0, Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 76)), 20.0);
@@ -522,11 +544,11 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
                 filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 25), Stroke::NONE, 10.0);
                 ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, if *locked { "Locked" } else { "Active" }, FontId::new(10.0, FontFamily::Proportional), color);
 
-                ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 85.0), egui::Align2::LEFT_CENTER, *name, FontId::new(16.0, FontFamily::Proportional), TEXT_PRIMARY);
-                ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 105.0), egui::Align2::LEFT_CENTER, *cap, FontId::new(12.0, FontFamily::Proportional), TEXT_MUTED);
+                ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 85.0), egui::Align2::LEFT_CENTER, *name, FontId::new(16.0, FontFamily::Proportional), text_primary());
+                ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 105.0), egui::Align2::LEFT_CENTER, *cap, FontId::new(12.0, FontFamily::Proportional), text_muted());
 
                 let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.bottom() - 20.0), Vec2::new(rect.width() - 40.0, 4.0));
-                filled_rect(ui, bar_bg, BG_CARD, Stroke::NONE, 2.0);
+                filled_rect(ui, bar_bg, bg_card(), Stroke::NONE, 2.0);
                 let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.bottom() - 20.0), Vec2::new((rect.width() - 40.0) * prog, 4.0));
                 filled_rect(ui, bar_fg, color, Stroke::NONE, 2.0);
                 
@@ -538,48 +560,48 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
 
     // Quick Actions
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("QUICK ACTIONS").size(12.0).color(TEXT_MUTED).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("QUICK ACTIONS").size(12.0).color(text_muted()).strong()); });
     ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.add_space(pad);
         let btn_w = (avail.width() - pad * 2.0 - 12.0) / 2.0;
         let btn_h = 60.0;
-        let actions = [("🔒", "Lock All", TEAL_STRONG), ("🔓", "Unlock", SUCCESS_COLOR), ("📱", "Setup 2FA", Color32::from_rgb(96, 165, 250)), ("✅", "Integrity Check", ERROR_COLOR)];
+        let actions = [("🔒", "Lock All", teal_strong()), ("🔓", "Unlock", success_color()), ("📱", "Setup 2FA", Color32::from_rgb(96, 165, 250)), ("✅", "Integrity Check", error_color())];
         
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
                 let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect, if resp.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
+                filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
                 let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 30.0, rect.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect, BG_CARD, Stroke::NONE, 10.0);
+                filled_rect(ui, icon_rect, bg_card(), Stroke::NONE, 10.0);
                 ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, actions[0].0, FontId::new(18.0, FontFamily::Proportional), actions[0].2);
-                ui.painter().text(egui::pos2(icon_rect.right() + 12.0, rect.center().y), egui::Align2::LEFT_CENTER, actions[0].1, FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                ui.painter().text(egui::pos2(icon_rect.right() + 12.0, rect.center().y), egui::Align2::LEFT_CENTER, actions[0].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
                 if resp.clicked() { ctrl.logout(state); }
 
                 let (rect2, resp2) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect2, if resp2.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
+                filled_rect(ui, rect2, if resp2.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
                 let icon_rect2 = egui::Rect::from_center_size(egui::pos2(rect2.left() + 30.0, rect2.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect2, BG_CARD, Stroke::NONE, 10.0);
+                filled_rect(ui, icon_rect2, bg_card(), Stroke::NONE, 10.0);
                 ui.painter().text(icon_rect2.center(), egui::Align2::CENTER_CENTER, actions[1].0, FontId::new(18.0, FontFamily::Proportional), actions[1].2);
-                ui.painter().text(egui::pos2(icon_rect2.right() + 12.0, rect2.center().y), egui::Align2::LEFT_CENTER, actions[1].1, FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                ui.painter().text(egui::pos2(icon_rect2.right() + 12.0, rect2.center().y), egui::Align2::LEFT_CENTER, actions[1].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
                 // click action
             });
             ui.add_space(4.0);
             ui.horizontal(|ui| {
                 let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect, if resp.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
+                filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
                 let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 30.0, rect.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect, BG_CARD, Stroke::NONE, 10.0);
+                filled_rect(ui, icon_rect, bg_card(), Stroke::NONE, 10.0);
                 ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, actions[2].0, FontId::new(18.0, FontFamily::Proportional), actions[2].2);
-                ui.painter().text(egui::pos2(icon_rect.right() + 12.0, rect.center().y), egui::Align2::LEFT_CENTER, actions[2].1, FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                ui.painter().text(egui::pos2(icon_rect.right() + 12.0, rect.center().y), egui::Align2::LEFT_CENTER, actions[2].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
                 if resp.clicked() { if state.totp_enabled { ctrl.disable_totp(state); } else { ctrl.begin_totp_setup(state); } }
 
                 let (rect2, resp2) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect2, if resp2.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
+                filled_rect(ui, rect2, if resp2.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
                 let icon_rect2 = egui::Rect::from_center_size(egui::pos2(rect2.left() + 30.0, rect2.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect2, BG_CARD, Stroke::NONE, 10.0);
+                filled_rect(ui, icon_rect2, bg_card(), Stroke::NONE, 10.0);
                 ui.painter().text(icon_rect2.center(), egui::Align2::CENTER_CENTER, actions[3].0, FontId::new(18.0, FontFamily::Proportional), actions[3].2);
-                ui.painter().text(egui::pos2(icon_rect2.right() + 12.0, rect2.center().y), egui::Align2::LEFT_CENTER, actions[3].1, FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                ui.painter().text(egui::pos2(icon_rect2.right() + 12.0, rect2.center().y), egui::Align2::LEFT_CENTER, actions[3].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
             });
         });
     });
@@ -587,11 +609,12 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
 
     // Recent Activity (Files)
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("RECENT ACTIVITY").size(12.0).color(TEXT_MUTED).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("RECENT ACTIVITY").size(12.0).color(text_muted()).strong()); });
     ui.add_space(12.0);
     
+    let mut target_preview: Option<String> = None;
     if state.file_list.is_empty() {
-        ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(TEXT_MUTED)); });
+        ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(text_muted())); });
     } else {
         ui.vertical(|ui| {
             for record in state.file_list.iter() {
@@ -599,7 +622,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
                     ui.add_space(pad);
                     let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 68.0), egui::Sense::click());
                     let is_hover = resp.hovered();
-                    filled_rect(ui, rect, if is_hover { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, if is_hover { TEAL_STRONG } else { BORDER_DEFAULT }), 16.0);
+                    filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
                     
                     let ext = file_ext(&record.original_name);
                     let (icon, badge) = file_badge(ext);
@@ -608,35 +631,44 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
                     ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(22.0, FontFamily::Proportional), badge.1);
                     
                     let name_truncated = if record.original_name.len() > 25 { format!("{}…", &record.original_name[..23]) } else { record.original_name.clone() };
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), TEXT_PRIMARY);
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), text_primary());
                     
                     let meta = format!("{} • Encrypted {}", format_size(record.file_size as u64), &record.encrypted_at[..10]);
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), TEXT_MUTED);
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
                     
                     let action_icon = if is_hover { "🔓" } else { "🔒" };
                     let icon_resp = ui.allocate_rect(egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0)), egui::Sense::click());
-                    ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), TEXT_MUTED);
+                    ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), text_muted());
                     
                     if icon_resp.clicked() {
-                        *to_decrypt = Some(record.vault_filename.clone());
+                        if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
+                            target_preview = Some(record.vault_filename.clone());
+                        } else {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        }
                     } else if resp.clicked() {
-                        *to_decrypt = Some(record.vault_filename.clone());
+                        if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
+                            target_preview = Some(record.vault_filename.clone());
+                        } else {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        }
                     }
                 });
                 ui.add_space(8.0);
             }
         });
     }
+    if let Some(vault_filename) = target_preview { ctrl.decrypt_to_memory(state, &vault_filename); }
 }
 
-fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, to_decrypt: &mut Option<String>, _to_soft_delete: &mut Option<String>) {
+fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, to_decrypt: &mut Option<String>, _to_soft_delete: &mut Option<String>) {
     let pad = 20.0;
     ui.add_space(20.0);
     
     // Header & Search
     ui.horizontal(|ui| {
         ui.add_space(pad);
-        ui.label(egui::RichText::new("Brankas Anda").size(22.0).color(TEXT_PRIMARY).strong());
+        ui.label(egui::RichText::new("Brankas Anda").size(22.0).color(text_primary()).strong());
     });
     ui.add_space(10.0);
     
@@ -692,7 +724,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
     if files.is_empty() {
         ui.add_space(40.0);
         ui.vertical_centered(|ui| {
-            ui.label(egui::RichText::new("Belum ada file yang cocok.").color(TEXT_MUTED));
+            ui.label(egui::RichText::new("Belum ada file yang cocok.").color(text_muted()));
         });
         return;
     }
@@ -700,6 +732,8 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
     // Render files
     let avail = ui.available_rect_before_wrap();
     
+    let mut target_preview = None;
+
     if state.vault_view_mode == ViewMode::List {
         ui.vertical(|ui| {
             for record in files {
@@ -707,7 +741,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
                     ui.add_space(pad);
                     let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 68.0), egui::Sense::click());
                     let is_hover = resp.hovered();
-                    filled_rect(ui, rect, if is_hover { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, if is_hover { TEAL_STRONG } else { BORDER_DEFAULT }), 16.0);
+                    filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
                     
                     let ext = file_ext(&record.original_name);
                     let (icon, badge) = file_badge(ext);
@@ -716,20 +750,28 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
                     ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(22.0, FontFamily::Proportional), badge.1);
                     
                     let name_truncated = if record.original_name.len() > 30 { format!("{}…", &record.original_name[..28]) } else { record.original_name.clone() };
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), TEXT_PRIMARY);
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), text_primary());
                     
                     let meta = format!("{} • Encrypted {}", format_size(record.file_size as u64), &record.encrypted_at[..10]);
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), TEXT_MUTED);
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
                     
                     if is_hover {
                         let action_icon = "🔓";
                         let icon_resp = ui.allocate_rect(egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0)), egui::Sense::click());
-                        ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), TEXT_MUTED);
+                        ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), text_muted());
                         if icon_resp.clicked() || resp.clicked() {
+                            if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
+                            target_preview = Some(record.vault_filename.clone());
+                        } else {
                             *to_decrypt = Some(record.vault_filename.clone());
                         }
+                        }
                     } else if resp.clicked() {
-                         *to_decrypt = Some(record.vault_filename.clone());
+                         if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
+                            target_preview = Some(record.vault_filename.clone());
+                        } else {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        }
                     }
                 });
                 ui.add_space(8.0);
@@ -745,7 +787,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
             for record in files {
                 let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, item_height), egui::Sense::click());
                 let is_hover = resp.hovered();
-                filled_rect(ui, rect, if is_hover { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, if is_hover { TEAL_STRONG } else { BORDER_DEFAULT }), 16.0);
+                filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
                 
                 let ext = file_ext(&record.original_name);
                 let (icon, badge) = file_badge(ext);
@@ -754,16 +796,21 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
                 ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(28.0, FontFamily::Proportional), badge.1);
                 
                 let name_truncated = if record.original_name.len() > 12 { format!("{}…", &record.original_name[..10]) } else { record.original_name.clone() };
-                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 16.0), egui::Align2::CENTER_CENTER, name_truncated, FontId::new(13.0, FontFamily::Proportional), TEXT_PRIMARY);
-                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 32.0), egui::Align2::CENTER_CENTER, format_size(record.file_size as u64), FontId::new(11.0, FontFamily::Proportional), TEXT_MUTED);
+                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 16.0), egui::Align2::CENTER_CENTER, name_truncated, FontId::new(13.0, FontFamily::Proportional), text_primary());
+                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 32.0), egui::Align2::CENTER_CENTER, format_size(record.file_size as u64), FontId::new(11.0, FontFamily::Proportional), text_muted());
                 
                 if resp.clicked() {
-                    *to_decrypt = Some(record.vault_filename.clone());
+                    if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
+                            target_preview = Some(record.vault_filename.clone());
+                        } else {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        }
                 }
                 ui.add_space(8.0); // space between grid items
             }
         });
     }
+    if let Some(vault_filename) = target_preview { ctrl.decrypt_to_memory(state, &vault_filename); }
 }
 
 fn draw_pie_chart(ui: &mut egui::Ui, rect: egui::Rect, data: &[(String, f32, Color32)]) {
@@ -773,8 +820,8 @@ fn draw_pie_chart(ui: &mut egui::Ui, rect: egui::Rect, data: &[(String, f32, Col
     let total: f32 = data.iter().map(|(_, v, _)| v).sum();
     
     if total == 0.0 {
-        ui.painter().circle(center, radius, BG_SURFACE, Stroke::new(1.0, BORDER_DEFAULT));
-        ui.painter().text(center, egui::Align2::CENTER_CENTER, "Kosong", FontId::new(14.0, FontFamily::Proportional), TEXT_MUTED);
+        ui.painter().circle(center, radius, bg_surface(), Stroke::new(1.0, border_default()));
+        ui.painter().text(center, egui::Align2::CENTER_CENTER, "Kosong", FontId::new(14.0, FontFamily::Proportional), text_muted());
         return;
     }
     
@@ -807,16 +854,16 @@ fn draw_pie_chart(ui: &mut egui::Ui, rect: egui::Rect, data: &[(String, f32, Col
     }
     
     // Draw inner circle for donut chart look
-    ui.painter().circle_filled(center, radius * 0.6, BG_BASE);
+    ui.painter().circle_filled(center, radius * 0.6, bg_base());
 }
 
 fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
     ui.add_space(40.0);
     ui.vertical_centered(|ui| {
-        ui.label(egui::RichText::new("Storage Analysis").size(22.0).color(TEXT_PRIMARY).strong());
+        ui.label(egui::RichText::new("Storage Analysis").size(22.0).color(text_primary()).strong());
         ui.add_space(8.0);
         let total = state.total_vault_size();
-        ui.label(egui::RichText::new(format!("Total: {}", format_size(total))).size(16.0).color(TEXT_MUTED));
+        ui.label(egui::RichText::new(format!("Total: {}", format_size(total))).size(16.0).color(text_muted()));
     });
     
     ui.add_space(40.0);
@@ -840,7 +887,7 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controlle
     let chart_data = vec![
         ("Gambar".to_string(),  size_img, Color32::from_rgb(250, 190, 88)),
         ("Video".to_string(),   size_vid, Color32::from_rgb(235, 87, 87)),
-        ("Dokumen".to_string(), size_doc, TEAL_STRONG),
+        ("Dokumen".to_string(), size_doc, teal_strong()),
         ("Lainnya".to_string(), size_oth, Color32::from_rgb(140, 140, 160)),
     ];
     
@@ -863,10 +910,10 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controlle
                         let (rect, _) = ui.allocate_exact_size(Vec2::splat(14.0), egui::Sense::hover());
                         ui.painter().circle_filled(rect.center(), 7.0, *color);
                         ui.add_space(8.0);
-                        ui.label(egui::RichText::new(label).color(TEXT_PRIMARY).size(14.0));
+                        ui.label(egui::RichText::new(label).color(text_primary()).size(14.0));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.add_space(20.0);
-                            ui.label(egui::RichText::new(format_size(*val as u64)).color(TEXT_MUTED).size(14.0));
+                            ui.label(egui::RichText::new(format_size(*val as u64)).color(text_muted()).size(14.0));
                         });
                     });
                     ui.add_space(12.0);
@@ -881,7 +928,7 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     let pad = 20.0;
     ui.vertical_centered(|ui| {
         ui.add_space(40.0);
-        ui.label(egui::RichText::new("Pengaturan").size(20.0).color(TEXT_PRIMARY).strong());
+        ui.label(egui::RichText::new("Pengaturan").size(20.0).color(text_primary()).strong());
         ui.add_space(30.0);
         
         let btn_w = avail.width() - pad*2.0;
@@ -889,9 +936,9 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         ui.horizontal(|ui| {
             ui.add_space(pad);
             let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
+            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
             ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "📱", FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(96, 165, 250));
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, if state.totp_enabled { "Disable 2FA" } else { "Setup 2FA" }, FontId::new(16.0, FontFamily::Proportional), TEXT_PRIMARY);
+            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, if state.totp_enabled { "Disable 2FA" } else { "Setup 2FA" }, FontId::new(16.0, FontFamily::Proportional), text_primary());
             if resp.clicked() { if state.totp_enabled { ctrl.disable_totp(state); } else { ctrl.begin_totp_setup(state); } }
         });
         ui.add_space(10.0);
@@ -899,9 +946,9 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         ui.horizontal(|ui| {
             ui.add_space(pad);
             let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
-            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🗑", FontId::new(20.0, FontFamily::Proportional), ERROR_COLOR);
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Recycle Bin", FontId::new(16.0, FontFamily::Proportional), TEXT_PRIMARY);
+            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
+            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🗑", FontId::new(20.0, FontFamily::Proportional), error_color());
+            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Recycle Bin", FontId::new(16.0, FontFamily::Proportional), text_primary());
             if resp.clicked() { ctrl.load_deleted_files(state); state.screen = AppScreen::RecycleBin; }
         });
         ui.add_space(10.0);
@@ -909,9 +956,9 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         ui.horizontal(|ui| {
             ui.add_space(pad);
             let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
-            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🚪", FontId::new(20.0, FontFamily::Proportional), TEXT_MUTED);
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Logout / Kunci Vault", FontId::new(16.0, FontFamily::Proportional), TEXT_PRIMARY);
+            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
+            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🚪", FontId::new(20.0, FontFamily::Proportional), text_muted());
+            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Logout / Kunci Vault", FontId::new(16.0, FontFamily::Proportional), text_primary());
             if resp.clicked() { ctrl.logout(state); }
         });
     });
@@ -920,7 +967,7 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
 fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     ui.add_space(30.0);
     ui.vertical_centered(|ui| {
-        ui.label(egui::RichText::new("Profil & Pengaturan").size(22.0).color(TEXT_PRIMARY).strong());
+        ui.label(egui::RichText::new("Profil & Pengaturan").size(22.0).color(text_primary()).strong());
     });
     
     ui.add_space(30.0);
@@ -929,30 +976,41 @@ fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
     ui.horizontal(|ui| {
         ui.add_space(pad);
         ui.vertical(|ui| {
+            // Pengaturan Tampilan
+            ui.label(egui::RichText::new("Tampilan").color(teal_strong()).strong());
+            ui.add_space(8.0);
+            
+            let mut is_light = state.is_light_mode;
+            if ui.checkbox(&mut is_light, "☀️ Mode Terang (Light Mode)").changed() {
+                state.is_light_mode = is_light;
+                crate::theme::set_light_mode(is_light);
+            }
+            ui.add_space(30.0);
+
             // Backup Database Section
-            ui.label(egui::RichText::new("Data").color(TEAL_STRONG).strong());
+            ui.label(egui::RichText::new("Data").color(teal_strong()).strong());
             ui.add_space(8.0);
             if teal_btn(ui, "💾  Backup Database", 200.0).clicked() {
                 ctrl.backup_database(state);
             }
             ui.add_space(4.0);
-            ui.label(egui::RichText::new("Simpan cadangan .db di tempat aman.").size(12.0).color(TEXT_MUTED));
+            ui.label(egui::RichText::new("Simpan cadangan .db di tempat aman.").size(12.0).color(text_muted()));
             
             ui.add_space(30.0);
             
             // Ubah PIN Section
-            ui.label(egui::RichText::new("Ubah PIN Utama").color(TEAL_STRONG).strong());
+            ui.label(egui::RichText::new("Ubah PIN Utama").color(teal_strong()).strong());
             ui.add_space(10.0);
             
-            ui.label(egui::RichText::new("PIN Lama").size(12.0).color(TEXT_MUTED));
+            ui.label(egui::RichText::new("PIN Lama").size(12.0).color(text_muted()));
             ui.add(egui::TextEdit::singleline(&mut state.profile_old_pin).password(true).desired_width(200.0));
             ui.add_space(8.0);
             
-            ui.label(egui::RichText::new("PIN Baru (6 digit)").size(12.0).color(TEXT_MUTED));
+            ui.label(egui::RichText::new("PIN Baru (6 digit)").size(12.0).color(text_muted()));
             ui.add(egui::TextEdit::singleline(&mut state.profile_new_pin).password(true).desired_width(200.0));
             ui.add_space(8.0);
             
-            ui.label(egui::RichText::new("Konfirmasi PIN Baru").size(12.0).color(TEXT_MUTED));
+            ui.label(egui::RichText::new("Konfirmasi PIN Baru").size(12.0).color(text_muted()));
             ui.add(egui::TextEdit::singleline(&mut state.profile_confirm_pin).password(true).desired_width(200.0));
             ui.add_space(12.0);
             
@@ -962,11 +1020,11 @@ fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
             
             if let Some(err) = &state.profile_pin_error {
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(err).color(ERROR_COLOR).size(13.0));
+                ui.label(egui::RichText::new(err).color(error_color()).size(13.0));
             }
             if let Some(msg) = &state.profile_pin_success {
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(msg).color(TEAL_LIGHT).size(13.0));
+                ui.label(egui::RichText::new(msg).color(teal_light()).size(13.0));
             }
         });
     });
@@ -975,19 +1033,21 @@ fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 fn render_tab_notifications(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
     ui.add_space(30.0);
     ui.vertical_centered(|ui| {
-        ui.label(egui::RichText::new("Audit Log Keamanan").size(22.0).color(TEXT_PRIMARY).strong());
+        ui.label(egui::RichText::new("Audit Log Keamanan").size(22.0).color(text_primary()).strong());
         ui.add_space(8.0);
-        ui.label(egui::RichText::new("Aktivitas terbaru di dalam brankas.").color(TEXT_MUTED));
+        ui.label(egui::RichText::new("Aktivitas terbaru di dalam brankas.").color(text_muted()));
     });
     
     ui.add_space(30.0);
     let pad = 20.0;
     let avail = ui.available_rect_before_wrap();
     
+    let mut target_preview: Option<String> = None;
+
     if state.audit_logs.is_empty() {
         ui.vertical_centered(|ui| {
             ui.add_space(20.0);
-            ui.label(egui::RichText::new("Belum ada catatan aktivitas.").color(TEXT_MUTED));
+            ui.label(egui::RichText::new("Belum ada catatan aktivitas.").color(text_muted()));
         });
     } else {
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -997,24 +1057,24 @@ fn render_tab_notifications(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Con
                     let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 60.0), egui::Sense::hover());
                     
                     let (icon, color) = match log.action_type.as_str() {
-                        "FAIL_LOGIN" | "FAIL_2FA" => ("⚠", ERROR_COLOR),
-                        "LOGIN" | "LOGIN_2FA"     => ("👤", TEAL_STRONG),
+                        "FAIL_LOGIN" | "FAIL_2FA" => ("⚠", error_color()),
+                        "LOGIN" | "LOGIN_2FA"     => ("👤", teal_strong()),
                         "ENCRYPT"                 => ("🔒", Color32::from_rgb(250, 190, 88)),
                         "DECRYPT"                 => ("🔓", Color32::from_rgb(100, 200, 100)),
                         "BACKUP"                  => ("💾", Color32::from_rgb(100, 150, 250)),
                         "CHANGE_PIN" | "SETUP"    => ("🔑", Color32::from_rgb(200, 100, 250)),
-                        _                         => ("ℹ", TEXT_MUTED),
+                        _                         => ("ℹ", text_muted()),
                     };
                     
                     let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 24.0, rect.center().y), Vec2::splat(36.0));
                     filled_rect(ui, icon_rect, color.linear_multiply(0.15), Stroke::NONE, 18.0);
                     ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(18.0, FontFamily::Proportional), color);
                     
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, &log.description, FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, &log.timestamp, FontId::new(11.0, FontFamily::Proportional), TEXT_MUTED);
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, &log.description, FontId::new(14.0, FontFamily::Proportional), text_primary());
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, &log.timestamp, FontId::new(11.0, FontFamily::Proportional), text_muted());
                     
                     // Separator line
-                    ui.painter().line_segment([egui::pos2(rect.left(), rect.bottom()), egui::pos2(rect.right(), rect.bottom())], Stroke::new(0.5, BORDER_SUBTLE));
+                    ui.painter().line_segment([egui::pos2(rect.left(), rect.bottom()), egui::pos2(rect.right(), rect.bottom())], Stroke::new(0.5, border_subtle()));
                 });
                 ui.add_space(4.0);
             }
@@ -1044,12 +1104,12 @@ fn render_decrypt_panel(
             ui.horizontal(|ui| {
                 let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
                 let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
-                filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, BORDER_DEFAULT), 7.0);
+                filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
                 ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
-                                  FontId::new(15.0, FontFamily::Proportional), TEXT_MUTED);
+                                  FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
                 ui.add_space(10.0);
-                ui.label(egui::RichText::new("Pulihkan file").size(15.0).color(TEXT_BODY).strong());
+                ui.label(egui::RichText::new("Pulihkan file").size(15.0).color(text_body()).strong());
             });
 
             ui.add_space(24.0);
@@ -1066,9 +1126,9 @@ fn render_decrypt_panel(
                     ui.add_space(10.0);
                     ui.vertical(|ui| {
                         ui.label(egui::RichText::new(&record.original_name)
-                            .size(14.0).color(TEXT_PRIMARY).strong());
+                            .size(14.0).color(text_primary()).strong());
                         ui.label(egui::RichText::new(format_size(record.file_size as u64))
-                            .size(11.0).color(TEXT_DIMMED));
+                            .size(11.0).color(text_dimmed()));
                     });
                 });
 
@@ -1085,9 +1145,9 @@ fn render_decrypt_panel(
                     ("Dienkripsi", record.encrypted_at.clone()),
                 ] {
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(*k).size(11.0).color(TEXT_MUTED));
+                        ui.label(egui::RichText::new(*k).size(11.0).color(text_muted()));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(egui::RichText::new(v).size(11.0).color(TEXT_DIMMED)
+                            ui.label(egui::RichText::new(v).size(11.0).color(text_dimmed())
                                 .text_style(egui::TextStyle::Monospace));
                         });
                     });
@@ -1097,15 +1157,15 @@ fn render_decrypt_panel(
             ui.add_space(20.0);
 
             // Output name field
-            ui.label(egui::RichText::new("Nama file output").size(12.0).color(TEXT_MUTED));
+            ui.label(egui::RichText::new("Nama file output").size(12.0).color(text_muted()));
             ui.add_space(6.0);
             egui::Frame::none()
-                .fill(BG_SURFACE).stroke(Stroke::new(0.5, BORDER_DEFAULT))
+                .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
                 .rounding(Rounding::same(8.0))
                 .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("📤").size(16.0).color(TEXT_MUTED));
+                        ui.label(egui::RichText::new("📤").size(16.0).color(text_muted()));
                         ui.add_space(8.0);
                         ui.add(egui::TextEdit::singleline(&mut state.decrypt_out_name)
                             .desired_width(ui.available_width())
@@ -1125,7 +1185,7 @@ fn render_decrypt_panel(
                 .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                 .show(ui, |ui| {
                     ui.horizontal_top(|ui| {
-                        ui.label(egui::RichText::new("⚠").size(16.0).color(WARN_COLOR));
+                        ui.label(egui::RichText::new("⚠").size(16.0).color(warn_color()));
                         ui.add_space(8.0);
                         ui.add(egui::Label::new(egui::RichText::new(
                             "Hash SHA-256 divalidasi sebelum dekripsi. \
@@ -1137,7 +1197,7 @@ fn render_decrypt_panel(
             // Status
             if let Some(s) = &state.status.clone() {
                 ui.add_space(12.0);
-                let color = if s.success { SUCCESS_COLOR } else { ERROR_COLOR };
+                let color = if s.success { success_color() } else { error_color() };
                 ui.label(egui::RichText::new(&s.text).size(12.0).color(color));
             }
 
@@ -1195,12 +1255,12 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
                 let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
                 filled_rect(ui, back_rect, Color32::TRANSPARENT,
-                            Stroke::new(0.5, BORDER_DEFAULT), 7.0);
+                            Stroke::new(0.5, border_default()), 7.0);
                 ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
-                                  FontId::new(15.0, FontFamily::Proportional), TEXT_MUTED);
+                                  FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
                 ui.add_space(10.0);
-                ui.label(egui::RichText::new("Setup Autentikasi 2FA").size(15.0).color(TEXT_BODY).strong());
+                ui.label(egui::RichText::new("Setup Autentikasi 2FA").size(15.0).color(text_body()).strong());
             });
 
             ui.add_space(16.0);
@@ -1209,17 +1269,17 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 // Info banner
                 egui::Frame::none()
                     .fill(Color32::from_rgb(12, 31, 24))
-                    .stroke(Stroke::new(0.5, BORDER_ACCENT))
+                    .stroke(Stroke::new(0.5, border_accent()))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.set_width(avail.width() - 80.0);
                         ui.horizontal_top(|ui| {
-                            ui.label(egui::RichText::new("ℹ").size(16.0).color(TEAL_STRONG));
+                            ui.label(egui::RichText::new("ℹ").size(16.0).color(teal_strong()));
                             ui.add_space(6.0);
                             ui.add(egui::Label::new(egui::RichText::new(
                                 "Scan QR code ini dengan Google Authenticator,\nAuthy, atau aplikasi TOTP lainnya."
-                            ).size(12.0).color(TEAL_LIGHT)).wrap(true));
+                            ).size(12.0).color(teal_light())).wrap(true));
                         });
                     });
 
@@ -1231,20 +1291,20 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                     if let Some(st) = state.totp_setup_time {
                         let left = 30u64.saturating_sub(st.elapsed().as_secs());
                         ui.add_space(4.0);
-                        ui.label(egui::RichText::new(format!("⏳ QR berganti dalam {} detik", left)).size(11.0).color(WARN_COLOR));
+                        ui.label(egui::RichText::new(format!("⏳ QR berganti dalam {} detik", left)).size(11.0).color(warn_color()));
                     }
                 } else {
-                    ui.label(egui::RichText::new("Gagal generate QR code").color(ERROR_COLOR));
+                    ui.label(egui::RichText::new("Gagal generate QR code").color(error_color()));
                 }
 
                 ui.add_space(12.0);
 
                 // Manual secret key
-                ui.label(egui::RichText::new("Atau masukkan kunci manual:").size(11.0).color(TEXT_MUTED));
+                ui.label(egui::RichText::new("Atau masukkan kunci manual:").size(11.0).color(text_muted()));
                 ui.add_space(4.0);
                 egui::Frame::none()
-                    .fill(BG_SURFACE)
-                    .stroke(Stroke::new(0.5, BORDER_DEFAULT))
+                    .fill(bg_surface())
+                    .stroke(Stroke::new(0.5, border_default()))
                     .rounding(Rounding::same(6.0))
                     .inner_margin(egui::Margin::symmetric(10.0, 6.0))
                     .show(ui, |ui| {
@@ -1255,24 +1315,24 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                             .collect::<Vec<_>>()
                             .join(" ");
                         ui.label(egui::RichText::new(&formatted)
-                            .size(12.0).color(TEAL_FAINT)
+                            .size(12.0).color(teal_faint())
                             .text_style(egui::TextStyle::Monospace));
                     });
                     
                 if let Some(st) = state.totp_setup_time {
                     let left = 30u64.saturating_sub(st.elapsed().as_secs());
                     ui.add_space(4.0);
-                    ui.label(egui::RichText::new(format!("⏳ Kunci berganti dalam {} detik", left)).size(11.0).color(WARN_COLOR));
+                    ui.label(egui::RichText::new(format!("⏳ Kunci berganti dalam {} detik", left)).size(11.0).color(warn_color()));
                 }
 
                 ui.add_space(20.0);
 
                 // Verify input
-                ui.label(egui::RichText::new("Masukkan kode 6-digit dari app:").size(12.0).color(TEXT_MUTED));
+                ui.label(egui::RichText::new("Masukkan kode 6-digit dari app:").size(12.0).color(text_muted()));
                 ui.add_space(6.0);
                 egui::Frame::none()
-                    .fill(BG_SURFACE)
-                    .stroke(Stroke::new(0.5, if state.totp_code.len() == 6 { TEAL_STRONG } else { BORDER_DEFAULT }))
+                    .fill(bg_surface())
+                    .stroke(Stroke::new(0.5, if state.totp_code.len() == 6 { teal_strong() } else { border_default() }))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
@@ -1286,7 +1346,7 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
 
                 if let Some(err) = &state.totp_error {
                     ui.add_space(6.0);
-                    ui.label(egui::RichText::new(err).color(ERROR_COLOR).size(12.0));
+                    ui.label(egui::RichText::new(err).color(error_color()).size(12.0));
                 }
 
                 ui.add_space(16.0);
@@ -1308,21 +1368,21 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 
             // Shield icon
             let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(56.0), egui::Sense::hover());
-            filled_rect(ui, icon_rect, TEAL_DARK, Stroke::NONE, 14.0);
+            filled_rect(ui, icon_rect, teal_dark(), Stroke::NONE, 14.0);
             ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🔐",
-                              FontId::new(26.0, FontFamily::Proportional), TEAL_FAINT);
+                              FontId::new(26.0, FontFamily::Proportional), teal_faint());
 
             ui.add_space(14.0);
-            ui.label(egui::RichText::new("Verifikasi 2FA").size(18.0).color(TEXT_BODY).strong());
+            ui.label(egui::RichText::new("Verifikasi 2FA").size(18.0).color(text_body()).strong());
             ui.add_space(4.0);
             ui.label(egui::RichText::new("Masukkan kode dari aplikasi authenticator")
-                .size(13.0).color(TEXT_MUTED));
+                .size(13.0).color(text_muted()));
 
             ui.add_space(8.0);
 
             // Timer countdown
             let secs = crate::totp::seconds_left();
-            let timer_color = if secs <= 5 { ERROR_COLOR } else if secs <= 10 { WARN_COLOR } else { TEAL_LIGHT };
+            let timer_color = if secs <= 5 { error_color() } else if secs <= 10 { warn_color() } else { teal_light() };
             ui.label(egui::RichText::new(format!("Kode berubah dalam {} detik", secs))
                 .size(11.0).color(timer_color));
             ui.ctx().request_repaint();
@@ -1331,8 +1391,8 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 
             // Code input
             egui::Frame::none()
-                .fill(BG_SURFACE)
-                .stroke(Stroke::new(0.5, if state.totp_code.len() == 6 { TEAL_STRONG } else { BORDER_DEFAULT }))
+                .fill(bg_surface())
+                .stroke(Stroke::new(0.5, if state.totp_code.len() == 6 { teal_strong() } else { border_default() }))
                 .rounding(Rounding::same(10.0))
                 .inner_margin(egui::Margin::symmetric(16.0, 14.0))
                 .show(ui, |ui| {
@@ -1346,7 +1406,7 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 
             if let Some(err) = &state.totp_error {
                 ui.add_space(8.0);
-                ui.label(egui::RichText::new(err).color(ERROR_COLOR).size(13.0));
+                ui.label(egui::RichText::new(err).color(error_color()).size(13.0));
             }
 
             ui.add_space(20.0);
@@ -1375,19 +1435,19 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 
     // ─ Topbar ─
     let topbar_rect = egui::Rect::from_min_size(avail.min, Vec2::new(avail.width(), 52.0));
-    filled_rect(ui, topbar_rect, Color32::from_rgb(14,16,22), Stroke::new(0.5, BORDER_SUBTLE), 0.0);
+    filled_rect(ui, topbar_rect, Color32::from_rgb(14,16,22), Stroke::new(0.5, border_subtle()), 0.0);
 
     let back_rect = egui::Rect::from_min_size(topbar_rect.min + Vec2::new(18.0, 12.0), Vec2::splat(28.0));
     let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
-    filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, BORDER_DEFAULT), 7.0);
+    filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
     ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
-                      FontId::new(15.0, FontFamily::Proportional), TEXT_MUTED);
+                      FontId::new(15.0, FontFamily::Proportional), text_muted());
     if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
 
     ui.painter().text(
         egui::pos2(back_rect.right() + 10.0, topbar_rect.center().y),
         egui::Align2::LEFT_CENTER, "Recycle Bin",
-        FontId::new(16.0, FontFamily::Proportional), TEXT_PRIMARY,
+        FontId::new(16.0, FontFamily::Proportional), text_primary(),
     );
 
     let mut cursor_y = topbar_rect.bottom() + 14.0;
@@ -1397,7 +1457,7 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
         egui::pos2(avail.left() + pad, cursor_y),
         Vec2::new(avail.width() - pad * 2.0, 44.0),
     );
-    filled_rect(ui, banner_rect, Color32::from_rgb(30, 20, 20), Stroke::new(0.5, ERROR_COLOR), 8.0);
+    filled_rect(ui, banner_rect, Color32::from_rgb(30, 20, 20), Stroke::new(0.5, error_color()), 8.0);
     ui.painter().text(banner_rect.center(), egui::Align2::CENTER_CENTER,
                       "⚠️ File di bawah dapat dipulihkan atau dihapus permanen.",
                       FontId::new(12.0, FontFamily::Proportional), Color32::from_rgb(255, 100, 100));
@@ -1420,7 +1480,7 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                 let c = scroll_rect.center();
                 ui.painter().text(c, egui::Align2::CENTER_CENTER,
                                   "Recycle Bin Kosong",
-                                  FontId::new(16.0, FontFamily::Proportional), TEXT_MUTED);
+                                  FontId::new(16.0, FontFamily::Proportional), text_muted());
             } else {
                 let card_h   = 68.0;
                 let card_gap = 8.0;
@@ -1433,11 +1493,11 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                         Vec2::new(avail.width() - pad * 2.0, card_h),
                     );
                     let card_hovered = ui.rect_contains_pointer(card_rect);
-                    let card_fill    = if card_hovered { BG_CARD } else { BG_SURFACE };
+                    let card_fill    = if card_hovered { bg_card() } else { bg_surface() };
                     let card_stroke  = if card_hovered {
-                        Stroke::new(0.5, WARN_COLOR)
+                        Stroke::new(0.5, warn_color())
                     } else {
-                        Stroke::new(0.5, BORDER_DEFAULT)
+                        Stroke::new(0.5, border_default())
                     };
                     filled_rect(ui, card_rect, card_fill, card_stroke, 10.0);
 
@@ -1461,13 +1521,13 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                     };
                     ui.painter().text(egui::pos2(info_x, card_rect.top() + 16.0),
                                       egui::Align2::LEFT_TOP, &name_truncated,
-                                      FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                                      FontId::new(14.0, FontFamily::Proportional), text_primary());
                     let meta = format!("{}…  ·  Dihapus: {}",
                                        &record.sha256_hash[..6],
                                        record.deleted_at.as_deref().unwrap_or(""));
                     ui.painter().text(egui::pos2(info_x, card_rect.top() + 36.0),
                                       egui::Align2::LEFT_TOP, &meta,
-                                      FontId::new(11.0, FontFamily::Proportional), ERROR_COLOR);
+                                      FontId::new(11.0, FontFamily::Proportional), error_color());
 
                     // Tombol Hapus Permanen
                     let perm_del_rect = egui::Rect::from_min_size(
@@ -1475,9 +1535,9 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                         Vec2::new(38.0, 32.0),
                     );
                     let perm_del_resp = ui.allocate_rect(perm_del_rect, egui::Sense::click());
-                    let perm_del_border = if perm_del_resp.hovered() { ERROR_COLOR } else { BORDER_DEFAULT };
-                    let perm_del_icon_c = if perm_del_resp.hovered() { ERROR_COLOR } else { TEXT_MUTED };
-                    filled_rect(ui, perm_del_rect, BG_SURFACE, Stroke::new(0.5, perm_del_border), 7.0);
+                    let perm_del_border = if perm_del_resp.hovered() { error_color() } else { border_default() };
+                    let perm_del_icon_c = if perm_del_resp.hovered() { error_color() } else { text_muted() };
+                    filled_rect(ui, perm_del_rect, bg_surface(), Stroke::new(0.5, perm_del_border), 7.0);
                     ui.painter().text(perm_del_rect.center(), egui::Align2::CENTER_CENTER, "❌",
                                       FontId::new(14.0, FontFamily::Proportional), perm_del_icon_c);
                     if perm_del_resp.clicked() {
@@ -1490,9 +1550,9 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                         Vec2::new(38.0, 32.0),
                     );
                     let restore_resp   = ui.allocate_rect(restore_rect, egui::Sense::click());
-                    let restore_border = if restore_resp.hovered() { TEAL_STRONG } else { BORDER_DEFAULT };
-                    let restore_icon_c = if restore_resp.hovered() { TEAL_STRONG } else { TEXT_MUTED };
-                    filled_rect(ui, restore_rect, BG_SURFACE, Stroke::new(0.5, restore_border), 7.0);
+                    let restore_border = if restore_resp.hovered() { teal_strong() } else { border_default() };
+                    let restore_icon_c = if restore_resp.hovered() { teal_strong() } else { text_muted() };
+                    filled_rect(ui, restore_rect, bg_surface(), Stroke::new(0.5, restore_border), 7.0);
                     ui.painter().text(restore_rect.center(), egui::Align2::CENTER_CENTER, "♻",
                                       FontId::new(16.0, FontFamily::Proportional), restore_icon_c);
                     if restore_resp.clicked() {
@@ -1508,4 +1568,68 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
     if let Some(id) = to_restore {
         ctrl.restore_file(state, &id);
     }
+}
+
+
+fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState) {
+    let pad = 28.0;
+    egui::Frame::none()
+        .inner_margin(egui::Margin::symmetric(pad, 28.0))
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
+                let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
+                filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
+                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+                                  FontId::new(15.0, FontFamily::Proportional), text_muted());
+                if back_resp.clicked() { 
+                    state.screen = AppScreen::Dashboard; 
+                    state.preview_bytes = None; // free memory
+                    return; 
+                }
+                ui.add_space(10.0);
+                ui.label(egui::RichText::new(format!("Pratinjau: {}", state.preview_filename)).size(15.0).color(text_body()).strong());
+            });
+
+            ui.add_space(24.0);
+
+            if let Some(bytes) = &state.preview_bytes {
+                let ext = file_ext(&state.preview_filename).to_lowercase();
+                if ext == "png" || ext == "jpg" || ext == "jpeg" {
+                    match image::load_from_memory(bytes) {
+                        Ok(img) => {
+                            let size = [img.width() as _, img.height() as _];
+                            let image_buffer = img.to_rgba8();
+                            let pixels = image_buffer.as_flat_samples();
+                            let color_image = egui::ColorImage::from_rgba_unmultiplied(
+                                size,
+                                pixels.as_slice(),
+                            );
+                            let texture = ui.ctx().load_texture(
+                                "preview_img",
+                                color_image,
+                                Default::default()
+                            );
+                            ui.image(&texture);
+                        }
+                        Err(_) => {
+                            ui.label(egui::RichText::new("Gagal memuat gambar.").color(error_color()));
+                        }
+                    }
+                } else if ext == "txt" {
+                    if let Ok(text) = String::from_utf8(bytes.clone()) {
+                        egui::ScrollArea::vertical().show(ui, |ui| {
+                            let mut text_mut = text.clone();
+                            ui.add(egui::TextEdit::multiline(&mut text_mut).desired_width(f32::INFINITY).font(egui::TextStyle::Monospace));
+                        });
+                    } else {
+                        ui.label(egui::RichText::new("Bukan teks UTF-8 yang valid.").color(error_color()));
+                    }
+                } else {
+                    ui.label("Format tidak didukung untuk pratinjau.");
+                }
+            } else {
+                ui.label("Memuat...");
+            }
+        });
 }

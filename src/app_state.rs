@@ -17,6 +17,7 @@ pub enum AppScreen {
     TotpSetup,          // setup QR + verifikasi awal
     TotpVerify,         // verifikasi 2FA saat login
     RecycleBin,         // fitur trash
+    PreviewMedia,
 }
 
 #[derive(Default, PartialEq, Clone)]
@@ -116,6 +117,11 @@ pub struct AppState {
 
     // Notifications Tab
     pub audit_logs: Vec<AuditLog>,
+    pub is_light_mode: bool,
+    pub preview_bytes: Option<Vec<u8>>,
+    pub preview_filename: String,
+    pub transition_start: Option<std::time::Instant>,
+    pub previous_tab: DashboardTab,
 }
 
 impl Default for AppState {
@@ -154,6 +160,11 @@ impl Default for AppState {
             profile_pin_error: None,
             profile_pin_success: None,
             audit_logs: Vec::new(),
+            is_light_mode: false,
+            preview_bytes: None,
+            preview_filename: String::new(),
+            transition_start: None,
+            previous_tab: DashboardTab::Home,
         }
     }
 }

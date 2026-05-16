@@ -459,6 +459,32 @@ impl Controller {
         state.profile_pin_success = Some("PIN berhasil diubah.".into());
         self.log_action("CHANGE_PIN", "PIN utama berhasil diubah.");
     }
+
+    pub fn decrypt_to_memory(&self, state: &mut AppState, vault_filename: &str) {
+        let db = self.db.lock().unwrap();
+        let record = match db.get_file(vault_filename) {
+            Ok(Some(r)) => r,
+            _ => { state.set_status("File tidak ditemukan", false); return; }
+        };
+
+        let key = match &state.session_key {
+            Some(k) => k,
+            None => { state.set_status("Kunci sesi tidak tersedia", false); return; }
+        };
+
+        let enc_path = std::path::Path::new(VAULT_DIR).join(&record.vault_filename);
+        match crate::crypto::decrypt_to_memory(&enc_path, key, &record.sha256_hash) {
+            Ok(data) => {
+                state.preview_bytes = Some(data);
+                state.preview_filename = record.original_name.clone();
+                state.screen = crate::app_state::AppScreen::PreviewMedia;
+                let _ = db.insert_audit_log("PREVIEW", &format!("Melihat pratinjau file: {}", record.original_name), &timestamp_now());
+            }
+            Err(_) => {
+                state.set_status("Gagal mendekripsi file (password salah atau rusak)", false);
+            }
+        }
+    }
 }
 
 // ── Timestamp helper ──────────────────────────────────────

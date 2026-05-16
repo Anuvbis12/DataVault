@@ -4,35 +4,83 @@
 
 use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Rounding, Stroke, Vec2};
+use std::sync::atomic::{AtomicBool, Ordering};
+
+pub static IS_LIGHT_MODE: AtomicBool = AtomicBool::new(false);
+
+pub fn set_light_mode(light: bool) {
+    IS_LIGHT_MODE.store(light, Ordering::Relaxed);
+}
+
+pub fn is_light() -> bool {
+    IS_LIGHT_MODE.load(Ordering::Relaxed)
+}
+
 
 // ── Palet Warna ───────────────────────────────────────────
 // Background layers
-pub const BG_BASE:        Color32 = Color32::from_rgb(6, 6, 5);       // #060605
-pub const BG_SURFACE:     Color32 = Color32::from_rgb(18, 18, 17);    // #121211
-pub const BG_CARD:        Color32 = Color32::from_rgb(30, 30, 29);    // #1e1e1d
-pub const BG_INPUT:       Color32 = Color32::from_rgb(26, 26, 25);
+pub fn bg_base() -> Color32 {
+    if is_light() { Color32::from_rgb(250, 250, 250) } else { Color32::from_rgb(6, 6, 5) }
+}       // #060605
+pub fn bg_surface() -> Color32 {
+    if is_light() { Color32::from_rgb(240, 240, 240) } else { Color32::from_rgb(18, 18, 17) }
+}    // #121211
+pub fn bg_card() -> Color32 {
+    if is_light() { Color32::from_rgb(255, 255, 255) } else { Color32::from_rgb(30, 30, 29) }
+}    // #1e1e1d
+pub fn bg_input() -> Color32 {
+    if is_light() { Color32::from_rgb(235, 235, 235) } else { Color32::from_rgb(26, 26, 25) }
+}
 
 // Borders
-pub const BORDER_DEFAULT: Color32 = Color32::from_rgba_premultiplied(20, 20, 20, 20); // white alpha 20
-pub const BORDER_SUBTLE:  Color32 = Color32::from_rgba_premultiplied(10, 10, 10, 10); // white alpha 10
-pub const BORDER_ACCENT:  Color32 = Color32::from_rgb(182, 102, 210); // Purple border
+pub fn border_default() -> Color32 {
+    if is_light() { Color32::from_rgba_premultiplied(200, 200, 200, 255) } else { Color32::from_rgba_premultiplied(20, 20, 20, 20) }
+} // white alpha 20
+pub fn border_subtle() -> Color32 {
+    if is_light() { Color32::from_rgba_premultiplied(230, 230, 230, 255) } else { Color32::from_rgba_premultiplied(10, 10, 10, 10) }
+} // white alpha 10
+pub fn border_accent() -> Color32 {
+    if is_light() { Color32::from_rgb(150, 60, 180) } else { Color32::from_rgb(182, 102, 210) }
+} // Purple border
 
 // Text
-pub const TEXT_PRIMARY:   Color32 = Color32::from_rgb(255, 255, 255); // #ffffff
-pub const TEXT_BODY:      Color32 = Color32::from_rgb(220, 220, 220); 
-pub const TEXT_MUTED:     Color32 = Color32::from_rgb(136, 136, 136); // #888888
-pub const TEXT_DIMMED:    Color32 = Color32::from_rgb(100, 100, 100);
+pub fn text_primary() -> Color32 {
+    if is_light() { Color32::from_rgb(10, 10, 10) } else { Color32::from_rgb(255, 255, 255) }
+} // #ffffff
+pub fn text_body() -> Color32 {
+    if is_light() { Color32::from_rgb(40, 40, 40) } else { Color32::from_rgb(220, 220, 220) }
+} 
+pub fn text_muted() -> Color32 {
+    if is_light() { Color32::from_rgb(100, 100, 100) } else { Color32::from_rgb(136, 136, 136) }
+} // #888888
+pub fn text_dimmed() -> Color32 {
+    if is_light() { Color32::from_rgb(140, 140, 140) } else { Color32::from_rgb(100, 100, 100) }
+}
 
 // Accents — Purple (using old TEAL name to avoid breaking view.rs)
-pub const TEAL_STRONG:    Color32 = Color32::from_rgb(182, 102, 210); // #b666d2
-pub const TEAL_DARK:      Color32 = Color32::from_rgb(130, 70,  150);
-pub const TEAL_LIGHT:     Color32 = Color32::from_rgb(200, 130, 220);
-pub const TEAL_FAINT:     Color32 = Color32::from_rgb(220, 180, 240);
+pub fn teal_strong() -> Color32 {
+    if is_light() { Color32::from_rgb(150, 60, 180) } else { Color32::from_rgb(182, 102, 210) }
+} // #b666d2
+pub fn teal_dark() -> Color32 {
+    if is_light() { Color32::from_rgb(100, 40,  120) } else { Color32::from_rgb(130, 70,  150) }
+}
+pub fn teal_light() -> Color32 {
+    if is_light() { Color32::from_rgb(180, 100, 200) } else { Color32::from_rgb(200, 130, 220) }
+}
+pub fn teal_faint() -> Color32 {
+    if is_light() { Color32::from_rgb(230, 210, 240) } else { Color32::from_rgb(220, 180, 240) }
+}
 
 // Status
-pub const ERROR_COLOR:    Color32 = Color32::from_rgb(244,  63,  94);  // #f43f5e
-pub const WARN_COLOR:     Color32 = Color32::from_rgb(250, 204,  21);  // #facc15
-pub const SUCCESS_COLOR:  Color32 = Color32::from_rgb(74,  222, 128);  // #4ade80
+pub fn error_color() -> Color32 {
+    if is_light() { Color32::from_rgb(220, 30, 60) } else { Color32::from_rgb(244,  63,  94) }
+}  // #f43f5e
+pub fn warn_color() -> Color32 {
+    if is_light() { Color32::from_rgb(210, 150, 10) } else { Color32::from_rgb(250, 204,  21) }
+}  // #facc15
+pub fn success_color() -> Color32 {
+    if is_light() { Color32::from_rgb(30, 160, 80) } else { Color32::from_rgb(74,  222, 128) }
+}  // #4ade80
 
 // File type badge (fill, border)
 pub const BADGE_GREEN:    (Color32, Color32) = (Color32::from_rgb(12, 31, 24), Color32::from_rgb(15, 110, 86));
@@ -43,24 +91,24 @@ pub const BADGE_BLUE:     (Color32, Color32) = (Color32::from_rgb(12, 20, 40), C
 // ── Style Setup ───────────────────────────────────────────
 pub fn apply(ctx: &egui::Context) {
     let mut style   = (*ctx.style()).clone();
-    let mut visuals = egui::Visuals::dark();
+    let mut visuals = if is_light() { egui::Visuals::light() } else { egui::Visuals::dark() };
 
-    visuals.override_text_color = Some(TEXT_BODY);
-    visuals.window_fill          = BG_BASE;
+    visuals.override_text_color = Some(text_body());
+    visuals.window_fill          = bg_base();
     visuals.panel_fill           = Color32::TRANSPARENT;
-    visuals.window_stroke        = Stroke::new(0.5, BORDER_SUBTLE);
+    visuals.window_stroke        = Stroke::new(0.5, border_subtle());
 
     let w = &mut visuals.widgets;
-    w.noninteractive.bg_fill   = BG_SURFACE;
-    w.noninteractive.fg_stroke = Stroke::new(1.0, TEXT_MUTED);
+    w.noninteractive.bg_fill   = bg_surface();
+    w.noninteractive.fg_stroke = Stroke::new(1.0, text_muted());
     w.noninteractive.rounding  = Rounding::same(16.0);
-    w.inactive.bg_fill         = BG_INPUT;
-    w.inactive.fg_stroke       = Stroke::new(0.5, BORDER_DEFAULT);
+    w.inactive.bg_fill         = bg_input();
+    w.inactive.fg_stroke       = Stroke::new(0.5, border_default());
     w.inactive.rounding        = Rounding::same(16.0);
-    w.hovered.bg_fill          = BG_CARD;
-    w.hovered.bg_stroke        = Stroke::new(0.5, TEAL_STRONG);
+    w.hovered.bg_fill          = bg_card();
+    w.hovered.bg_stroke        = Stroke::new(0.5, teal_strong());
     w.hovered.rounding         = Rounding::same(16.0);
-    w.active.bg_fill           = TEAL_DARK;
+    w.active.bg_fill           = teal_dark();
     w.active.fg_stroke         = Stroke::new(1.0, Color32::WHITE);
     w.active.rounding          = Rounding::same(16.0);
 
@@ -95,8 +143,8 @@ pub fn filled_rect(
 /// Card frame untuk seksi konten
 pub fn card_frame() -> egui::Frame {
     egui::Frame::none()
-        .fill(BG_SURFACE)
-        .stroke(Stroke::new(0.5, BORDER_DEFAULT))
+        .fill(bg_surface())
+        .stroke(Stroke::new(0.5, border_default()))
         .rounding(Rounding::same(10.0))
         .inner_margin(egui::Margin::symmetric(14.0, 12.0))
 }
@@ -106,8 +154,8 @@ pub fn teal_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
     let desired       = Vec2::new(width, 42.0);
     let (rect, resp)  = ui.allocate_exact_size(desired, egui::Sense::click());
     let fill = if resp.is_pointer_button_down_on() { Color32::from_rgb(10, 80, 62) }
-               else if resp.hovered()               { TEAL_STRONG }
-               else                                 { TEAL_DARK };
+               else if resp.hovered()               { teal_strong() }
+               else                                 { teal_dark() };
     ui.painter().rect(rect, Rounding::same(8.0), fill, Stroke::NONE);
     ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
                       FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
@@ -118,8 +166,8 @@ pub fn teal_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
 pub fn ghost_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
     let desired       = Vec2::new(width, 42.0);
     let (rect, resp)  = ui.allocate_exact_size(desired, egui::Sense::click());
-    let border  = if resp.hovered() { TEAL_STRONG   } else { BORDER_DEFAULT };
-    let text_c  = if resp.hovered() { TEXT_PRIMARY  } else { TEXT_MUTED };
+    let border  = if resp.hovered() { teal_strong()   } else { border_default() };
+    let text_c  = if resp.hovered() { text_primary()  } else { text_muted() };
     ui.painter().rect(rect, Rounding::same(8.0), Color32::TRANSPARENT, Stroke::new(0.5, border));
     ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
                       FontId::new(14.0, FontFamily::Proportional), text_c);
@@ -133,16 +181,16 @@ pub fn numpad_btn(ui: &mut egui::Ui, label: &str) -> egui::Response {
     let fill = if resp.is_pointer_button_down_on() || resp.hovered() {
         Color32::from_rgb(34, 37, 56)
     } else {
-        BG_INPUT
+        bg_input()
     };
     let border = if resp.hovered() {
         Stroke::new(0.5, Color32::from_rgb(58, 63, 88))
     } else {
-        Stroke::new(0.5, BORDER_DEFAULT)
+        Stroke::new(0.5, border_default())
     };
     ui.painter().rect(rect, Rounding::same(10.0), fill, border);
     let font_size  = if label.len() > 1 { 12.0 } else { 20.0 };
-    let text_color = if label.len() > 1 { TEXT_MUTED } else { TEXT_PRIMARY };
+    let text_color = if label.len() > 1 { text_muted() } else { text_primary() };
     ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
                       FontId::new(font_size, FontFamily::Proportional), text_color);
     resp

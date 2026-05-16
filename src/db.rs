@@ -280,7 +280,32 @@ impl VaultDb {
         Ok(())
     }
 
-    // ── Audit Logs ────────────────────────────────────────
+    pub fn get_file(&self, vault_filename: &str) -> Result<Option<FileRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, original_name, original_path, vault_filename, sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at 
+             FROM files WHERE vault_filename = ?1 AND is_deleted = 0"
+        )?;
+        let mut rows = stmt.query([vault_filename])?;
+        if let Some(row) = rows.next()? {
+            Ok(Some(FileRecord {
+                id: row.get(0)?,
+                original_name: row.get(1)?,
+                original_path: row.get(2)?,
+                vault_filename: row.get(3)?,
+                sha256_hash: row.get(4)?,
+                file_size: row.get(5)?,
+                iv_hex: row.get(6)?,
+                salt_hex: row.get(7)?,
+                encrypted_at: row.get(8)?,
+                is_deleted: row.get(9)?,
+                deleted_at: row.get(10)?,
+            }))
+        } else {
+            Ok(None)
+        }
+    }
+
+    // ── Update ────────────────────────────────────────────────
 
     pub fn insert_audit_log(&self, action_type: &str, description: &str, timestamp: &str) -> Result<()> {
         self.conn.execute(

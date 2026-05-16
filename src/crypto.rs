@@ -252,6 +252,59 @@ pub fn secure_decrypt_file(
     Ok(())
 }
 
+/// Dekripsi file .vlt langsung ke memory (RAM) tanpa menyentuh disk.
+pub fn decrypt_to_memory(
+    vault_path:   &Path,
+    key:          &[u8; KEY_LEN],
+    expected_hash: &str,
+) -> Result<Vec<u8>, DecryptError> {
+    let actual_hash = compute_file_hash(vault_path)?;
+    if actual_hash != expected_hash {
+        return Err(DecryptError::HashMismatch {
+            expected: expected_hash.to_string(),
+            actual:   actual_hash,
+        });
+    }
+
+    let mut vault_file = File::open(vault_path)?;
+
+    let mut iv = [0u8; 16];
+    vault_file.read_exact(&mut iv)?;
+
+    let decryptor  = Aes256::new(key.into());
+    let mut prev_iv: GenericArray<u8, U16> = GenericArray::clone_from_slice(&iv);
+
+    let mut ciphertext = Vec::new();
+    vault_file.read_to_end(&mut ciphertext)?;
+
+    if ciphertext.is_empty() || ciphertext.len() % 16 != 0 {
+        return Err(DecryptError::InvalidPadding);
+    }
+
+    let mut plaintext = vec![0u8; ciphertext.len()];
+    let block_count   = ciphertext.len() / 16;
+
+    for b in 0..block_count {
+        let offset = b * 16;
+        let cipher_block: GenericArray<u8, U16> =
+            GenericArray::clone_from_slice(&ciphertext[offset..offset + 16]);
+        let mut plain_block = cipher_block;
+        decryptor.decrypt_block(&mut plain_block);
+
+        for i in 0..16 { plain_block[i] ^= prev_iv[i]; }
+        prev_iv = GenericArray::clone_from_slice(&ciphertext[offset..offset + 16]);
+        plaintext[offset..offset + 16].copy_from_slice(&plain_block);
+    }
+
+    let pad_len = *plaintext.last().ok_or(DecryptError::InvalidPadding)? as usize;
+    if pad_len == 0 || pad_len > 16 { return Err(DecryptError::InvalidPadding); }
+    let pad_start = plaintext.len() - pad_len;
+    if !plaintext[pad_start..].iter().all(|&b| b == pad_len as u8) { return Err(DecryptError::InvalidPadding); }
+    plaintext.truncate(pad_start);
+
+    Ok(plaintext)
+}
+
 // ── Hash File ─────────────────────────────────────────────
 
 pub fn compute_file_hash(path: &Path) -> Result<String, std::io::Error> {

@@ -70,6 +70,15 @@ impl VaultMvc {
 
 impl eframe::App for VaultMvc {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Handle Drag & Drop
+        if !ctx.input(|i| i.raw.dropped_files.is_empty()) {
+            let dropped = ctx.input(|i| i.raw.dropped_files.clone());
+            for file in dropped {
+                if let Some(path) = file.path {
+                    self.controller.encrypt_file(&mut self.state, path);
+                }
+            }
+        }
         view::render(ctx, &mut self.state, &self.controller);
     }
 }
