@@ -74,6 +74,7 @@ pub struct AppState {
     pub totp_qr:         Option<Vec<Vec<bool>>>, // QR matrix
     pub totp_code:       String,               // input 6-digit
     pub totp_error:      Option<String>,
+    pub totp_setup_time: Option<std::time::Instant>,
 
     // Reset Vault
     pub show_reset_confirm: bool,
@@ -104,6 +105,7 @@ impl Default for AppState {
             totp_qr:          None,
             totp_code:        String::new(),
             totp_error:       None,
+            totp_setup_time:  None,
             show_reset_confirm: false,
         }
     }

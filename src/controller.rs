@@ -312,6 +312,7 @@ impl Controller {
         state.totp_qr         = qr;
         state.totp_code.clear();
         state.totp_error = None;
+        state.totp_setup_time = Some(std::time::Instant::now());
         state.screen     = AppScreen::TotpSetup;
     }
 
@@ -337,6 +338,7 @@ impl Controller {
         state.totp_secret  = None;
         state.totp_code.clear();
         state.totp_error = None;
+        state.totp_setup_time = None;
         state.set_status("✅ TOTP berhasil diaktifkan!", true);
         state.screen = AppScreen::Dashboard;
     }
@@ -377,6 +379,7 @@ impl Controller {
         state.totp_enabled = false;
         state.totp_secret  = None;
         state.totp_qr      = None;
+        state.totp_setup_time = None;
         state.set_status("TOTP dinonaktifkan.", true);
     }
 }
