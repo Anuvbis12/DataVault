@@ -366,12 +366,59 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     ui.painter().text(profile_rect.center(), egui::Align2::CENTER_CENTER, "👤", FontId::new(18.0, FontFamily::Proportional), if profile_resp.hovered() { teal_strong() } else { text_muted() });
     if profile_resp.clicked() { state.dashboard_tab = DashboardTab::Profile; }
 
-    // ─ Bottom Navigation ─
+    // ─ Layout Dimensions ─
     let bottom_h = 80.0;
     let bottom_rect = egui::Rect::from_min_size(
         egui::pos2(avail.left(), avail.bottom() - bottom_h),
         Vec2::new(avail.width(), bottom_h),
     );
+    
+    let content_rect = egui::Rect::from_min_max(
+        egui::pos2(avail.left(), topbar_rect.bottom()),
+        egui::pos2(avail.right(), bottom_rect.top()),
+    );
+    
+    let mut to_decrypt: Option<String> = None;
+    let mut to_soft_delete: Option<String> = None;
+
+
+    // Animation Logic
+    if state.previous_tab != state.dashboard_tab {
+        state.previous_tab = state.dashboard_tab.clone();
+        state.transition_start = Some(std::time::Instant::now());
+    }
+
+    let mut opacity = 1.0;
+    if let Some(start) = state.transition_start {
+        let elapsed = start.elapsed().as_secs_f32();
+        let duration = 0.2; // 200ms
+        if elapsed < duration {
+            opacity = elapsed / duration;
+            ui.ctx().request_repaint();
+        } else {
+            state.transition_start = None;
+        }
+    }
+
+    // Render Content Area first so Bottom Navigation draws ON TOP of it (fixing FAB overlap)
+    ui.allocate_ui_at_rect(content_rect, |ui| {
+        ui.set_opacity(opacity);
+        egui::ScrollArea::vertical().id_source("dashboard_scroll").show(ui, |ui| {
+
+             ui.add_space(20.0);
+             match state.dashboard_tab {
+                 DashboardTab::Home => render_tab_home(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
+                 DashboardTab::Vault => render_tab_vault(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
+                 DashboardTab::Storage => render_tab_storage(ui, state, ctrl),
+                 DashboardTab::Settings => render_tab_settings(ui, state, ctrl),
+                 DashboardTab::Profile => render_tab_profile(ui, state, ctrl),
+                 DashboardTab::Notifications => render_tab_notifications(ui, state, ctrl),
+             }
+             ui.add_space(40.0);
+        });
+    });
+
+    // ─ Bottom Navigation ─
     filled_rect(ui, bottom_rect, Color32::from_rgb(18, 18, 17), Stroke::new(1.0, border_subtle()), 0.0);
     
     let tab_w = avail.width() / 5.0;
@@ -383,7 +430,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         (DashboardTab::Vault, "🔒", "Vault"),
         (DashboardTab::Home, "➕", "Add"), // Placeholder for FAB
         (DashboardTab::Storage, "💽", "Storage"),
-        (DashboardTab::Settings, "⚙️", "Settings"),
+        (DashboardTab::Settings, "⚙", "Settings"),
     ];
     
     for (i, (tab, icon, label)) in tabs.iter().enumerate() {
@@ -415,51 +462,6 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         }
         tab_x += tab_w;
     }
-    
-    // ─ Content Area (Scrollable) ─
-    let content_rect = egui::Rect::from_min_max(
-        egui::pos2(avail.left(), topbar_rect.bottom()),
-        egui::pos2(avail.right(), bottom_rect.top()),
-    );
-    
-    let mut to_decrypt: Option<String> = None;
-    let mut to_soft_delete: Option<String> = None;
-
-
-    // Animation Logic
-    if state.previous_tab != state.dashboard_tab {
-        state.previous_tab = state.dashboard_tab.clone();
-        state.transition_start = Some(std::time::Instant::now());
-    }
-
-    let mut opacity = 1.0;
-    if let Some(start) = state.transition_start {
-        let elapsed = start.elapsed().as_secs_f32();
-        let duration = 0.2; // 200ms
-        if elapsed < duration {
-            opacity = elapsed / duration;
-            ui.ctx().request_repaint();
-        } else {
-            state.transition_start = None;
-        }
-    }
-
-    ui.allocate_ui_at_rect(content_rect, |ui| {
-        ui.set_opacity(opacity);
-        egui::ScrollArea::vertical().id_source("dashboard_scroll").show(ui, |ui| {
-
-             ui.add_space(20.0);
-             match state.dashboard_tab {
-                 DashboardTab::Home => render_tab_home(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
-                 DashboardTab::Vault => render_tab_vault(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
-                 DashboardTab::Storage => render_tab_storage(ui, state, ctrl),
-                 DashboardTab::Settings => render_tab_settings(ui, state, ctrl),
-                 DashboardTab::Profile => render_tab_profile(ui, state, ctrl),
-                 DashboardTab::Notifications => render_tab_notifications(ui, state, ctrl),
-             }
-             ui.add_space(40.0);
-        });
-    });
 
     if let Some(fname) = to_decrypt { ctrl.open_decrypt_panel(state, &fname); }
     if let Some(id) = to_soft_delete { ctrl.soft_delete_file(state, &id); }
@@ -477,7 +479,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
         let stats = [
             ("Locked Files", format!("{}", state.file_list.len()), "📄", teal_strong()),
             ("Encrypted", format_size(state.total_vault_size()), "💽", teal_strong()),
-            ("Standard", "AES-256".to_string(), "🛡️", teal_strong()),
+            ("Standard", "AES-256".to_string(), "🛡", teal_strong()),
         ];
         for (label, val, icon, color) in stats.iter() {
             let (rect, _) = ui.allocate_exact_size(Vec2::new(stat_w, stat_h), egui::Sense::hover());
@@ -499,7 +501,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
         let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 140.0), egui::Sense::hover());
         filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 20.0);
         
-        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 25.0), egui::Align2::LEFT_CENTER, "⚙️ Encryption Engine", FontId::new(14.0, FontFamily::Proportional), text_primary());
+        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 25.0), egui::Align2::LEFT_CENTER, "⚙ Encryption Engine", FontId::new(14.0, FontFamily::Proportional), text_primary());
         
         let badge_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 40.0, rect.top() + 25.0), Vec2::new(60.0, 20.0));
         filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(182, 102, 210, 25), Stroke::new(1.0, Color32::from_rgba_unmultiplied(182, 102, 210, 50)), 10.0);
@@ -981,7 +983,7 @@ fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
             ui.add_space(8.0);
             
             let mut is_light = state.is_light_mode;
-            if ui.checkbox(&mut is_light, "☀️ Mode Terang (Light Mode)").changed() {
+            if ui.checkbox(&mut is_light, "☀ Mode Terang (Light Mode)").changed() {
                 state.is_light_mode = is_light;
                 crate::theme::set_light_mode(is_light);
             }
@@ -1459,7 +1461,7 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
     );
     filled_rect(ui, banner_rect, Color32::from_rgb(30, 20, 20), Stroke::new(0.5, error_color()), 8.0);
     ui.painter().text(banner_rect.center(), egui::Align2::CENTER_CENTER,
-                      "⚠️ File di bawah dapat dipulihkan atau dihapus permanen.",
+                      "⚠ File di bawah dapat dipulihkan atau dihapus permanen.",
                       FontId::new(12.0, FontFamily::Proportional), Color32::from_rgb(255, 100, 100));
     
     cursor_y += 58.0;
