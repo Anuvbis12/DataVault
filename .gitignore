@@ -1,5 +1,9 @@
-/target
-/vault_storage
+/target/
+/vault_storage/
+/scratch/
 **/*.rs.bk
 *.pdb
 *.exe
+.idea/
+.vscode/
+*.iml
