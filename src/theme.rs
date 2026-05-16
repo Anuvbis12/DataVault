@@ -7,32 +7,32 @@ use egui::epaint::{Color32, FontId, FontFamily, Rounding, Stroke, Vec2};
 
 // ── Palet Warna ───────────────────────────────────────────
 // Background layers
-pub const BG_BASE:        Color32 = Color32::from_rgb(14,  16,  22);
-pub const BG_SURFACE:     Color32 = Color32::from_rgb(25,  28,  40);
-pub const BG_CARD:        Color32 = Color32::from_rgb(30,  33,  48);
-pub const BG_INPUT:       Color32 = Color32::from_rgb(26,  29,  40);
+pub const BG_BASE:        Color32 = Color32::from_rgb(6, 6, 5);       // #060605
+pub const BG_SURFACE:     Color32 = Color32::from_rgb(18, 18, 17);    // #121211
+pub const BG_CARD:        Color32 = Color32::from_rgb(30, 30, 29);    // #1e1e1d
+pub const BG_INPUT:       Color32 = Color32::from_rgb(26, 26, 25);
 
 // Borders
-pub const BORDER_DEFAULT: Color32 = Color32::from_rgb(42,  46,  66);
-pub const BORDER_SUBTLE:  Color32 = Color32::from_rgb(30,  33,  48);
-pub const BORDER_ACCENT:  Color32 = Color32::from_rgb(15, 110,  86);
+pub const BORDER_DEFAULT: Color32 = Color32::from_rgba_premultiplied(20, 20, 20, 20); // white alpha 20
+pub const BORDER_SUBTLE:  Color32 = Color32::from_rgba_premultiplied(10, 10, 10, 10); // white alpha 10
+pub const BORDER_ACCENT:  Color32 = Color32::from_rgb(182, 102, 210); // Purple border
 
 // Text
-pub const TEXT_PRIMARY:   Color32 = Color32::from_rgb(200, 205, 232);
-pub const TEXT_BODY:      Color32 = Color32::from_rgb(226, 228, 240);
-pub const TEXT_MUTED:     Color32 = Color32::from_rgb(90,  96,  128);
-pub const TEXT_DIMMED:    Color32 = Color32::from_rgb(58,  64,  96);
+pub const TEXT_PRIMARY:   Color32 = Color32::from_rgb(255, 255, 255); // #ffffff
+pub const TEXT_BODY:      Color32 = Color32::from_rgb(220, 220, 220); 
+pub const TEXT_MUTED:     Color32 = Color32::from_rgb(136, 136, 136); // #888888
+pub const TEXT_DIMMED:    Color32 = Color32::from_rgb(100, 100, 100);
 
-// Accents — teal
-pub const TEAL_STRONG:    Color32 = Color32::from_rgb(29, 158, 117);
-pub const TEAL_DARK:      Color32 = Color32::from_rgb(15, 110,  86);
-pub const TEAL_LIGHT:     Color32 = Color32::from_rgb(93, 202, 165);
-pub const TEAL_FAINT:     Color32 = Color32::from_rgb(159, 225, 203);
+// Accents — Purple (using old TEAL name to avoid breaking view.rs)
+pub const TEAL_STRONG:    Color32 = Color32::from_rgb(182, 102, 210); // #b666d2
+pub const TEAL_DARK:      Color32 = Color32::from_rgb(130, 70,  150);
+pub const TEAL_LIGHT:     Color32 = Color32::from_rgb(200, 130, 220);
+pub const TEAL_FAINT:     Color32 = Color32::from_rgb(220, 180, 240);
 
 // Status
-pub const ERROR_COLOR:    Color32 = Color32::from_rgb(226,  75,  74);
-pub const WARN_COLOR:     Color32 = Color32::from_rgb(239, 159,  39);
-pub const SUCCESS_COLOR:  Color32 = Color32::from_rgb(80,  250, 123);
+pub const ERROR_COLOR:    Color32 = Color32::from_rgb(244,  63,  94);  // #f43f5e
+pub const WARN_COLOR:     Color32 = Color32::from_rgb(250, 204,  21);  // #facc15
+pub const SUCCESS_COLOR:  Color32 = Color32::from_rgb(74,  222, 128);  // #4ade80
 
 // File type badge (fill, border)
 pub const BADGE_GREEN:    (Color32, Color32) = (Color32::from_rgb(12, 31, 24), Color32::from_rgb(15, 110, 86));
@@ -53,16 +53,16 @@ pub fn apply(ctx: &egui::Context) {
     let w = &mut visuals.widgets;
     w.noninteractive.bg_fill   = BG_SURFACE;
     w.noninteractive.fg_stroke = Stroke::new(1.0, TEXT_MUTED);
-    w.noninteractive.rounding  = Rounding::same(8.0);
+    w.noninteractive.rounding  = Rounding::same(16.0);
     w.inactive.bg_fill         = BG_INPUT;
     w.inactive.fg_stroke       = Stroke::new(0.5, BORDER_DEFAULT);
-    w.inactive.rounding        = Rounding::same(8.0);
+    w.inactive.rounding        = Rounding::same(16.0);
     w.hovered.bg_fill          = BG_CARD;
     w.hovered.bg_stroke        = Stroke::new(0.5, TEAL_STRONG);
-    w.hovered.rounding         = Rounding::same(8.0);
+    w.hovered.rounding         = Rounding::same(16.0);
     w.active.bg_fill           = TEAL_DARK;
     w.active.fg_stroke         = Stroke::new(1.0, Color32::WHITE);
-    w.active.rounding          = Rounding::same(8.0);
+    w.active.rounding          = Rounding::same(16.0);
 
     style.text_styles = [
         (egui::TextStyle::Heading,   FontId::new(20.0, FontFamily::Proportional)),

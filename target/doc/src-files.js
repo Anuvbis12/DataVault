@@ -1,2 +1,0 @@
-createSrcSidebar('[["epaint",["",[["text",[],["cursor.rs","font.rs","fonts.rs","mod.rs","text_layout.rs","text_layout_types.rs"]],["util",[],["mod.rs","ordered_float.rs"]]],["bezier.rs","image.rs","lib.rs","margin.rs","mesh.rs","mutex.rs","shadow.rs","shape.rs","shape_transform.rs","stats.rs","stroke.rs","tessellator.rs","texture_atlas.rs","texture_handle.rs","textures.rs"]]]]');
-//{"start":19,"fragment_lengths":[359]}

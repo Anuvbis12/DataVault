@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"enum":["FontFamily"],"fn":["ab_glyph_font_from_font_data"],"struct":["CachedGalley","FontData","FontDefinitions","FontId","FontImplCache","FontTweak","Fonts","FontsAndCache","FontsImpl","GalleyCache","HashableF32"]};

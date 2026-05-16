@@ -19,6 +19,17 @@ pub enum AppScreen {
     RecycleBin,         // fitur trash
 }
 
+#[derive(Default, PartialEq, Clone)]
+pub enum DashboardTab {
+    #[default]
+    Home,
+    Vault,
+    Storage,
+    Settings,
+    Profile,
+    Notifications,
+}
+
 // ── Status message ────────────────────────────────────────
 #[derive(Clone)]
 pub struct StatusMsg {
@@ -30,6 +41,7 @@ pub struct StatusMsg {
 pub struct AppState {
     // Navigasi
     pub screen: AppScreen,
+    pub dashboard_tab: DashboardTab,
 
     // Auth input
     pub pin_digits:      String,   // numpad accumulator (max 6)
@@ -71,6 +83,7 @@ impl Default for AppState {
     fn default() -> Self {
         Self {
             screen:           AppScreen::Login,
+            dashboard_tab:    DashboardTab::Home,
             pin_digits:       String::new(),
             pin_input:        String::new(),
             pin_confirm:      String::new(),

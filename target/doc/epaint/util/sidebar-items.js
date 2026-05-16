@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"fn":["hash","hash_with"],"mod":["ordered_float"],"struct":["OrderedFloat"],"trait":["FloatOrd"]};

@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"struct":["Galley","Glyph","LayoutJob","LayoutSection","Row","RowVisuals","TextFormat","TextWrapping"]};
