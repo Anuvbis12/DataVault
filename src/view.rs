@@ -6,7 +6,7 @@ use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Vertex};
 use rfd::FileDialog;
 
-use crate::app_state::{AppScreen, AppState, DashboardTab};
+use crate::app_state::{AppScreen, AppState, DashboardTab, ViewMode, SortOption};
 use crate::controller::{format_size, Controller};
 use crate::db::FileRecord;
 use crate::theme::{self, *};
@@ -355,7 +355,10 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     let notif_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 60.0, topbar_rect.center().y), Vec2::splat(32.0));
     let notif_resp = ui.allocate_rect(notif_rect, egui::Sense::click());
     ui.painter().text(notif_rect.center(), egui::Align2::CENTER_CENTER, "🔔", FontId::new(18.0, FontFamily::Proportional), if notif_resp.hovered() { TEAL_STRONG } else { TEXT_MUTED });
-    if notif_resp.clicked() { state.dashboard_tab = DashboardTab::Notifications; }
+    if notif_resp.clicked() { 
+        state.dashboard_tab = DashboardTab::Notifications; 
+        ctrl.load_audit_logs(state);
+    }
 
     let profile_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 20.0, topbar_rect.center().y), Vec2::splat(32.0));
     let profile_resp = ui.allocate_rect(profile_rect, egui::Sense::click());
@@ -627,21 +630,79 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
 }
 
 fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, to_decrypt: &mut Option<String>, _to_soft_delete: &mut Option<String>) {
-    ui.vertical_centered(|ui| {
-        ui.add_space(40.0);
-        ui.label(egui::RichText::new("Daftar Brankas (Vault)").size(20.0).color(TEXT_PRIMARY).strong());
-        ui.add_space(10.0);
-        ui.label(egui::RichText::new("Semua file tersimpan aman di sini.").color(TEXT_MUTED));
-        ui.add_space(20.0);
-    });
-    // Menampilkan daftar file tapi dengan tampilan yang lebih penuh
     let pad = 20.0;
+    ui.add_space(20.0);
+    
+    // Header & Search
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("Brankas Anda").size(22.0).color(TEXT_PRIMARY).strong());
+    });
+    ui.add_space(10.0);
+    
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let search_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(ui.available_width() - pad - 100.0, 36.0));
+        ui.allocate_ui_at_rect(search_rect, |ui| {
+            ui.add(egui::TextEdit::singleline(&mut state.vault_search_query)
+                .hint_text("🔍 Cari file...")
+                .desired_width(search_rect.width())
+                .margin(egui::Margin::symmetric(12.0, 8.0)));
+        });
+        
+        ui.add_space(8.0);
+        // Sort & View Toggles
+        egui::ComboBox::from_id_source("sort_cb")
+            .selected_text(match state.vault_sort_by {
+                SortOption::DateDesc => "Tanggal (Baru)",
+                SortOption::DateAsc  => "Tanggal (Lama)",
+                SortOption::NameAsc  => "Nama (A-Z)",
+                SortOption::SizeDesc => "Ukuran (Besar)",
+            })
+            .width(130.0)
+            .show_ui(ui, |ui| {
+                ui.selectable_value(&mut state.vault_sort_by, SortOption::DateDesc, "Tanggal (Baru)");
+                ui.selectable_value(&mut state.vault_sort_by, SortOption::DateAsc,  "Tanggal (Lama)");
+                ui.selectable_value(&mut state.vault_sort_by, SortOption::NameAsc,  "Nama (A-Z)");
+                ui.selectable_value(&mut state.vault_sort_by, SortOption::SizeDesc, "Ukuran (Besar)");
+            });
+        
+        ui.add_space(8.0);
+        if ui.selectable_label(state.vault_view_mode == ViewMode::List, "📄").clicked() { state.vault_view_mode = ViewMode::List; }
+        if ui.selectable_label(state.vault_view_mode == ViewMode::Grid, "🔲").clicked() { state.vault_view_mode = ViewMode::Grid; }
+    });
+    
+    ui.add_space(16.0);
+    
+    // Filter & Sort Data
+    let mut files: Vec<_> = state.file_list.iter().filter(|f| {
+        if state.vault_search_query.is_empty() { return true; }
+        f.original_name.to_lowercase().contains(&state.vault_search_query.to_lowercase())
+    }).collect();
+    
+    files.sort_by(|a, b| {
+        match state.vault_sort_by {
+            SortOption::DateDesc => b.encrypted_at.cmp(&a.encrypted_at),
+            SortOption::DateAsc  => a.encrypted_at.cmp(&b.encrypted_at),
+            SortOption::NameAsc  => a.original_name.to_lowercase().cmp(&b.original_name.to_lowercase()),
+            SortOption::SizeDesc => b.file_size.cmp(&a.file_size),
+        }
+    });
+
+    if files.is_empty() {
+        ui.add_space(40.0);
+        ui.vertical_centered(|ui| {
+            ui.label(egui::RichText::new("Belum ada file yang cocok.").color(TEXT_MUTED));
+        });
+        return;
+    }
+    
+    // Render files
     let avail = ui.available_rect_before_wrap();
-    if state.file_list.is_empty() {
-        ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(TEXT_MUTED)); });
-    } else {
+    
+    if state.vault_view_mode == ViewMode::List {
         ui.vertical(|ui| {
-            for record in state.file_list.iter() {
+            for record in files {
                 ui.horizontal(|ui| {
                     ui.add_space(pad);
                     let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 68.0), egui::Sense::click());
@@ -654,42 +715,164 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
                     filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 12.0);
                     ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(22.0, FontFamily::Proportional), badge.1);
                     
-                    let name_truncated = if record.original_name.len() > 25 { format!("{}…", &record.original_name[..23]) } else { record.original_name.clone() };
+                    let name_truncated = if record.original_name.len() > 30 { format!("{}…", &record.original_name[..28]) } else { record.original_name.clone() };
                     ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), TEXT_PRIMARY);
                     
                     let meta = format!("{} • Encrypted {}", format_size(record.file_size as u64), &record.encrypted_at[..10]);
                     ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), TEXT_MUTED);
                     
-                    let action_icon = if is_hover { "🔓" } else { "🔒" };
-                    let icon_resp = ui.allocate_rect(egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0)), egui::Sense::click());
-                    ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), TEXT_MUTED);
-                    
-                    if icon_resp.clicked() {
-                        *to_decrypt = Some(record.vault_filename.clone());
+                    if is_hover {
+                        let action_icon = "🔓";
+                        let icon_resp = ui.allocate_rect(egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0)), egui::Sense::click());
+                        ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), TEXT_MUTED);
+                        if icon_resp.clicked() || resp.clicked() {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        }
                     } else if resp.clicked() {
-                        *to_decrypt = Some(record.vault_filename.clone());
+                         *to_decrypt = Some(record.vault_filename.clone());
                     }
                 });
                 ui.add_space(8.0);
             }
         });
+    } else {
+        // Grid View
+        ui.horizontal(|ui| { ui.add_space(pad); }); // padding for wrap
+        ui.horizontal_wrapped(|ui| {
+            ui.add_space(pad);
+            let item_width = 100.0;
+            let item_height = 120.0;
+            for record in files {
+                let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, item_height), egui::Sense::click());
+                let is_hover = resp.hovered();
+                filled_rect(ui, rect, if is_hover { BG_CARD } else { BG_SURFACE }, Stroke::new(1.0, if is_hover { TEAL_STRONG } else { BORDER_DEFAULT }), 16.0);
+                
+                let ext = file_ext(&record.original_name);
+                let (icon, badge) = file_badge(ext);
+                let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.center().x, rect.top() + 40.0), Vec2::splat(50.0));
+                filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 14.0);
+                ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(28.0, FontFamily::Proportional), badge.1);
+                
+                let name_truncated = if record.original_name.len() > 12 { format!("{}…", &record.original_name[..10]) } else { record.original_name.clone() };
+                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 16.0), egui::Align2::CENTER_CENTER, name_truncated, FontId::new(13.0, FontFamily::Proportional), TEXT_PRIMARY);
+                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 32.0), egui::Align2::CENTER_CENTER, format_size(record.file_size as u64), FontId::new(11.0, FontFamily::Proportional), TEXT_MUTED);
+                
+                if resp.clicked() {
+                    *to_decrypt = Some(record.vault_filename.clone());
+                }
+                ui.add_space(8.0); // space between grid items
+            }
+        });
     }
 }
 
+fn draw_pie_chart(ui: &mut egui::Ui, rect: egui::Rect, data: &[(String, f32, Color32)]) {
+    let center = rect.center();
+    let radius = rect.width().min(rect.height()) / 2.0;
+    let mut current_angle: f32 = -std::f32::consts::FRAC_PI_2; // Start from top
+    let total: f32 = data.iter().map(|(_, v, _)| v).sum();
+    
+    if total == 0.0 {
+        ui.painter().circle(center, radius, BG_SURFACE, Stroke::new(1.0, BORDER_DEFAULT));
+        ui.painter().text(center, egui::Align2::CENTER_CENTER, "Kosong", FontId::new(14.0, FontFamily::Proportional), TEXT_MUTED);
+        return;
+    }
+    
+    for (_, value, color) in data {
+        if *value <= 0.0 { continue; }
+        let angle_span = (*value / total) * std::f32::consts::PI * 2.0;
+        let mut mesh = egui::Mesh::default();
+        let center_idx = mesh.vertices.len() as u32;
+        mesh.vertices.push(egui::epaint::Vertex {
+            pos: center,
+            uv: egui::epaint::WHITE_UV,
+            color: *color,
+        });
+        
+        let segments = 32.max((angle_span * 10.0) as usize);
+        for i in 0..=segments {
+            let a = current_angle + angle_span * (i as f32 / segments as f32);
+            mesh.vertices.push(egui::epaint::Vertex {
+                pos: center + egui::Vec2::new(a.cos() * radius, a.sin() * radius),
+                uv: egui::epaint::WHITE_UV,
+                color: *color,
+            });
+            if i > 0 {
+                let v_len = mesh.vertices.len() as u32;
+                mesh.indices.extend_from_slice(&[center_idx, v_len - 2, v_len - 1]);
+            }
+        }
+        ui.painter().add(mesh);
+        current_angle += angle_span;
+    }
+    
+    // Draw inner circle for donut chart look
+    ui.painter().circle_filled(center, radius * 0.6, BG_BASE);
+}
+
 fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
-    let avail = ui.available_rect_before_wrap();
-    let pad = 20.0;
+    ui.add_space(40.0);
     ui.vertical_centered(|ui| {
-        ui.add_space(40.0);
-        ui.label(egui::RichText::new("Penggunaan Penyimpanan").size(20.0).color(TEXT_PRIMARY).strong());
-        ui.add_space(30.0);
-        
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 160.0), egui::Sense::hover());
-        filled_rect(ui, rect, BG_SURFACE, Stroke::new(1.0, BORDER_DEFAULT), 20.0);
-        
-        ui.painter().text(egui::pos2(rect.center().x, rect.top() + 40.0), egui::Align2::CENTER_CENTER, "💽", FontId::new(40.0, FontFamily::Proportional), TEAL_STRONG);
-        ui.painter().text(egui::pos2(rect.center().x, rect.top() + 90.0), egui::Align2::CENTER_CENTER, format_size(state.total_vault_size()), FontId::new(24.0, FontFamily::Proportional), TEXT_PRIMARY);
-        ui.painter().text(egui::pos2(rect.center().x, rect.top() + 115.0), egui::Align2::CENTER_CENTER, format!("Total dari {} File Terenkripsi", state.file_list.len()), FontId::new(12.0, FontFamily::Proportional), TEXT_MUTED);
+        ui.label(egui::RichText::new("Storage Analysis").size(22.0).color(TEXT_PRIMARY).strong());
+        ui.add_space(8.0);
+        let total = state.total_vault_size();
+        ui.label(egui::RichText::new(format!("Total: {}", format_size(total))).size(16.0).color(TEXT_MUTED));
+    });
+    
+    ui.add_space(40.0);
+    
+    // Calculate stats
+    let mut size_img = 0f32;
+    let mut size_vid = 0f32;
+    let mut size_doc = 0f32;
+    let mut size_oth = 0f32;
+    
+    for f in &state.file_list {
+        let ext = file_ext(&f.original_name);
+        match ext {
+            "png" | "jpg" | "jpeg" | "gif" | "webp" => size_img += f.file_size as f32,
+            "mp4" | "mkv" | "avi" | "mov"           => size_vid += f.file_size as f32,
+            "pdf" | "doc" | "docx" | "txt"          => size_doc += f.file_size as f32,
+            _                                       => size_oth += f.file_size as f32,
+        }
+    }
+    
+    let chart_data = vec![
+        ("Gambar".to_string(),  size_img, Color32::from_rgb(250, 190, 88)),
+        ("Video".to_string(),   size_vid, Color32::from_rgb(235, 87, 87)),
+        ("Dokumen".to_string(), size_doc, TEAL_STRONG),
+        ("Lainnya".to_string(), size_oth, Color32::from_rgb(140, 140, 160)),
+    ];
+    
+    let chart_size = 200.0;
+    
+    ui.vertical_centered(|ui| {
+        let (rect, _) = ui.allocate_exact_size(Vec2::splat(chart_size), egui::Sense::hover());
+        draw_pie_chart(ui, rect, &chart_data);
+    });
+    
+    ui.add_space(40.0);
+    
+    // Legend
+    ui.horizontal(|ui| {
+        ui.add_space(20.0);
+        ui.vertical(|ui| {
+            for (label, val, color) in &chart_data {
+                if *val > 0.0 {
+                    ui.horizontal(|ui| {
+                        let (rect, _) = ui.allocate_exact_size(Vec2::splat(14.0), egui::Sense::hover());
+                        ui.painter().circle_filled(rect.center(), 7.0, *color);
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new(label).color(TEXT_PRIMARY).size(14.0));
+                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                            ui.add_space(20.0);
+                            ui.label(egui::RichText::new(format_size(*val as u64)).color(TEXT_MUTED).size(14.0));
+                        });
+                    });
+                    ui.add_space(12.0);
+                }
+            }
+        });
     });
 }
 
@@ -734,29 +917,109 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     });
 }
 
-fn render_tab_profile(ui: &mut egui::Ui, _state: &mut AppState, _ctrl: &Controller) {
+fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
+    ui.add_space(30.0);
     ui.vertical_centered(|ui| {
-        ui.add_space(40.0);
-        ui.label(egui::RichText::new("Profil Pengguna").size(20.0).color(TEXT_PRIMARY).strong());
-        ui.add_space(30.0);
-        ui.label(egui::RichText::new("👤").size(60.0));
-        ui.add_space(20.0);
-        ui.label(egui::RichText::new("Aegis User").size(18.0).color(TEXT_PRIMARY));
-        ui.label(egui::RichText::new("Identitas dan pengaturan akun.").color(TEXT_MUTED));
+        ui.label(egui::RichText::new("Profil & Pengaturan").size(22.0).color(TEXT_PRIMARY).strong());
+    });
+    
+    ui.add_space(30.0);
+    let pad = 20.0;
+    
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.vertical(|ui| {
+            // Backup Database Section
+            ui.label(egui::RichText::new("Data").color(TEAL_STRONG).strong());
+            ui.add_space(8.0);
+            if teal_btn(ui, "💾  Backup Database", 200.0).clicked() {
+                ctrl.backup_database(state);
+            }
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Simpan cadangan .db di tempat aman.").size(12.0).color(TEXT_MUTED));
+            
+            ui.add_space(30.0);
+            
+            // Ubah PIN Section
+            ui.label(egui::RichText::new("Ubah PIN Utama").color(TEAL_STRONG).strong());
+            ui.add_space(10.0);
+            
+            ui.label(egui::RichText::new("PIN Lama").size(12.0).color(TEXT_MUTED));
+            ui.add(egui::TextEdit::singleline(&mut state.profile_old_pin).password(true).desired_width(200.0));
+            ui.add_space(8.0);
+            
+            ui.label(egui::RichText::new("PIN Baru (6 digit)").size(12.0).color(TEXT_MUTED));
+            ui.add(egui::TextEdit::singleline(&mut state.profile_new_pin).password(true).desired_width(200.0));
+            ui.add_space(8.0);
+            
+            ui.label(egui::RichText::new("Konfirmasi PIN Baru").size(12.0).color(TEXT_MUTED));
+            ui.add(egui::TextEdit::singleline(&mut state.profile_confirm_pin).password(true).desired_width(200.0));
+            ui.add_space(12.0);
+            
+            if teal_btn(ui, "🔑  Ubah PIN", 200.0).clicked() {
+                ctrl.change_pin(state);
+            }
+            
+            if let Some(err) = &state.profile_pin_error {
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new(err).color(ERROR_COLOR).size(13.0));
+            }
+            if let Some(msg) = &state.profile_pin_success {
+                ui.add_space(8.0);
+                ui.label(egui::RichText::new(msg).color(TEAL_LIGHT).size(13.0));
+            }
+        });
     });
 }
 
-fn render_tab_notifications(ui: &mut egui::Ui, _state: &mut AppState, _ctrl: &Controller) {
-    let avail = ui.available_rect_before_wrap();
-    let pad = 20.0;
+fn render_tab_notifications(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
+    ui.add_space(30.0);
     ui.vertical_centered(|ui| {
-        ui.add_space(40.0);
-        ui.label(egui::RichText::new("Notifikasi").size(20.0).color(TEXT_PRIMARY).strong());
-        ui.add_space(30.0);
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 100.0), egui::Sense::hover());
-        filled_rect(ui, rect, BG_SURFACE, Stroke::new(1.0, BORDER_DEFAULT), 16.0);
-        ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "Tidak ada notifikasi baru.", FontId::new(14.0, FontFamily::Proportional), TEXT_MUTED);
+        ui.label(egui::RichText::new("Audit Log Keamanan").size(22.0).color(TEXT_PRIMARY).strong());
+        ui.add_space(8.0);
+        ui.label(egui::RichText::new("Aktivitas terbaru di dalam brankas.").color(TEXT_MUTED));
     });
+    
+    ui.add_space(30.0);
+    let pad = 20.0;
+    let avail = ui.available_rect_before_wrap();
+    
+    if state.audit_logs.is_empty() {
+        ui.vertical_centered(|ui| {
+            ui.add_space(20.0);
+            ui.label(egui::RichText::new("Belum ada catatan aktivitas.").color(TEXT_MUTED));
+        });
+    } else {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            for log in &state.audit_logs {
+                ui.horizontal(|ui| {
+                    ui.add_space(pad);
+                    let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 60.0), egui::Sense::hover());
+                    
+                    let (icon, color) = match log.action_type.as_str() {
+                        "FAIL_LOGIN" | "FAIL_2FA" => ("⚠", ERROR_COLOR),
+                        "LOGIN" | "LOGIN_2FA"     => ("👤", TEAL_STRONG),
+                        "ENCRYPT"                 => ("🔒", Color32::from_rgb(250, 190, 88)),
+                        "DECRYPT"                 => ("🔓", Color32::from_rgb(100, 200, 100)),
+                        "BACKUP"                  => ("💾", Color32::from_rgb(100, 150, 250)),
+                        "CHANGE_PIN" | "SETUP"    => ("🔑", Color32::from_rgb(200, 100, 250)),
+                        _                         => ("ℹ", TEXT_MUTED),
+                    };
+                    
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 24.0, rect.center().y), Vec2::splat(36.0));
+                    filled_rect(ui, icon_rect, color.linear_multiply(0.15), Stroke::NONE, 18.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(18.0, FontFamily::Proportional), color);
+                    
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, &log.description, FontId::new(14.0, FontFamily::Proportional), TEXT_PRIMARY);
+                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, &log.timestamp, FontId::new(11.0, FontFamily::Proportional), TEXT_MUTED);
+                    
+                    // Separator line
+                    ui.painter().line_segment([egui::pos2(rect.left(), rect.bottom()), egui::pos2(rect.right(), rect.bottom())], Stroke::new(0.5, BORDER_SUBTLE));
+                });
+                ui.add_space(4.0);
+            }
+        });
+    }
 }
 
 // ── Screen: Decrypt Panel ─────────────────────────────────
@@ -995,6 +1258,12 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                             .size(12.0).color(TEAL_FAINT)
                             .text_style(egui::TextStyle::Monospace));
                     });
+                    
+                if let Some(st) = state.totp_setup_time {
+                    let left = 30u64.saturating_sub(st.elapsed().as_secs());
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new(format!("⏳ Kunci berganti dalam {} detik", left)).size(11.0).color(WARN_COLOR));
+                }
 
                 ui.add_space(20.0);
 

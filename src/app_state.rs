@@ -4,7 +4,7 @@
 // View hanya membaca state untuk render.
 
 use crate::crypto::{KEY_LEN, SALT_LEN};
-use crate::db::FileRecord;
+use crate::db::{FileRecord, AuditLog};
 
 // ── Screen enum ───────────────────────────────────────────
 #[derive(Default, PartialEq, Clone)]
@@ -29,6 +29,29 @@ pub enum DashboardTab {
     Profile,
     Notifications,
 }
+
+#[derive(PartialEq, Clone)]
+pub enum ViewMode {
+    List,
+    Grid,
+}
+
+impl Default for ViewMode {
+    fn default() -> Self { Self::List }
+}
+
+#[derive(PartialEq, Clone)]
+pub enum SortOption {
+    DateDesc,
+    DateAsc,
+    NameAsc,
+    SizeDesc,
+}
+
+impl Default for SortOption {
+    fn default() -> Self { Self::DateDesc }
+}
+
 
 // ── Status message ────────────────────────────────────────
 #[derive(Clone)]
@@ -78,6 +101,21 @@ pub struct AppState {
 
     // Reset Vault
     pub show_reset_confirm: bool,
+
+    // Vault Tab
+    pub vault_search_query: String,
+    pub vault_view_mode: ViewMode,
+    pub vault_sort_by: SortOption,
+
+    // Profile Tab
+    pub profile_old_pin: String,
+    pub profile_new_pin: String,
+    pub profile_confirm_pin: String,
+    pub profile_pin_error: Option<String>,
+    pub profile_pin_success: Option<String>,
+
+    // Notifications Tab
+    pub audit_logs: Vec<AuditLog>,
 }
 
 impl Default for AppState {
@@ -107,6 +145,15 @@ impl Default for AppState {
             totp_error:       None,
             totp_setup_time:  None,
             show_reset_confirm: false,
+            vault_search_query: String::new(),
+            vault_view_mode: ViewMode::List,
+            vault_sort_by: SortOption::DateDesc,
+            profile_old_pin: String::new(),
+            profile_new_pin: String::new(),
+            profile_confirm_pin: String::new(),
+            profile_pin_error: None,
+            profile_pin_success: None,
+            audit_logs: Vec::new(),
         }
     }
 }
