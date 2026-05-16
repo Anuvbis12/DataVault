@@ -8,6 +8,14 @@ use std::path::Path;
 // ── Model ─────────────────────────────────────────────────
 
 #[derive(Debug, Clone)]
+pub struct AuditLog {
+    pub id: i64,
+    pub action_type: String,
+    pub description: String,
+    pub timestamp: String,
+}
+
+#[derive(Debug, Clone)]
 pub struct FileRecord {
     pub id:             String,
     pub original_name:  String,
@@ -63,6 +71,13 @@ impl VaultDb {
             CREATE TABLE IF NOT EXISTS vault_meta (
                 key     TEXT PRIMARY KEY,
                 value   TEXT NOT NULL
+            );
+
+            CREATE TABLE IF NOT EXISTS audit_logs (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                action_type TEXT NOT NULL,
+                description TEXT NOT NULL,
+                timestamp TEXT NOT NULL
             );
         ")?;
         
@@ -263,5 +278,34 @@ impl VaultDb {
     pub fn conn_exec(&self, sql: &str) -> Result<()> {
         self.conn.execute_batch(sql)?;
         Ok(())
+    }
+
+    // ── Audit Logs ────────────────────────────────────────
+
+    pub fn insert_audit_log(&self, action_type: &str, description: &str, timestamp: &str) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO audit_logs (action_type, description, timestamp) VALUES (?1, ?2, ?3)",
+            params![action_type, description, timestamp],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_all_audit_logs(&self) -> Result<Vec<AuditLog>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, action_type, description, timestamp
+             FROM audit_logs
+             ORDER BY id DESC LIMIT 100"
+        )?;
+
+        let logs = stmt.query_map([], |row| {
+            Ok(AuditLog {
+                id:          row.get(0)?,
+                action_type: row.get(1)?,
+                description: row.get(2)?,
+                timestamp:   row.get(3)?,
+            })
+        })?.collect::<Result<Vec<_>>>()?;
+
+        Ok(logs)
     }
 }

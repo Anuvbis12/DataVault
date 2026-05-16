@@ -71,11 +71,12 @@ impl Controller {
                 state.totp_code.clear();
                 state.totp_error = None;
                 state.screen = AppScreen::TotpVerify;
-            } else {
+                self.log_action("LOGIN", "Berhasil login ke dalam vault via PIN.");
                 state.screen = AppScreen::Dashboard;
             }
             true
         } else {
+            self.log_action("FAIL_LOGIN", "Gagal mencoba login. PIN salah.");
             state.pin_error = Some("PIN salah. Coba lagi.".into());
             state.pin_input.zeroize();
             false
@@ -114,6 +115,7 @@ impl Controller {
         state.pin_confirm.zeroize();
         state.pin_error = None;
         self.load_files(state);
+        self.log_action("SETUP", "PIN awal dikonfigurasi.");
         state.screen = AppScreen::Dashboard;
     }
 
@@ -209,6 +211,7 @@ impl Controller {
                 }
 
                 self.load_files(state);
+                self.log_action("ENCRYPT", &format!("File '{}' diamankan.", file_name));
                 state.set_status(&format!("✅ Berhasil: {} diamankan.", file_name), true);
             }
             Err(e) => state.set_status(&format!("❌ Gagal enkripsi: {}", e), false),
@@ -236,6 +239,7 @@ impl Controller {
                 { let db = self.db.lock().unwrap(); let _ = db.permanent_delete_file(&record.id); }
                 let _ = std::fs::remove_file(&vault_path);
                 self.load_files(state);
+                self.log_action("DECRYPT", &format!("File dipulihkan: {}", record.original_name));
                 state.set_status(
                     &format!("✅ File dipulihkan ke: {}", out_path.display()), true
                 );
@@ -361,8 +365,10 @@ impl Controller {
         if crate::totp::verify(&secret, &state.totp_code) {
             state.totp_code.clear();
             state.totp_error = None;
+            self.log_action("LOGIN_2FA", "Login 2FA berhasil.");
             state.screen = AppScreen::Dashboard;
         } else {
+            self.log_action("FAIL_2FA", "Gagal verifikasi 2FA.");
             state.totp_error = Some("Kode salah. Coba lagi.".into());
             state.totp_code.clear();
         }
@@ -381,6 +387,77 @@ impl Controller {
         state.totp_qr      = None;
         state.totp_setup_time = None;
         state.set_status("TOTP dinonaktifkan.", true);
+    }
+    // ── Audit Logs ────────────────────────────────────────
+
+    pub fn log_action(&self, action: &str, desc: &str) {
+        let db = self.db.lock().unwrap();
+        let _ = db.insert_audit_log(action, desc, &timestamp_now());
+    }
+
+    pub fn load_audit_logs(&self, state: &mut AppState) {
+        let db = self.db.lock().unwrap();
+        state.audit_logs = db.get_all_audit_logs().unwrap_or_default();
+    }
+
+    // ── Profile / Settings ────────────────────────────────
+
+    pub fn backup_database(&self, state: &mut AppState) {
+        if let Some(dest) = rfd::FileDialog::new().set_file_name("vault_backup.db").save_file() {
+            if let Err(e) = std::fs::copy(DB_PATH, dest) {
+                state.set_status(&format!("❌ Gagal backup: {}", e), false);
+            } else {
+                state.set_status("✅ Backup database berhasil.", true);
+                self.log_action("BACKUP", "Database dicadangkan oleh pengguna.");
+            }
+        }
+    }
+
+    pub fn change_pin(&self, state: &mut AppState) {
+        if state.profile_new_pin.len() != 6 {
+            state.profile_pin_error = Some("PIN baru harus 6 digit.".into());
+            return;
+        }
+        if state.profile_new_pin != state.profile_confirm_pin {
+            state.profile_pin_error = Some("PIN baru tidak cocok.".into());
+            return;
+        }
+
+        let db = self.db.lock().unwrap();
+        let pin_hash_db = db.get_pin_hash().unwrap_or(None);
+        let salt_hex_db = db.get_pin_salt().unwrap_or(None);
+
+        let (Some(stored_hash), Some(salt_hex)) = (pin_hash_db, salt_hex_db) else {
+            state.profile_pin_error = Some("Data PIN lama tidak ditemukan.".into());
+            return;
+        };
+
+        let salt_bytes = hex::decode(&salt_hex).unwrap_or_default();
+        let mut old_salt = [0u8; crate::crypto::SALT_LEN];
+        old_salt.copy_from_slice(&salt_bytes);
+
+        if crate::crypto::hash_pin(&state.profile_old_pin, &old_salt) != stored_hash {
+            state.profile_pin_error = Some("PIN lama salah.".into());
+            return;
+        }
+
+        let new_salt = crate::crypto::generate_salt();
+        let new_hash = crate::crypto::hash_pin(&state.profile_new_pin, &new_salt);
+        let new_salt_hex = hex::encode(new_salt);
+
+        db.set_pin(&new_hash, &new_salt_hex).expect("Gagal update PIN");
+        drop(db);
+
+        let key = crate::crypto::derive_key(&state.profile_new_pin, &new_salt);
+        state.session_key  = Some(key);
+        state.session_salt = Some(new_salt);
+
+        state.profile_old_pin.clear();
+        state.profile_new_pin.clear();
+        state.profile_confirm_pin.clear();
+        state.profile_pin_error = None;
+        state.profile_pin_success = Some("PIN berhasil diubah.".into());
+        self.log_action("CHANGE_PIN", "PIN utama berhasil diubah.");
     }
 }
 
