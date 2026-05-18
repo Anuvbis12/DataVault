@@ -70,6 +70,21 @@ impl VaultMvc {
 
 impl eframe::App for VaultMvc {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut eframe::Frame) {
+        // Panic Button (Double Esc to Lock & Minimize)
+        if ctx.input(|i| i.key_pressed(egui::Key::Escape)) {
+            if let Some(last) = self.state.last_esc_press {
+                if last.elapsed().as_millis() < 500 {
+                    self.controller.logout(&mut self.state);
+                    ctx.send_viewport_cmd(egui::ViewportCommand::Minimized(true));
+                    self.state.last_esc_press = None;
+                } else {
+                    self.state.last_esc_press = Some(std::time::Instant::now());
+                }
+            } else {
+                self.state.last_esc_press = Some(std::time::Instant::now());
+            }
+        }
+
         // Handle Drag & Drop
         if !ctx.input(|i| i.raw.dropped_files.is_empty()) {
             let dropped = ctx.input(|i| i.raw.dropped_files.clone());

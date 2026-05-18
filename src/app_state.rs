@@ -122,6 +122,16 @@ pub struct AppState {
     pub preview_filename: String,
     pub transition_start: Option<std::time::Instant>,
     pub previous_tab: DashboardTab,
+    
+    // Real-time device metrics
+    pub cpu_usage: f32,
+    pub ram_usage: f32,
+    pub io_usage: f32,
+    pub device_disk_total: u64,
+    pub device_disk_free: u64,
+    
+    // Panic Button state
+    pub last_esc_press: Option<std::time::Instant>,
 }
 
 impl Default for AppState {
@@ -165,6 +175,12 @@ impl Default for AppState {
             preview_filename: String::new(),
             transition_start: None,
             previous_tab: DashboardTab::Home,
+            cpu_usage: 0.0,
+            ram_usage: 0.0,
+            io_usage: 0.0,
+            device_disk_total: 0,
+            device_disk_free: 0,
+            last_esc_press: None,
         }
     }
 }

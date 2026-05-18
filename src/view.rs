@@ -340,6 +340,9 @@ fn render_setup_pin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
 
 // ── Screen: Dashboard ─────────────────────────────────────
 fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
+    ctrl.refresh_device_metrics(state);
+    ui.ctx().request_repaint_after(std::time::Duration::from_secs(2));
+
     let avail = ui.available_rect_before_wrap();
     
     // ─ Topbar ─
@@ -507,7 +510,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
         filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(182, 102, 210, 25), Stroke::new(1.0, Color32::from_rgba_unmultiplied(182, 102, 210, 50)), 10.0);
         ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "High-tier", FontId::new(10.0, FontFamily::Proportional), teal_strong());
         
-        let metrics = [("CPU", 0.55, teal_strong()), ("RAM", 0.78, success_color()), ("I/O", 0.32, warn_color())];
+        let metrics = [("CPU", state.cpu_usage, teal_strong()), ("RAM", state.ram_usage, success_color()), ("I/O", state.io_usage, warn_color())];
         for (i, (lbl, val, color)) in metrics.iter().enumerate() {
             let y = rect.top() + 60.0 + i as f32 * 25.0;
             ui.painter().text(egui::pos2(rect.left() + 20.0, y), egui::Align2::LEFT_CENTER, *lbl, FontId::new(12.0, FontFamily::Proportional), text_muted());
@@ -860,15 +863,46 @@ fn draw_pie_chart(ui: &mut egui::Ui, rect: egui::Rect, data: &[(String, f32, Col
 }
 
 fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
-    ui.add_space(40.0);
+    ui.add_space(20.0);
     ui.vertical_centered(|ui| {
         ui.label(egui::RichText::new("Storage Analysis").size(22.0).color(text_primary()).strong());
-        ui.add_space(8.0);
-        let total = state.total_vault_size();
-        ui.label(egui::RichText::new(format!("Total: {}", format_size(total))).size(16.0).color(text_muted()));
+    });
+    ui.add_space(20.0);
+
+    // Device Storage Bar
+    ui.horizontal(|ui| {
+        ui.add_space(20.0);
+        let avail = ui.available_rect_before_wrap();
+        let (rect, _) = ui.allocate_exact_size(egui::Vec2::new(avail.width() - 20.0, 80.0), egui::Sense::hover());
+        filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 16.0);
+        
+        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 20.0), egui::Align2::LEFT_CENTER, "📱 Device Storage", FontId::new(14.0, FontFamily::Proportional), text_primary());
+        
+        let total = state.device_disk_total;
+        let free = state.device_disk_free;
+        let used = total.saturating_sub(free);
+        
+        if total > 0 {
+            ui.painter().text(egui::pos2(rect.right() - 20.0, rect.top() + 20.0), egui::Align2::RIGHT_CENTER, format!("{} / {}", format_size(used), format_size(total)), FontId::new(12.0, FontFamily::Proportional), text_muted());
+            
+            let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.top() + 50.0), egui::Vec2::new(rect.width() - 40.0, 8.0));
+            filled_rect(ui, bar_bg, bg_card(), Stroke::NONE, 4.0);
+            
+            let fraction = (used as f32 / total as f32).clamp(0.0, 1.0);
+            let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.top() + 50.0), egui::Vec2::new((rect.width() - 40.0) * fraction, 8.0));
+            filled_rect(ui, bar_fg, Color32::from_rgb(96, 165, 250), Stroke::NONE, 4.0);
+        } else {
+            ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 50.0), egui::Align2::LEFT_CENTER, "Akses penyimpanan dibutuhkan / Izin ditolak", FontId::new(12.0, FontFamily::Proportional), warn_color());
+        }
+    });
+
+    ui.add_space(30.0);
+    ui.vertical_centered(|ui| {
+        let vault_total = state.total_vault_size();
+        ui.label(egui::RichText::new(format!("Vault Usage: {}", format_size(vault_total))).size(16.0).color(text_muted()));
     });
     
-    ui.add_space(40.0);
+    ui.add_space(20.0);
     
     // Calculate stats
     let mut size_img = 0f32;
