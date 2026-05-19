@@ -816,24 +816,32 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                     ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
                     
                     if is_hover {
-                        let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 60.0, rect.center().y), Vec2::splat(30.0));
+                        let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0));
                         let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
                         ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(18.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
                         
-                        let action_icon = "🔓";
-                        let icon_resp = ui.allocate_rect(egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0)), egui::Sense::click());
-                        ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), if icon_resp.hovered() { teal_strong() } else { text_muted() });
+                        let extract_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 64.0, rect.center().y), Vec2::splat(30.0));
+                        let extract_resp = ui.allocate_rect(extract_rect, egui::Sense::click());
+                        ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(20.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
                         
+                        let is_previewable = file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt";
+                        let mut preview_clicked = false;
+                        if is_previewable {
+                            let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 104.0, rect.center().y), Vec2::splat(30.0));
+                            let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
+                            ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(20.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
+                            preview_clicked = preview_resp.clicked();
+                        }
+
                         if del_resp.clicked() {
                             *to_soft_delete = Some(record.id.clone());
-                        } else if icon_resp.clicked() || (resp.clicked() && !del_resp.hovered()) {
-                            if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                                target_preview = Some(record.vault_filename.clone());
-                            } else {
-                                *to_decrypt = Some(record.vault_filename.clone());
-                            }
+                        } else if extract_resp.clicked() {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        } else if preview_clicked {
+                            target_preview = Some(record.vault_filename.clone());
                         }
                     } else if resp.clicked() {
+                         // Default action on click the whole card
                          if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
                             target_preview = Some(record.vault_filename.clone());
                         } else {
@@ -871,21 +879,36 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                     let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
                     ui.painter().circle_filled(del_rect.center(), 12.0, bg_card());
                     ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(12.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
+                    
+                    let extract_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 44.0), Vec2::splat(24.0));
+                    let extract_resp = ui.allocate_rect(extract_rect, egui::Sense::click());
+                    ui.painter().circle_filled(extract_rect.center(), 12.0, bg_card());
+                    ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(12.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
+
+                    let is_previewable = file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt";
+                    let mut preview_clicked = false;
+                    if is_previewable {
+                        let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 72.0), Vec2::splat(24.0));
+                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
+                        ui.painter().circle_filled(preview_rect.center(), 12.0, bg_card());
+                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(12.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
+                        preview_clicked = preview_resp.clicked();
+                    }
+
                     if del_resp.clicked() {
                         *to_soft_delete = Some(record.id.clone());
-                    } else if resp.clicked() && !del_resp.hovered() {
-                        if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                            target_preview = Some(record.vault_filename.clone());
-                        } else {
-                            *to_decrypt = Some(record.vault_filename.clone());
-                        }
+                    } else if extract_resp.clicked() {
+                        *to_decrypt = Some(record.vault_filename.clone());
+                    } else if preview_clicked {
+                        target_preview = Some(record.vault_filename.clone());
                     }
                 } else if resp.clicked() {
+                    // Default action on click the whole card
                     if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                            target_preview = Some(record.vault_filename.clone());
-                        } else {
-                            *to_decrypt = Some(record.vault_filename.clone());
-                        }
+                        target_preview = Some(record.vault_filename.clone());
+                    } else {
+                        *to_decrypt = Some(record.vault_filename.clone());
+                    }
                 }
                 ui.add_space(8.0); // space between grid items
             }

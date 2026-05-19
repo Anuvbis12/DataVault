@@ -300,7 +300,7 @@ impl VaultDb {
     pub fn get_file(&self, vault_filename: &str) -> Result<Option<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename, sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at 
-             FROM files WHERE vault_filename = ?1 AND is_deleted = 0"
+             FROM file_records WHERE vault_filename = ?1 AND is_deleted = 0"
         )?;
         let mut rows = stmt.query([vault_filename])?;
         if let Some(row) = rows.next()? {
