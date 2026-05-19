@@ -1,0 +1,79 @@
+// lib.rs — Pintu masuk utama untuk Library & Android Aegis Vault
+pub mod app_state;
+pub mod controller;
+pub mod crypto;
+pub mod db;
+pub mod file_handler;
+pub mod recycle_bin;
+pub mod theme;
+pub mod totp;
+pub mod view;
+
+use std::path::Path;
+
+// ── Root struct MVC (harus public agar bisa dibaca main.rs) ──
+pub struct VaultMvc {
+    pub state:      app_state::AppState,
+    pub controller: controller::Controller,
+}
+
+impl VaultMvc {
+    pub fn new(db: db::VaultDb) -> Self {
+        Self {
+            state:      app_state::AppState::default(),
+            controller: controller::Controller::new(db),
+        }
+    }
+}
+
+impl eframe::App for VaultMvc {
+    fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        // Panic Button (Double Esc to Lock & Minimize)
+        if ctx.input(|i| i.key_pressed(eframe::egui::Key::Escape)) {
+            if let Some(last) = self.state.last_esc_press {
+                if last.elapsed().as_millis() < 500 {
+                    self.controller.logout(&mut self.state);
+                    ctx.send_viewport_cmd(eframe::egui::ViewportCommand::Minimized(true));
+                    self.state.last_esc_press = None;
+                } else {
+                    self.state.last_esc_press = Some(std::time::Instant::now());
+                }
+            } else {
+                self.state.last_esc_press = Some(std::time::Instant::now());
+            }
+        }
+
+        // Handle Drag & Drop
+        if !ctx.input(|i| i.raw.dropped_files.is_empty()) {
+            let dropped = ctx.input(|i| i.raw.dropped_files.clone());
+            for file in dropped {
+                if let Some(path) = file.path {
+                    self.controller.encrypt_file(&mut self.state, path);
+                }
+            }
+        }
+        view::render(ctx, &mut self.state, &self.controller);
+    }
+}
+
+// ── ENTRY POINT KHUSUS ANDROID ──
+#[cfg(target_os = "android")]
+#[no_mangle]
+fn android_main(app: eframe::android_activity::AndroidApp) {
+    std::fs::create_dir_all(controller::VAULT_DIR).ok();
+
+    let options = eframe::NativeOptions::default();
+
+    eframe::run_android(
+        "Aegis Vault",
+        app,
+        options,
+        Box::new(|cc| {
+            theme::apply(&cc.egui_ctx);
+            // Pada Android, letakkan database di root/sandbox penyimpanan internal aplikasi
+            let db = db::VaultDb::open(Path::new(controller::DB_PATH))
+                .expect("Gagal membuka database Android");
+            Box::new(VaultMvc::new(db))
+        }),
+    ).unwrap();
+}

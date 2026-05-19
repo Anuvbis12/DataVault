@@ -698,6 +698,12 @@ impl Controller {
                     } else {
                         state.set_status(&format!("Membuka '{}' di aplikasi eksternal.", record.original_name), true);
                         self.log_action("PREVIEW_EXT", &format!("Membuka pratinjau eksternal: {}", record.original_name));
+                        
+                        // Tampilkan layar pratinjau di aplikasi agar user bisa memilih untuk memulihkan
+                        state.preview_bytes = Some(vec![]);
+                        state.preview_filename = record.original_name.clone();
+                        state.decrypt_target = Some(record.clone());
+                        state.screen = crate::app_state::AppScreen::PreviewMedia;
                     }
                 }
                 Err(_) => state.set_status("Gagal mendekripsi file untuk pratinjau.", false),

@@ -1725,7 +1725,18 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
 
             if let Some(bytes) = &state.preview_bytes {
                 let ext = file_ext(&state.preview_filename).to_lowercase();
-                if ext == "png" || ext == "jpg" || ext == "jpeg" {
+                if bytes.is_empty() {
+                    // File dibuka secara eksternal
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(80.0);
+                        ui.label(egui::RichText::new("📺 File Dibuka di Aplikasi Bawaan").size(24.0).color(teal_strong()));
+                        ui.add_space(20.0);
+                        ui.label(egui::RichText::new("Format file ini tidak dapat ditampilkan langsung di layar aplikasi.").color(text_muted()));
+                        ui.label(egui::RichText::new("Aplikasi secara otomatis membuka file ini di perangkat Anda.").color(text_muted()));
+                        ui.add_space(40.0);
+                        ui.label(egui::RichText::new("Anda dapat menutup layar ini atau memulihkan file menggunakan tombol di bawah.").color(Color32::from_rgb(120, 120, 140)));
+                    });
+                } else if ext == "png" || ext == "jpg" || ext == "jpeg" {
                     match image::load_from_memory(bytes) {
                         Ok(img) => {
                             let size = [img.width() as _, img.height() as _];
@@ -1763,7 +1774,10 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         ui.label(egui::RichText::new("Bukan teks UTF-8 yang valid.").color(error_color()));
                     }
                 } else {
-                    ui.label("Format tidak didukung untuk pratinjau.");
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(80.0);
+                        ui.label(egui::RichText::new("❓ Format Tidak Didukung").size(24.0).color(error_color()));
+                    });
                 }
             } else {
                 ui.label("Memuat...");
