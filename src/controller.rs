@@ -381,6 +381,113 @@ impl Controller {
         }
     }
 
+    pub fn preview_system_trash_to_memory(&self, state: &mut AppState, index: usize) {
+        if index >= state.system_trash_items.len() {
+            state.set_status("Item tidak ditemukan.", false);
+            return;
+        }
+        let item = state.system_trash_items[index].clone();
+        
+        if item.is_directory {
+            state.set_status("Tidak dapat mempratinjau folder.", false);
+            return;
+        }
+        
+        let ext = crate::theme::file_ext(&item.file_name).to_lowercase();
+        if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt" {
+            // Pratinjau gambar dan teks di dalam aplikasi
+            match std::fs::read(&item.recycle_path) {
+                Ok(data) => {
+                    state.preview_bytes = Some(data);
+                    state.preview_filename = item.file_name.clone();
+                    state.decrypt_target = None;
+                    state.screen = crate::app_state::AppScreen::PreviewMedia;
+                }
+                Err(e) => {
+                    state.set_status(&format!("Gagal membaca file dari Recycle Bin: {}", e), false);
+                }
+            }
+        } else {
+            // Untuk Word, PDF, Video, dll buka via aplikasi default OS
+            let path = &item.recycle_path;
+            if let Err(e) = std::process::Command::new("explorer")
+                .arg(path)
+                .spawn()
+            {
+                state.set_status(&format!("Gagal membuka file dengan aplikasi eksternal: {}", e), false);
+            } else {
+                state.set_status(&format!("Membuka '{}' di aplikasi eksternal.", item.file_name), true);
+            }
+        }
+    }
+
+    pub fn secure_system_trash_item(&self, state: &mut AppState, index: usize) {
+        if index >= state.system_trash_items.len() {
+            state.set_status("Item tidak ditemukan.", false);
+            return;
+        }
+        let item = state.system_trash_items[index].clone();
+        
+        if item.is_directory {
+            state.set_status("Mengamankan folder dari System Trash belum didukung.", false);
+            return;
+        }
+
+        let key = match state.session_key_bytes() {
+            Some(k) => k,
+            None    => { state.set_status("Sesi tidak valid. Login ulang.", false); return; }
+        };
+        let salt = match state.session_salt {
+            Some(s) => s,
+            None    => { state.set_status("Sesi tidak valid.", false); return; }
+        };
+
+        let vault_dir = Path::new(VAULT_DIR);
+        let source_path = Path::new(&item.recycle_path);
+
+        match crate::crypto::secure_encrypt_file(source_path, vault_dir, &key) {
+            Ok(result) => {
+                let record = FileRecord {
+                    id:             uuid::Uuid::new_v4().to_string(),
+                    original_name:  item.file_name.clone(),
+                    original_path:  item.original_path.clone(),
+                    vault_filename: result.encrypted_filename.clone(),
+                    sha256_hash:    result.file_hash.clone(),
+                    file_size:      item.file_size as i64,
+                    iv_hex:         hex::encode(result.iv),
+                    salt_hex:       hex::encode(salt),
+                    encrypted_at:   timestamp_now(),
+                    is_deleted:     false,
+                    deleted_at:     None,
+                };
+
+                let db  = self.db.lock().unwrap();
+                let err = db.insert_file(&record).err();
+                drop(db);
+
+                if let Some(e) = err {
+                    state.set_status(&format!("Berhasil enkripsi tapi gagal simpan DB: {}", e), false);
+                    return;
+                }
+
+                // Hapus dari Windows Recycle Bin setelah berhasil diamankan
+                let i_filename = source_path.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .replacen("$R", "$I", 1);
+                let i_path = source_path.parent().unwrap_or(Path::new("")).join(i_filename);
+                let _ = std::fs::remove_file(source_path);
+                let _ = std::fs::remove_file(i_path);
+
+                self.load_files(state);
+                self.scan_system_trash(state);
+                self.log_action("SECURE_SYS_TRASH", &format!("File '{}' diamankan dari Recycle Bin ke Vault.", item.file_name));
+                state.set_status(&format!("✅ Berhasil: '{}' diamankan ke dalam Vault.", item.file_name), true);
+            }
+            Err(e) => state.set_status(&format!("❌ Gagal enkripsi: {}", e), false),
+        }
+    }
+
     // ── TOTP (2FA) ────────────────────────────────────────
 
     /// Cek apakah TOTP sudah diaktifkan di database
@@ -551,6 +658,7 @@ impl Controller {
             Ok(Some(r)) => r,
             _ => { state.set_status("File tidak ditemukan", false); return; }
         };
+        drop(db);
 
         let key = match &state.session_key {
             Some(k) => k,
@@ -558,16 +666,41 @@ impl Controller {
         };
 
         let enc_path = std::path::Path::new(VAULT_DIR).join(&record.vault_filename);
-        match crate::crypto::decrypt_to_memory(&enc_path, key, &record.sha256_hash) {
-            Ok(data) => {
-                state.preview_bytes = Some(data);
-                state.preview_filename = record.original_name.clone();
-                state.decrypt_target = Some(record.clone());
-                state.screen = crate::app_state::AppScreen::PreviewMedia;
-                let _ = db.insert_audit_log("PREVIEW", &format!("Melihat pratinjau file: {}", record.original_name), &timestamp_now());
+        let ext = crate::theme::file_ext(&record.original_name).to_lowercase();
+        
+        if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt" {
+            // Pratinjau gambar dan teks di dalam aplikasi
+            match crate::crypto::decrypt_to_memory(&enc_path, key, &record.sha256_hash) {
+                Ok(data) => {
+                    state.preview_bytes = Some(data);
+                    state.preview_filename = record.original_name.clone();
+                    state.decrypt_target = Some(record.clone());
+                    state.screen = crate::app_state::AppScreen::PreviewMedia;
+                    self.log_action("PREVIEW", &format!("Melihat pratinjau file: {}", record.original_name));
+                }
+                Err(_) => {
+                    state.set_status("Gagal mendekripsi file (password salah atau rusak)", false);
+                }
             }
-            Err(_) => {
-                state.set_status("Gagal mendekripsi file (password salah atau rusak)", false);
+        } else {
+            // Untuk file lain, dekripsi ke folder Temp dan buka via aplikasi eksternal
+            let temp_dir = std::env::temp_dir().join("aegis_vault_preview");
+            let _ = std::fs::create_dir_all(&temp_dir);
+            let temp_path = temp_dir.join(&record.original_name);
+
+            match crate::crypto::secure_decrypt_file(&enc_path, &temp_path, key, &record.sha256_hash) {
+                Ok(()) => {
+                    if let Err(e) = std::process::Command::new("explorer")
+                        .arg(temp_path.to_str().unwrap())
+                        .spawn()
+                    {
+                        state.set_status(&format!("Gagal membuka file eksternal: {}", e), false);
+                    } else {
+                        state.set_status(&format!("Membuka '{}' di aplikasi eksternal.", record.original_name), true);
+                        self.log_action("PREVIEW_EXT", &format!("Membuka pratinjau eksternal: {}", record.original_name));
+                    }
+                }
+                Err(_) => state.set_status("Gagal mendekripsi file untuk pratinjau.", false),
             }
         }
     }

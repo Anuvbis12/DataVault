@@ -734,7 +734,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
     
     ui.horizontal(|ui| {
         ui.add_space(pad);
-        let search_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(ui.available_width() - pad - 100.0, 36.0));
+        let search_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(ui.available_width() - 240.0, 36.0));
         ui.allocate_ui_at_rect(search_rect, |ui| {
             ui.add(egui::TextEdit::singleline(&mut state.vault_search_query)
                 .hint_text("🔍 Cari file...")
@@ -824,14 +824,11 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                         let extract_resp = ui.allocate_rect(extract_rect, egui::Sense::click());
                         ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(20.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
                         
-                        let is_previewable = file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt";
                         let mut preview_clicked = false;
-                        if is_previewable {
-                            let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 104.0, rect.center().y), Vec2::splat(30.0));
-                            let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
-                            ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(20.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
-                            preview_clicked = preview_resp.clicked();
-                        }
+                        let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 104.0, rect.center().y), Vec2::splat(30.0));
+                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
+                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(20.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
+                        preview_clicked = preview_resp.clicked();
 
                         if del_resp.clicked() {
                             *to_soft_delete = Some(record.id.clone());
@@ -842,11 +839,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                         }
                     } else if resp.clicked() {
                          // Default action on click the whole card
-                         if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                            target_preview = Some(record.vault_filename.clone());
-                        } else {
-                            *to_decrypt = Some(record.vault_filename.clone());
-                        }
+                         target_preview = Some(record.vault_filename.clone());
                     }
                 });
                 ui.add_space(8.0);
@@ -885,15 +878,12 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                     ui.painter().circle_filled(extract_rect.center(), 12.0, bg_card());
                     ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(12.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
 
-                    let is_previewable = file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt";
                     let mut preview_clicked = false;
-                    if is_previewable {
-                        let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 72.0), Vec2::splat(24.0));
-                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
-                        ui.painter().circle_filled(preview_rect.center(), 12.0, bg_card());
-                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(12.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
-                        preview_clicked = preview_resp.clicked();
-                    }
+                    let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 72.0), Vec2::splat(24.0));
+                    let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
+                    ui.painter().circle_filled(preview_rect.center(), 12.0, bg_card());
+                    ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(12.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
+                    preview_clicked = preview_resp.clicked();
 
                     if del_resp.clicked() {
                         *to_soft_delete = Some(record.id.clone());
@@ -904,11 +894,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                     }
                 } else if resp.clicked() {
                     // Default action on click the whole card
-                    if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                        target_preview = Some(record.vault_filename.clone());
-                    } else {
-                        *to_decrypt = Some(record.vault_filename.clone());
-                    }
+                    target_preview = Some(record.vault_filename.clone());
                 }
                 ui.add_space(8.0); // space between grid items
             }
@@ -1754,7 +1740,14 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                                 color_image,
                                 Default::default()
                             );
-                            ui.image(&texture);
+                            
+                            // Hitung ukuran tersedia dengan menyisakan ruang untuk tombol di bawah
+                            let available = ui.available_size() - egui::Vec2::new(0.0, 70.0);
+                            ui.add(
+                                egui::Image::new(&texture)
+                                    .max_width(available.x)
+                                    .max_height(available.y)
+                            );
                         }
                         Err(_) => {
                             ui.label(egui::RichText::new("Gagal memuat gambar.").color(error_color()));
@@ -1845,6 +1838,8 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
 
     let mut restore_original_idx: Option<usize> = None;
     let mut restore_custom_idx: Option<usize> = None;
+    let mut preview_idx: Option<usize> = None;
+    let mut secure_idx: Option<usize> = None;
 
     egui::ScrollArea::vertical()
         .id_source("system_trash_scroll")
@@ -1917,6 +1912,38 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
                                       egui::Align2::LEFT_TOP, &orig_path,
                                       FontId::new(10.0, FontFamily::Proportional), Color32::from_rgb(120, 120, 140));
 
+                    if !item.is_directory {
+                        // Secure button
+                        let secure_rect = egui::Rect::from_min_size(
+                            egui::pos2(card_rect.right() - 182.0, card_rect.center().y - 16.0),
+                            Vec2::new(38.0, 32.0),
+                        );
+                        let secure_resp = ui.allocate_rect(secure_rect, egui::Sense::click());
+                        let secure_border = if secure_resp.hovered() { warn_color() } else { border_default() };
+                        let secure_icon_c = if secure_resp.hovered() { warn_color() } else { text_muted() };
+                        filled_rect(ui, secure_rect, bg_surface(), Stroke::new(0.5, secure_border), 7.0);
+                        ui.painter().text(secure_rect.center(), egui::Align2::CENTER_CENTER, "🔒",
+                                          FontId::new(14.0, FontFamily::Proportional), secure_icon_c);
+                        if secure_resp.clicked() {
+                            secure_idx = Some(idx);
+                        }
+
+                        // Preview button
+                        let preview_rect = egui::Rect::from_min_size(
+                            egui::pos2(card_rect.right() - 138.0, card_rect.center().y - 16.0),
+                            Vec2::new(38.0, 32.0),
+                        );
+                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
+                        let preview_border = if preview_resp.hovered() { teal_strong() } else { border_default() };
+                        let preview_icon_c = if preview_resp.hovered() { teal_strong() } else { text_muted() };
+                        filled_rect(ui, preview_rect, bg_surface(), Stroke::new(0.5, preview_border), 7.0);
+                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁",
+                                          FontId::new(16.0, FontFamily::Proportional), preview_icon_c);
+                        if preview_resp.clicked() {
+                            preview_idx = Some(idx);
+                        }
+                    }
+
                     // Restore to original button
                     let restore_orig_rect = egui::Rect::from_min_size(
                         egui::pos2(card_rect.right() - 94.0, card_rect.center().y - 16.0),
@@ -1950,6 +1977,12 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
             }
         });
 
+    if let Some(idx) = secure_idx {
+        ctrl.secure_system_trash_item(state, idx);
+    }
+    if let Some(idx) = preview_idx {
+        ctrl.preview_system_trash_to_memory(state, idx);
+    }
     if let Some(idx) = restore_original_idx {
         ctrl.restore_system_trash_original(state, idx);
     }
