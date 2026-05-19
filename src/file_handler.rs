@@ -103,11 +103,11 @@ impl FileUnlockApp {
             Err(_)  => { self.pin_error = Some("Gagal buka database.".into()); return; }
         };
 
-        let pin_hash_db = db.get_pin_hash().unwrap_or(None);
-        let salt_hex_db = db.get_pin_salt().unwrap_or(None);
+        let pwd_hash_db = db.get_password_hash().unwrap_or(None);
+        let salt_hex_db = db.get_password_salt().unwrap_or(None);
 
-        let (Some(stored_hash), Some(salt_hex)) = (pin_hash_db, salt_hex_db) else {
-            self.pin_error = Some("Data PIN tidak ditemukan.".into());
+        let (Some(stored_hash), Some(salt_hex)) = (pwd_hash_db, salt_hex_db) else {
+            self.pin_error = Some("Data password tidak ditemukan.".into());
             return;
         };
 
@@ -121,13 +121,13 @@ impl FileUnlockApp {
 
         let computed = hash_pin(&self.pin_digits, &salt);
         if computed != stored_hash {
-            self.pin_error = Some("PIN salah. Coba lagi.".into());
+            self.pin_error = Some("Password salah. Coba lagi.".into());
             self.pin_shake_timer = 0.4;
             self.pin_digits.clear();
             return;
         }
 
-        // PIN benar — derive key
+        // Password benar — derive key
         let key = derive_key(&self.pin_digits, &salt);
         self.pin_digits.zeroize();
         self.pin_error = None;

@@ -10,6 +10,7 @@ mod controller;
 mod crypto;
 mod db;
 mod file_handler;
+mod recycle_bin;
 mod theme;
 mod totp;
 mod view;

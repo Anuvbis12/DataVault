@@ -110,23 +110,40 @@ impl VaultDb {
         Ok(())
     }
 
-    pub fn is_pin_set(&self) -> bool {
-        self.get_meta("pin_hash").unwrap_or(None).is_some()
+    pub fn is_user_set(&self) -> bool {
+        self.get_meta("password_hash").unwrap_or(None).is_some()
     }
 
-    /// Simpan hash PIN + salt untuk verifikasi login
-    pub fn set_pin(&self, pin_hash: &str, salt_hex: &str) -> Result<()> {
-        self.set_meta("pin_hash",  pin_hash)?;
-        self.set_meta("pin_salt",  salt_hex)?;
+    /// Simpan data user: username, display_name, password hash + salt
+    pub fn set_user(&self, username: &str, display_name: &str, password_hash: &str, salt_hex: &str) -> Result<()> {
+        self.set_meta("username", username)?;
+        self.set_meta("display_name", display_name)?;
+        self.set_meta("password_hash", password_hash)?;
+        self.set_meta("password_salt", salt_hex)?;
         Ok(())
     }
 
-    pub fn get_pin_hash(&self) -> Result<Option<String>> {
-        self.get_meta("pin_hash")
+    pub fn get_username(&self) -> Result<Option<String>> {
+        self.get_meta("username")
     }
 
-    pub fn get_pin_salt(&self) -> Result<Option<String>> {
-        self.get_meta("pin_salt")
+    pub fn get_display_name(&self) -> Result<Option<String>> {
+        self.get_meta("display_name")
+    }
+
+    pub fn get_password_hash(&self) -> Result<Option<String>> {
+        self.get_meta("password_hash")
+    }
+
+    pub fn get_password_salt(&self) -> Result<Option<String>> {
+        self.get_meta("password_salt")
+    }
+
+    /// Update password hash + salt
+    pub fn update_password(&self, password_hash: &str, salt_hex: &str) -> Result<()> {
+        self.set_meta("password_hash", password_hash)?;
+        self.set_meta("password_salt", salt_hex)?;
+        Ok(())
     }
 
     /// Reset seluruh database (Hapus semua record dan meta)

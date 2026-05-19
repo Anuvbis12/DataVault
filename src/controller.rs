@@ -1,5 +1,5 @@
 // controller.rs — Controller layer
-// Semua logika bisnis: login, setup PIN, enkripsi, dekripsi.
+// Semua logika bisnis: login, setup akun, enkripsi, dekripsi.
 // Tidak ada kode egui di sini. Controller memodifikasi AppState
 // dan memanggil crypto/db layer.
 
@@ -43,39 +43,49 @@ impl Controller {
 
     // ── Auth ──────────────────────────────────────────────
 
-    /// Cek apakah PIN sudah pernah di-setup
-    pub fn is_pin_set(&self) -> bool {
-        self.db.lock().unwrap().is_pin_set()
+    /// Cek apakah akun sudah pernah di-setup
+    pub fn is_user_set(&self) -> bool {
+        self.db.lock().unwrap().is_user_set()
     }
 
-    /// Login via numpad — returns true jika berhasil
+    /// Login via username + password — returns true jika berhasil
     pub fn try_login(&self, state: &mut AppState) -> bool {
-        let db          = self.db.lock().unwrap();
-        let pin_hash_db = db.get_pin_hash().unwrap_or(None);
-        let salt_hex_db = db.get_pin_salt().unwrap_or(None);
+        let db = self.db.lock().unwrap();
+        let stored_username = db.get_username().unwrap_or(None);
+        let stored_hash     = db.get_password_hash().unwrap_or(None);
+        let salt_hex        = db.get_password_salt().unwrap_or(None);
+        let display_name    = db.get_display_name().unwrap_or(None);
         drop(db);
 
-        let (Some(stored_hash), Some(salt_hex)) = (pin_hash_db, salt_hex_db) else {
-            state.pin_error = Some("Data PIN tidak ditemukan.".into());
+        let (Some(db_username), Some(db_hash), Some(salt_hex)) = (stored_username, stored_hash, salt_hex) else {
+            state.login_error = Some("Data akun tidak ditemukan.".into());
             return false;
         };
 
+        // Validasi username
+        if state.login_username.trim() != db_username {
+            self.log_action("FAIL_LOGIN", "Gagal login: username salah.");
+            state.login_error = Some("Username salah.".into());
+            return false;
+        }
+
         let salt_bytes = hex::decode(&salt_hex).unwrap_or_default();
         if salt_bytes.len() != SALT_LEN {
-            state.pin_error = Some("Data vault rusak.".into());
+            state.login_error = Some("Data vault rusak.".into());
             return false;
         }
 
         let mut salt = [0u8; SALT_LEN];
         salt.copy_from_slice(&salt_bytes);
 
-        let computed = hash_pin(&state.pin_input, &salt);
-        if computed == stored_hash {
-            let key           = derive_key(&state.pin_input, &salt);
+        let computed = hash_pin(&state.login_password, &salt);
+        if computed == db_hash {
+            let key           = derive_key(&state.login_password, &salt);
             state.session_key  = Some(key);
             state.session_salt = Some(salt);
-            state.pin_input.zeroize();
-            state.pin_error = None;
+            state.display_name = display_name.unwrap_or_else(|| db_username.clone());
+            state.login_password.zeroize();
+            state.login_error = None;
             self.load_files(state);
             // Cek apakah TOTP aktif → arahkan ke verifikasi 2FA
             state.totp_enabled = self.is_totp_enabled();
@@ -83,51 +93,71 @@ impl Controller {
                 state.totp_code.clear();
                 state.totp_error = None;
                 state.screen = AppScreen::TotpVerify;
-                self.log_action("LOGIN", "Berhasil login ke dalam vault via PIN.");
+                self.log_action("LOGIN", &format!("Berhasil login sebagai '{}'.", db_username));
+                state.screen = AppScreen::Dashboard;
+            } else {
+                self.log_action("LOGIN", &format!("Berhasil login sebagai '{}'.", db_username));
                 state.screen = AppScreen::Dashboard;
             }
             true
         } else {
-            self.log_action("FAIL_LOGIN", "Gagal mencoba login. PIN salah.");
-            state.pin_error = Some("PIN salah. Coba lagi.".into());
-            state.pin_input.zeroize();
+            self.log_action("FAIL_LOGIN", "Gagal login: password salah.");
+            state.login_error = Some("Password salah. Coba lagi.".into());
+            state.login_password.zeroize();
             false
         }
     }
 
-    /// Setup PIN baru untuk vault kosong
-    pub fn setup_pin(&self, state: &mut AppState) {
-        if state.pin_input.len() != 6 {
-            state.pin_error = Some("PIN harus tepat 6 digit.".into());
+    /// Setup akun baru untuk vault kosong
+    pub fn setup_account(&self, state: &mut AppState) {
+        // Validasi username
+        if state.setup_username.trim().is_empty() {
+            state.setup_error = Some("Username tidak boleh kosong.".into());
             return;
         }
-        if !state.pin_input.chars().all(|c| c.is_ascii_digit()) {
-            state.pin_error = Some("PIN hanya boleh angka.".into());
+        if state.setup_username.trim().len() < 3 {
+            state.setup_error = Some("Username minimal 3 karakter.".into());
             return;
         }
-        if state.pin_input != state.pin_confirm {
-            state.pin_error = Some("PIN tidak cocok.".into());
-            state.pin_confirm.zeroize();
+        // Validasi nama
+        if state.setup_display_name.trim().is_empty() {
+            state.setup_error = Some("Nama lengkap tidak boleh kosong.".into());
+            return;
+        }
+        // Validasi password
+        if state.setup_password.len() < 4 {
+            state.setup_error = Some("Password minimal 4 karakter.".into());
+            return;
+        }
+        if state.setup_password != state.setup_password_confirm {
+            state.setup_error = Some("Password tidak cocok.".into());
+            state.setup_password_confirm.zeroize();
             return;
         }
 
         let salt     = generate_salt();
-        let pin_hash = hash_pin(&state.pin_input, &salt);
+        let pwd_hash = hash_pin(&state.setup_password, &salt);
         let salt_hex = hex::encode(salt);
 
         {
             let db = self.db.lock().unwrap();
-            db.set_pin(&pin_hash, &salt_hex).expect("Gagal simpan PIN");
+            db.set_user(
+                state.setup_username.trim(),
+                state.setup_display_name.trim(),
+                &pwd_hash,
+                &salt_hex,
+            ).expect("Gagal simpan akun");
         }
 
-        let key            = derive_key(&state.pin_input, &salt);
+        let key            = derive_key(&state.setup_password, &salt);
         state.session_key  = Some(key);
         state.session_salt = Some(salt);
-        state.pin_input.zeroize();
-        state.pin_confirm.zeroize();
-        state.pin_error = None;
+        state.display_name = state.setup_display_name.trim().to_string();
+        state.setup_password.zeroize();
+        state.setup_password_confirm.zeroize();
+        state.setup_error = None;
         self.load_files(state);
-        self.log_action("SETUP", "PIN awal dikonfigurasi.");
+        self.log_action("SETUP", &format!("Akun '{}' berhasil dibuat.", state.setup_username.trim()));
         state.screen = AppScreen::Dashboard;
     }
 
@@ -135,8 +165,10 @@ impl Controller {
     pub fn logout(&self, state: &mut AppState) {
         if let Some(mut k) = state.session_key.take() { k.zeroize(); }
         state.session_salt   = None;
-        state.pin_digits     = String::new();
-        state.pin_error      = None;
+        state.login_username = String::new();
+        state.login_password = String::new();
+        state.login_error    = None;
+        state.display_name   = String::new();
         state.file_list      = Vec::new();
         state.screen         = AppScreen::Login;
         state.decrypt_target = None;
@@ -165,10 +197,12 @@ impl Controller {
         // Reset State dan kembali ke Setup
         self.logout(state);
         state.show_reset_confirm = false;
-        state.pin_input = String::new();
-        state.pin_confirm = String::new();
-        state.screen = AppScreen::SetupPin;
-        state.set_status("Vault telah di-reset. Silakan buat PIN baru.", true);
+        state.setup_username = String::new();
+        state.setup_display_name = String::new();
+        state.setup_password = String::new();
+        state.setup_password_confirm = String::new();
+        state.screen = AppScreen::SetupAccount;
+        state.set_status("Vault telah di-reset. Silakan buat akun baru.", true);
     }
 
     // ── File operations ───────────────────────────────────
@@ -248,12 +282,10 @@ impl Controller {
 
         match secure_decrypt_file(&vault_path, &out_path, &key, &record.sha256_hash) {
             Ok(()) => {
-                { let db = self.db.lock().unwrap(); let _ = db.permanent_delete_file(&record.id); }
-                let _ = std::fs::remove_file(&vault_path);
                 self.load_files(state);
-                self.log_action("DECRYPT", &format!("File dipulihkan: {}", record.original_name));
+                self.log_action("DECRYPT", &format!("File didekripsi ke luar vault: {}", record.original_name));
                 state.set_status(
-                    &format!("✅ File dipulihkan ke: {}", out_path.display()), true
+                    &format!("✅ File berhasil diekstrak ke: {}", out_path.display()), true
                 );
                 state.screen = AppScreen::Dashboard;
             }
@@ -306,6 +338,47 @@ impl Controller {
 
         self.load_deleted_files(state);
         state.set_status("Data terhapus permanen.", true);
+    }
+
+    // ── System Recycle Bin Scanner ────────────────────────
+
+    pub fn scan_system_trash(&self, state: &mut AppState) {
+        state.system_trash_loading = true;
+        state.system_trash_items = crate::recycle_bin::scan_recycle_bin();
+        state.system_trash_loading = false;
+    }
+
+    pub fn restore_system_trash_original(&self, state: &mut AppState, index: usize) {
+        if index >= state.system_trash_items.len() {
+            state.set_status("Item tidak ditemukan.", false);
+            return;
+        }
+        let item = state.system_trash_items[index].clone();
+        match crate::recycle_bin::restore_to_original(&item) {
+            Ok(()) => {
+                self.log_action("RESTORE_SYS", &format!("File '{}' dipulihkan ke lokasi asli.", item.file_name));
+                state.set_status(&format!("✅ '{}' dipulihkan ke: {}", item.file_name, item.original_path), true);
+                // Refresh list
+                self.scan_system_trash(state);
+            }
+            Err(e) => state.set_status(&format!("❌ Gagal memulihkan: {}", e), false),
+        }
+    }
+
+    pub fn restore_system_trash_custom(&self, state: &mut AppState, index: usize, dest_dir: PathBuf) {
+        if index >= state.system_trash_items.len() {
+            state.set_status("Item tidak ditemukan.", false);
+            return;
+        }
+        let item = state.system_trash_items[index].clone();
+        match crate::recycle_bin::restore_to_custom(&item, &dest_dir) {
+            Ok(dest) => {
+                self.log_action("RESTORE_SYS", &format!("File '{}' dipulihkan ke: {}", item.file_name, dest.display()));
+                state.set_status(&format!("✅ '{}' dipulihkan ke: {}", item.file_name, dest.display()), true);
+                self.scan_system_trash(state);
+            }
+            Err(e) => state.set_status(&format!("❌ Gagal memulihkan: {}", e), false),
+        }
     }
 
     // ── TOTP (2FA) ────────────────────────────────────────
@@ -425,22 +498,22 @@ impl Controller {
         }
     }
 
-    pub fn change_pin(&self, state: &mut AppState) {
-        if state.profile_new_pin.len() != 6 {
-            state.profile_pin_error = Some("PIN baru harus 6 digit.".into());
+    pub fn change_password(&self, state: &mut AppState) {
+        if state.profile_new_password.len() < 4 {
+            state.profile_password_error = Some("Password baru minimal 4 karakter.".into());
             return;
         }
-        if state.profile_new_pin != state.profile_confirm_pin {
-            state.profile_pin_error = Some("PIN baru tidak cocok.".into());
+        if state.profile_new_password != state.profile_confirm_password {
+            state.profile_password_error = Some("Password baru tidak cocok.".into());
             return;
         }
 
         let db = self.db.lock().unwrap();
-        let pin_hash_db = db.get_pin_hash().unwrap_or(None);
-        let salt_hex_db = db.get_pin_salt().unwrap_or(None);
+        let pwd_hash_db = db.get_password_hash().unwrap_or(None);
+        let salt_hex_db = db.get_password_salt().unwrap_or(None);
 
-        let (Some(stored_hash), Some(salt_hex)) = (pin_hash_db, salt_hex_db) else {
-            state.profile_pin_error = Some("Data PIN lama tidak ditemukan.".into());
+        let (Some(stored_hash), Some(salt_hex)) = (pwd_hash_db, salt_hex_db) else {
+            state.profile_password_error = Some("Data password lama tidak ditemukan.".into());
             return;
         };
 
@@ -448,28 +521,28 @@ impl Controller {
         let mut old_salt = [0u8; crate::crypto::SALT_LEN];
         old_salt.copy_from_slice(&salt_bytes);
 
-        if crate::crypto::hash_pin(&state.profile_old_pin, &old_salt) != stored_hash {
-            state.profile_pin_error = Some("PIN lama salah.".into());
+        if crate::crypto::hash_pin(&state.profile_old_password, &old_salt) != stored_hash {
+            state.profile_password_error = Some("Password lama salah.".into());
             return;
         }
 
         let new_salt = crate::crypto::generate_salt();
-        let new_hash = crate::crypto::hash_pin(&state.profile_new_pin, &new_salt);
+        let new_hash = crate::crypto::hash_pin(&state.profile_new_password, &new_salt);
         let new_salt_hex = hex::encode(new_salt);
 
-        db.set_pin(&new_hash, &new_salt_hex).expect("Gagal update PIN");
+        db.update_password(&new_hash, &new_salt_hex).expect("Gagal update password");
         drop(db);
 
-        let key = crate::crypto::derive_key(&state.profile_new_pin, &new_salt);
+        let key = crate::crypto::derive_key(&state.profile_new_password, &new_salt);
         state.session_key  = Some(key);
         state.session_salt = Some(new_salt);
 
-        state.profile_old_pin.clear();
-        state.profile_new_pin.clear();
-        state.profile_confirm_pin.clear();
-        state.profile_pin_error = None;
-        state.profile_pin_success = Some("PIN berhasil diubah.".into());
-        self.log_action("CHANGE_PIN", "PIN utama berhasil diubah.");
+        state.profile_old_password.clear();
+        state.profile_new_password.clear();
+        state.profile_confirm_password.clear();
+        state.profile_password_error = None;
+        state.profile_password_success = Some("Password berhasil diubah.".into());
+        self.log_action("CHANGE_PWD", "Password utama berhasil diubah.");
     }
 
     pub fn decrypt_to_memory(&self, state: &mut AppState, vault_filename: &str) {
@@ -489,6 +562,7 @@ impl Controller {
             Ok(data) => {
                 state.preview_bytes = Some(data);
                 state.preview_filename = record.original_name.clone();
+                state.decrypt_target = Some(record.clone());
                 state.screen = crate::app_state::AppScreen::PreviewMedia;
                 let _ = db.insert_audit_log("PREVIEW", &format!("Melihat pratinjau file: {}", record.original_name), &timestamp_now());
             }
@@ -550,17 +624,7 @@ impl Controller {
 
 // ── Timestamp helper ──────────────────────────────────────
 pub fn timestamp_now() -> String {
-    use std::time::{SystemTime, UNIX_EPOCH};
-    let secs  = SystemTime::now().duration_since(UNIX_EPOCH)
-        .unwrap_or_default().as_secs();
-    let mins  = secs / 60;
-    let hours = mins / 60;
-    let days  = hours / 24;
-    let h     = hours % 24;
-    let m     = mins % 60;
-    let y     = 1970 + days / 365;
-    let d     = (days % 365) + 1;
-    format!("{}-{:03} {:02}:{:02}", y, d, h, m)
+    chrono::Local::now().format("%Y-%m-%d %H:%M:%S").to_string()
 }
 
 // ── Size formatter ────────────────────────────────────────

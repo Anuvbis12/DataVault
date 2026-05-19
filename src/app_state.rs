@@ -11,12 +11,13 @@ use crate::db::{FileRecord, AuditLog};
 pub enum AppScreen {
     #[default]
     Login,
-    SetupPin,
+    SetupAccount,
     Dashboard,
     Decrypting(String), // vault_filename target
     TotpSetup,          // setup QR + verifikasi awal
     TotpVerify,         // verifikasi 2FA saat login
-    RecycleBin,         // fitur trash
+    RecycleBin,         // fitur trash vault
+    SystemTrash,        // fitur scan Recycle Bin Windows
     PreviewMedia,
 }
 
@@ -61,26 +62,49 @@ pub struct StatusMsg {
     pub success: bool,
 }
 
+// ── System Recycle Bin Item ────────────────────────────────
+#[derive(Debug, Clone)]
+pub struct RecycleBinItem {
+    pub original_path: String,
+    pub file_name: String,
+    pub file_size: u64,
+    pub deleted_at: String,
+    pub recycle_path: String, // $R file path for restore
+    pub is_directory: bool,
+}
+
 // ── AppState (Model) ──────────────────────────────────────
 pub struct AppState {
     // Navigasi
     pub screen: AppScreen,
     pub dashboard_tab: DashboardTab,
 
-    // Auth input
-    pub pin_digits:      String,   // numpad accumulator (max 6)
-    pub pin_input:       String,   // setup field 1
-    pub pin_confirm:     String,   // setup field 2
-    pub pin_error:       Option<String>,
-    pub pin_shake_timer: f32,      // countdown animasi shake
+    // Auth input — Login
+    pub login_username:  String,
+    pub login_password:  String,
+    pub login_error:     Option<String>,
 
-    // Sesi aktif
+    // Auth input — Setup Account
+    pub setup_username:         String,
+    pub setup_display_name:     String,
+    pub setup_password:         String,
+    pub setup_password_confirm: String,
+    pub setup_error:            Option<String>,
+
+    // Session info
+    pub display_name: String,  // Nama user yang sedang login
+
+    // Sesi aktif (crypto)
     pub session_key:  Option<Box<[u8; KEY_LEN]>>,
     pub session_salt: Option<[u8; SALT_LEN]>,
 
     // Data file
     pub file_list: Vec<FileRecord>,
     pub deleted_list: Vec<FileRecord>,
+
+    // System Recycle Bin
+    pub system_trash_items: Vec<RecycleBinItem>,
+    pub system_trash_loading: bool,
 
     // Status bar & Toast
     pub status: Option<StatusMsg>,
@@ -108,12 +132,12 @@ pub struct AppState {
     pub vault_view_mode: ViewMode,
     pub vault_sort_by: SortOption,
 
-    // Profile Tab
-    pub profile_old_pin: String,
-    pub profile_new_pin: String,
-    pub profile_confirm_pin: String,
-    pub profile_pin_error: Option<String>,
-    pub profile_pin_success: Option<String>,
+    // Profile Tab — Change Password
+    pub profile_old_password: String,
+    pub profile_new_password: String,
+    pub profile_confirm_password: String,
+    pub profile_password_error: Option<String>,
+    pub profile_password_success: Option<String>,
 
     // Notifications Tab
     pub audit_logs: Vec<AuditLog>,
@@ -132,6 +156,9 @@ pub struct AppState {
     
     // Panic Button state
     pub last_esc_press: Option<std::time::Instant>,
+
+    // Animation
+    pub pin_shake_timer: f32,
 }
 
 impl Default for AppState {
@@ -139,15 +166,27 @@ impl Default for AppState {
         Self {
             screen:           AppScreen::Login,
             dashboard_tab:    DashboardTab::Home,
-            pin_digits:       String::new(),
-            pin_input:        String::new(),
-            pin_confirm:      String::new(),
-            pin_error:        None,
-            pin_shake_timer:  0.0,
+
+            login_username:   String::new(),
+            login_password:   String::new(),
+            login_error:      None,
+
+            setup_username:         String::new(),
+            setup_display_name:     String::new(),
+            setup_password:         String::new(),
+            setup_password_confirm: String::new(),
+            setup_error:            None,
+
+            display_name:     String::new(),
+
             session_key:      None,
             session_salt:     None,
             file_list:        Vec::new(),
             deleted_list:     Vec::new(),
+
+            system_trash_items: Vec::new(),
+            system_trash_loading: false,
+
             status:           None,
             toast_message:    None,
             toast_timer:      0.0,
@@ -164,11 +203,13 @@ impl Default for AppState {
             vault_search_query: String::new(),
             vault_view_mode: ViewMode::List,
             vault_sort_by: SortOption::DateDesc,
-            profile_old_pin: String::new(),
-            profile_new_pin: String::new(),
-            profile_confirm_pin: String::new(),
-            profile_pin_error: None,
-            profile_pin_success: None,
+
+            profile_old_password: String::new(),
+            profile_new_password: String::new(),
+            profile_confirm_password: String::new(),
+            profile_password_error: None,
+            profile_password_success: None,
+
             audit_logs: Vec::new(),
             is_light_mode: false,
             preview_bytes: None,
@@ -181,6 +222,7 @@ impl Default for AppState {
             device_disk_total: 0,
             device_disk_free: 0,
             last_esc_press: None,
+            pin_shake_timer: 0.0,
         }
     }
 }
