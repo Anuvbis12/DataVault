@@ -59,14 +59,20 @@ impl eframe::App for VaultMvc {
 // ── ENTRY POINT KHUSUS ANDROID ──
 #[cfg(target_os = "android")]
 #[no_mangle]
-fn android_main(app: eframe::android_activity::AndroidApp) {
+fn android_main(app: android_activity::AndroidApp) {
+    if let Some(path) = app.internal_data_path() {
+        std::env::set_current_dir(&path).ok();
+    }
     std::fs::create_dir_all(controller::VAULT_DIR).ok();
 
-    let options = eframe::NativeOptions::default();
+    let mut options = eframe::NativeOptions::default();
+    options.event_loop_builder = Some(Box::new(move |builder| {
+        use winit::platform::android::EventLoopBuilderExtAndroid;
+        builder.with_android_app(app);
+    }));
 
-    eframe::run_android(
+    eframe::run_native(
         "Aegis Vault",
-        app,
         options,
         Box::new(|cc| {
             theme::apply(&cc.egui_ctx);

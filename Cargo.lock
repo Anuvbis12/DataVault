@@ -104,6 +104,7 @@ name = "aegis-vault"
 version = "0.2.0"
 dependencies = [
  "aes",
+ "android-activity",
  "argon2",
  "chrono",
  "data-encoding",
@@ -121,6 +122,7 @@ dependencies = [
  "sha2",
  "sysinfo",
  "uuid",
+ "winit",
  "zeroize",
 ]
 

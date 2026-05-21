@@ -4,6 +4,7 @@
 
 use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Vertex};
+#[cfg(not(target_os = "android"))]
 use rfd::FileDialog;
 
 use crate::app_state::{AppScreen, AppState, DashboardTab, ViewMode, SortOption};
@@ -91,7 +92,8 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
 
     ui.allocate_ui_at_rect(avail, |ui| {
         ui.vertical_centered(|ui| {
-            ui.add_space(44.0);
+            let content_h = if user_set { 380.0 } else { 200.0 };
+            ui.add_space((avail.height() - content_h).max(0.0) / 2.0);
 
             // Shield icon
             let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(56.0), egui::Sense::hover());
@@ -240,7 +242,8 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
     let field_w = avail.width() - 72.0;
 
     ui.allocate_ui_at_rect(avail, |ui| {
-        ui.add_space(32.0);
+        let y_padding = (avail.height() - 480.0).max(0.0) / 2.0;
+        ui.add_space(y_padding.max(32.0));
 
         ui.horizontal(|ui| {
             ui.add_space(36.0);
@@ -490,7 +493,11 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             filled_rect(ui, fab_rect, fab_fill, Stroke::new(4.0, bg_base()), 28.0);
             ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(24.0, FontFamily::Proportional), bg_base());
             if fab_resp.clicked() {
-                if let Some(path) = rfd::FileDialog::new().pick_file() {
+                #[cfg(not(target_os = "android"))]
+                let picked_file = rfd::FileDialog::new().pick_file();
+                #[cfg(target_os = "android")]
+                let picked_file: Option<std::path::PathBuf> = { state.set_status("Pilih file via dialog belum didukung di Android", false); None };
+                if let Some(path) = picked_file {
                     ctrl.encrypt_file(state, path);
                 }
             }
@@ -1353,9 +1360,13 @@ fn render_decrypt_panel(
                         state.decrypt_out_name.trim().to_string()
                     };
 
-                    if let Some(out_dir) = FileDialog::new()
+                    #[cfg(not(target_os = "android"))]
+                    let out_dir = FileDialog::new()
                         .set_title("Pilih folder tujuan")
-                        .pick_folder()
+                        .pick_folder();
+                    #[cfg(target_os = "android")]
+                    let out_dir: Option<std::path::PathBuf> = { state.set_status("Memilih folder tujuan belum didukung di Android", false); None };
+                    if let Some(out_dir) = out_dir
                     {
                         let rec = record.clone();
                         ctrl.decrypt_file(state, &rec, out_dir, &out_name);
@@ -1785,12 +1796,16 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
 
             ui.add_space(20.0);
             ui.horizontal(|ui| {
-                if let Some(record) = &state.decrypt_target {
+                let record_clone = state.decrypt_target.clone();
+                if let Some(record) = record_clone {
                     if ui.add_sized([250.0, 40.0], egui::Button::new(egui::RichText::new("🔓 Ekstrak & Pulihkan File").size(14.0))).clicked() {
-                        if let Some(out_dir) = rfd::FileDialog::new().set_title("Pilih folder tujuan").pick_folder() {
-                            let rec = record.clone();
-                            let out_name = rec.original_name.clone();
-                            ctrl.decrypt_file(state, &rec, out_dir, &out_name);
+                        #[cfg(not(target_os = "android"))]
+                        let out_dir = rfd::FileDialog::new().set_title("Pilih folder tujuan").pick_folder();
+                        #[cfg(target_os = "android")]
+                        let out_dir: Option<std::path::PathBuf> = { state.set_status("Memilih folder tujuan belum didukung di Android", false); None };
+                        if let Some(out_dir) = out_dir {
+                            let out_name = record.original_name.clone();
+                            ctrl.decrypt_file(state, &record, out_dir, &out_name);
                         } else {
                             state.set_status("Batal: folder tidak dipilih.", false);
                         }
@@ -2001,7 +2016,11 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         ctrl.restore_system_trash_original(state, idx);
     }
     if let Some(idx) = restore_custom_idx {
-        if let Some(dest_dir) = rfd::FileDialog::new().set_title("Pilih folder tujuan").pick_folder() {
+        #[cfg(not(target_os = "android"))]
+        let dest_dir = rfd::FileDialog::new().set_title("Pilih folder tujuan").pick_folder();
+        #[cfg(target_os = "android")]
+        let dest_dir: Option<std::path::PathBuf> = { state.set_status("Memilih folder tujuan belum didukung di Android", false); None };
+        if let Some(dest_dir) = dest_dir {
             ctrl.restore_system_trash_custom(state, idx, dest_dir);
         }
     }

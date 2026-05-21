@@ -12,6 +12,10 @@ crate-type = ["lib", "cdylib"]
 eframe         = { version = "0.27", features = ["default", "android-game-activity"] }
 egui           = "0.27"
 egui_extras    = { version = "0.27", features = ["image"] }
+android-activity = "0.5"
+
+[target.'cfg(target_os = "android")'.dependencies]
+winit = { version = "0.29", features = ["android-game-activity"] }
 image          = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 
 # Kriptografi
@@ -26,9 +30,7 @@ zeroize        = "1.7"
 # Database
 rusqlite       = { version = "0.31", features = ["bundled"] }
 
-# File dialog
-[target.'cfg(not(target_os = "android"))'.dependencies]
-rfd            = "0.14"
+
 
 # UUID
 uuid           = { version = "1.8", features = ["v4"] }
@@ -50,3 +52,21 @@ strip         = true
 apk_label = "Aegis Vault"
 target_sdk_version = 33
 min_sdk_version = 24
+
+# File dialog (Desktop only)
+[target.'cfg(not(target_os = "android"))'.dependencies]
+rfd = "0.14"
+
+# Gunakan debug keystore untuk signing rilis sementara
+[package.metadata.android.application_attributes]
+"android:theme" = "@android:style/Theme.DeviceDefault.NoActionBar"
+
+[package.metadata.android.activity_attributes]
+"android:name" = "com.google.androidgamesdk.GameActivity"
+"android:windowSoftInputMode" = "adjustResize"
+
+[package.metadata.android.signing.release]
+path = "C:/Users/Rizma Indra/.android/debug.keystore"
+keystore_password = "android"
+key_password = "android"
+key_alias = "androiddebugkey"

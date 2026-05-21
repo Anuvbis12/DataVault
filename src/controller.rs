@@ -595,7 +595,12 @@ impl Controller {
     // ── Profile / Settings ────────────────────────────────
 
     pub fn backup_database(&self, state: &mut AppState) {
-        if let Some(dest) = rfd::FileDialog::new().set_file_name("vault_backup.db").save_file() {
+        #[cfg(not(target_os = "android"))]
+        let dest = rfd::FileDialog::new().set_file_name("vault_backup.db").save_file();
+        #[cfg(target_os = "android")]
+        let dest: Option<PathBuf> = { state.set_status("Backup via dialog belum didukung di Android", false); None };
+
+        if let Some(dest) = dest {
             if let Err(e) = std::fs::copy(DB_PATH, dest) {
                 state.set_status(&format!("❌ Gagal backup: {}", e), false);
             } else {

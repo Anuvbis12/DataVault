@@ -4,6 +4,7 @@
 
 use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Vertex};
+#[cfg(not(target_os = "android"))]
 use rfd::FileDialog;
 use std::path::PathBuf;
 use zeroize::Zeroize;
@@ -133,9 +134,12 @@ impl FileUnlockApp {
         self.pin_error = None;
 
         // Dialog pilih folder output
+        #[cfg(not(target_os = "android"))]
         let out_dir = FileDialog::new()
             .set_title("Pilih folder tujuan")
             .pick_folder();
+        #[cfg(target_os = "android")]
+        let out_dir: Option<PathBuf> = { self.status = Some(("Memilih folder tujuan belum didukung di Android.".into(), false)); None };
         let out_dir = match out_dir {
             Some(d) => d,
             None    => {
