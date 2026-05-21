@@ -27,6 +27,7 @@ zeroize        = "1.7"
 rusqlite       = { version = "0.31", features = ["bundled"] }
 
 # File dialog
+[target.'cfg(not(target_os = "android"))'.dependencies]
 rfd            = "0.14"
 
 # UUID
