@@ -15,6 +15,8 @@ use std::path::Path;
 pub struct VaultMvc {
     pub state:      app_state::AppState,
     pub controller: controller::Controller,
+    #[cfg(target_os = "android")]
+    pub android_app: Option<android_activity::AndroidApp>,
 }
 
 impl VaultMvc {
@@ -22,6 +24,8 @@ impl VaultMvc {
         Self {
             state:      app_state::AppState::default(),
             controller: controller::Controller::new(db),
+            #[cfg(target_os = "android")]
+            android_app: None,
         }
     }
 }
@@ -52,6 +56,14 @@ impl eframe::App for VaultMvc {
                 }
             }
         }
+        if self.state.request_keyboard {
+            #[cfg(target_os = "android")]
+            if let Some(app) = &self.android_app {
+                app.show_soft_input(true);
+            }
+            self.state.request_keyboard = false;
+        }
+
         view::render(ctx, &mut self.state, &self.controller);
     }
 }
@@ -66,20 +78,23 @@ fn android_main(app: android_activity::AndroidApp) {
     std::fs::create_dir_all(controller::VAULT_DIR).ok();
 
     let mut options = eframe::NativeOptions::default();
+    let app_clone = app.clone();
     options.event_loop_builder = Some(Box::new(move |builder| {
         use winit::platform::android::EventLoopBuilderExtAndroid;
-        builder.with_android_app(app);
+        builder.with_android_app(app_clone);
     }));
 
     eframe::run_native(
         "Aegis Vault",
         options,
-        Box::new(|cc| {
+        Box::new(move |cc| {
             theme::apply(&cc.egui_ctx);
             // Pada Android, letakkan database di root/sandbox penyimpanan internal aplikasi
             let db = db::VaultDb::open(Path::new(controller::DB_PATH))
                 .expect("Gagal membuka database Android");
-            Box::new(VaultMvc::new(db))
+            let mut mvc = VaultMvc::new(db);
+            mvc.android_app = Some(app);
+            Box::new(mvc)
         }),
     ).unwrap();
 }

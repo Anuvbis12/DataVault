@@ -9,13 +9,13 @@ crate-type = ["lib", "cdylib"]
 
 [dependencies]
 # GUI
-eframe         = { version = "0.27", features = ["default", "android-game-activity"] }
+eframe         = { version = "0.27", features = ["default", "android-native-activity"] }
 egui           = "0.27"
 egui_extras    = { version = "0.27", features = ["image"] }
 android-activity = "0.5"
 
 [target.'cfg(target_os = "android")'.dependencies]
-winit = { version = "0.29", features = ["android-game-activity"] }
+winit = { version = "0.29", features = ["android-native-activity"] }
 image          = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 
 # Kriptografi
@@ -62,7 +62,6 @@ rfd = "0.14"
 "android:theme" = "@android:style/Theme.DeviceDefault.NoActionBar"
 
 [package.metadata.android.activity_attributes]
-"android:name" = "com.google.androidgamesdk.GameActivity"
 "android:windowSoftInputMode" = "adjustResize"
 
 [package.metadata.android.signing.release]

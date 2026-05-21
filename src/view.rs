@@ -20,6 +20,11 @@ pub fn render(
 ) {
     draw_background(ctx);
 
+    // Overlay Virtual Keyboard (Secure Keyboard)
+    if state.show_keyboard {
+        render_virtual_keyboard(ctx, state);
+    }
+
     if state.pin_shake_timer > 0.0 {
         state.pin_shake_timer -= ctx.input(|i| i.stable_dt);
         ctx.request_repaint();
@@ -102,14 +107,14 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                               FontId::new(26.0, FontFamily::Proportional), teal_faint());
 
             ui.add_space(14.0);
-            ui.label(egui::RichText::new("Aegis Vault").size(20.0).color(text_body()).strong());
+            ui.label(egui::RichText::new("Aegis Vault").size(20.0).color(crate::theme::text_body()).strong());
             ui.add_space(4.0);
-            ui.label(egui::RichText::new("Akses aman ke data kamu").size(13.0).color(text_muted()));
+            ui.label(egui::RichText::new("Akses aman ke data kamu").size(13.0).color(crate::theme::text_muted()));
 
             if !user_set {
                 ui.add_space(32.0);
                 ui.label(egui::RichText::new("Vault baru terdeteksi.").color(warn_color()).size(13.0));
-                ui.label(egui::RichText::new("Buat akun untuk memulai.").color(text_muted()).size(13.0));
+                ui.label(egui::RichText::new("Buat akun untuk memulai.").color(crate::theme::text_muted()).size(13.0));
                 ui.add_space(20.0);
                 if teal_btn(ui, "⚙  Buat Akun", 200.0).clicked() {
                     state.screen = AppScreen::SetupAccount;
@@ -125,44 +130,46 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
             egui::Frame::none()
                 .inner_margin(egui::Margin::symmetric((avail.width() - field_w) / 2.0, 0.0))
                 .show(ui, |ui| {
-                    ui.label(egui::RichText::new("Username").size(12.0).color(text_muted()));
+                    ui.label(egui::RichText::new("Username").size(12.0).color(crate::theme::text_muted()));
                     ui.add_space(6.0);
                     egui::Frame::none()
-                        .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
+                        .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
                         .rounding(Rounding::same(8.0))
                         .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new("👤").size(16.0).color(text_muted()));
+                                ui.label(egui::RichText::new("👤").size(16.0).color(crate::theme::text_muted()));
                                 ui.add_space(8.0);
-                                ui.add(egui::TextEdit::singleline(&mut state.login_username)
+                                let resp = ui.add(egui::TextEdit::singleline(&mut state.login_username)
                                     .hint_text("Masukkan username")
                                     .desired_width(field_w - 80.0)
                                     .font(FontId::new(16.0, FontFamily::Proportional))
-                                    .frame(false));
+                                    .interactive(true));
+                                if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginUsername; state.show_keyboard = true; }
                             });
                         });
 
                     ui.add_space(14.0);
 
                     // Password field
-                    ui.label(egui::RichText::new("Password").size(12.0).color(text_muted()));
+                    ui.label(egui::RichText::new("Password").size(12.0).color(crate::theme::text_muted()));
                     ui.add_space(6.0);
                     let accent = if !state.login_password.is_empty() { teal_strong() } else { border_default() };
                     egui::Frame::none()
-                        .fill(bg_surface()).stroke(Stroke::new(0.5, accent))
+                        .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, accent))
                         .rounding(Rounding::same(8.0))
                         .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                         .show(ui, |ui| {
                             ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new("🔒").size(16.0).color(text_muted()));
+                                ui.label(egui::RichText::new("🔒").size(16.0).color(crate::theme::text_muted()));
                                 ui.add_space(8.0);
-                                ui.add(egui::TextEdit::singleline(&mut state.login_password)
+                                let resp = ui.add(egui::TextEdit::singleline(&mut state.login_password)
                                     .password(true)
                                     .hint_text("Masukkan password")
                                     .desired_width(field_w - 80.0)
                                     .font(FontId::new(16.0, FontFamily::Proportional))
-                                    .frame(false));
+                                    .interactive(true));
+                                if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginPassword; state.show_keyboard = true; }
                             });
                         });
 
@@ -186,7 +193,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
             let link_resp = ui.add(egui::Label::new(
                 egui::RichText::new("Lupa Password? Reset Vault")
                     .size(12.0)
-                    .color(text_muted())
+                    .color(crate::theme::text_muted())
             ).sense(egui::Sense::click()));
             if link_resp.hovered() {
                 ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
@@ -214,7 +221,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                             ui.add_space(10.0);
                             ui.label(egui::RichText::new("⚠  Hapus Seluruh Vault?").color(warn_color()).size(18.0).strong());
                             ui.add_space(12.0);
-                            ui.label(egui::RichText::new("Tindakan ini akan menghapus semua file yang ada di vault secara permanen karena password lama tidak dapat dipulihkan.").color(text_body()).size(13.0));
+                            ui.label(egui::RichText::new("Tindakan ini akan menghapus semua file yang ada di vault secara permanen karena password lama tidak dapat dipulihkan.").color(crate::theme::text_body()).size(13.0));
                             ui.add_space(24.0);
                             
                             // Letakkan tombol di tengah
@@ -241,7 +248,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
     let avail   = ui.available_rect_before_wrap();
     let field_w = avail.width() - 72.0;
 
-    ui.allocate_ui_at_rect(avail, |ui| {
+    egui::ScrollArea::vertical().show(ui, |ui| {
         let y_padding = (avail.height() - 480.0).max(0.0) / 2.0;
         ui.add_space(y_padding.max(32.0));
 
@@ -253,8 +260,8 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                               FontId::new(18.0, FontFamily::Proportional), teal_strong());
             ui.add_space(10.0);
             ui.vertical(|ui| {
-                ui.label(egui::RichText::new("Buat Akun Baru").size(15.0).color(text_body()).strong());
-                ui.label(egui::RichText::new("Setup username & password").size(12.0).color(text_muted()));
+                ui.label(egui::RichText::new("Buat Akun Baru").size(15.0).color(crate::theme::text_body()).strong());
+                ui.label(egui::RichText::new("Setup username & password").size(12.0).color(crate::theme::text_muted()));
             });
         });
 
@@ -264,86 +271,102 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
             .inner_margin(egui::Margin::symmetric(36.0, 0.0))
             .show(ui, |ui| {
                 // Username
-                ui.label(egui::RichText::new("Username").size(12.0).color(text_muted()));
+                ui.label(egui::RichText::new("Username").size(12.0).color(crate::theme::text_muted()));
                 ui.add_space(6.0);
                 egui::Frame::none()
-                    .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
+                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("👤").size(16.0).color(text_muted()));
+                            ui.label(egui::RichText::new("👤").size(16.0).color(crate::theme::text_muted()));
                             ui.add_space(8.0);
-                            ui.add(egui::TextEdit::singleline(&mut state.setup_username)
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_username)
                                 .hint_text("Min. 3 karakter")
                                 .desired_width(field_w - 80.0)
                                 .font(FontId::new(16.0, FontFamily::Proportional))
-                                .frame(false));
+                                .interactive(true));
+                            if resp.gained_focus() || resp.clicked() {
+                                state.focused_field = crate::app_state::FocusedField::SetupUsername;
+                                state.show_keyboard = true;
+                            }
                         });
                     });
 
                 ui.add_space(14.0);
 
                 // Nama Lengkap
-                ui.label(egui::RichText::new("Nama Lengkap").size(12.0).color(text_muted()));
+                ui.label(egui::RichText::new("Nama Lengkap").size(12.0).color(crate::theme::text_muted()));
                 ui.add_space(6.0);
                 egui::Frame::none()
-                    .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
+                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("📝").size(16.0).color(text_muted()));
+                            ui.label(egui::RichText::new("📝").size(16.0).color(crate::theme::text_muted()));
                             ui.add_space(8.0);
-                            ui.add(egui::TextEdit::singleline(&mut state.setup_display_name)
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_display_name)
                                 .hint_text("Nama untuk ditampilkan")
                                 .desired_width(field_w - 80.0)
                                 .font(FontId::new(16.0, FontFamily::Proportional))
-                                .frame(false));
+                                .interactive(true));
+                            if resp.gained_focus() || resp.clicked() {
+                                state.focused_field = crate::app_state::FocusedField::SetupDisplayName;
+                                state.show_keyboard = true;
+                            }
                         });
                     });
 
                 ui.add_space(14.0);
 
                 // Password
-                ui.label(egui::RichText::new("Password").size(12.0).color(text_muted()));
+                ui.label(egui::RichText::new("Password").size(12.0).color(crate::theme::text_muted()));
                 ui.add_space(6.0);
                 egui::Frame::none()
-                    .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
+                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("🔒").size(16.0).color(text_muted()));
+                            ui.label(egui::RichText::new("🔒").size(16.0).color(crate::theme::text_muted()));
                             ui.add_space(8.0);
-                            ui.add(egui::TextEdit::singleline(&mut state.setup_password)
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password)
                                 .password(true).hint_text("Min. 4 karakter")
                                 .desired_width(field_w - 80.0)
                                 .font(FontId::new(16.0, FontFamily::Proportional))
-                                .frame(false));
+                                .interactive(true));
+                            if resp.gained_focus() || resp.clicked() {
+                                state.focused_field = crate::app_state::FocusedField::SetupPassword;
+                                state.show_keyboard = true;
+                            }
                         });
                     });
 
                 ui.add_space(14.0);
 
                 // Konfirmasi Password
-                ui.label(egui::RichText::new("Konfirmasi Password").size(12.0).color(text_muted()));
+                ui.label(egui::RichText::new("Konfirmasi Password").size(12.0).color(crate::theme::text_muted()));
                 ui.add_space(6.0);
                 let accent = if !state.setup_password_confirm.is_empty() { teal_strong() } else { border_default() };
                 let icon_c = if !state.setup_password_confirm.is_empty() { teal_strong() } else { text_muted() };
                 egui::Frame::none()
-                    .fill(bg_surface()).stroke(Stroke::new(0.5, accent))
+                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, accent))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                     .show(ui, |ui| {
                         ui.horizontal(|ui| {
                             ui.label(egui::RichText::new("🔒").size(16.0).color(icon_c));
                             ui.add_space(8.0);
-                            ui.add(egui::TextEdit::singleline(&mut state.setup_password_confirm)
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password_confirm)
                                 .password(true).hint_text("Ulangi Password")
                                 .desired_width(field_w - 80.0)
                                 .font(FontId::new(16.0, FontFamily::Proportional))
-                                .frame(false));
+                                .interactive(true));
+                            if resp.gained_focus() || resp.clicked() {
+                                state.focused_field = crate::app_state::FocusedField::SetupConfirmPassword;
+                                state.show_keyboard = true;
+                            }
                         });
                     });
 
@@ -548,7 +571,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
     
     // Hardware Metrics
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("HARDWARE METRICS").size(12.0).color(text_muted()).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("HARDWARE METRICS").size(12.0).color(crate::theme::text_muted()).strong()); });
     ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.add_space(pad);
@@ -576,7 +599,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
 
     // Active Vaults
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("ACTIVE VAULTS").size(12.0).color(text_muted()).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("ACTIVE VAULTS").size(12.0).color(crate::theme::text_muted()).strong()); });
     ui.add_space(12.0);
     egui::ScrollArea::horizontal().id_source("vaults_scroll").show(ui, |ui| {
         ui.horizontal(|ui| {
@@ -616,7 +639,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
 
     // Quick Actions
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("QUICK ACTIONS").size(12.0).color(text_muted()).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("QUICK ACTIONS").size(12.0).color(crate::theme::text_muted()).strong()); });
     ui.add_space(12.0);
     ui.horizontal(|ui| {
         ui.add_space(pad);
@@ -665,12 +688,12 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
     ui.add_space(24.0);
 
     // Recent Activity (Files)
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("RECENT ACTIVITY").size(12.0).color(text_muted()).strong()); });
+    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("RECENT ACTIVITY").size(12.0).color(crate::theme::text_muted()).strong()); });
     ui.add_space(12.0);
     
     let mut target_preview: Option<String> = None;
     if state.file_list.is_empty() {
-        ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(text_muted())); });
+        ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(crate::theme::text_muted())); });
     } else {
         ui.vertical(|ui| {
             for record in state.file_list.iter() {
@@ -791,7 +814,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
     if files.is_empty() {
         ui.add_space(40.0);
         ui.vertical_centered(|ui| {
-            ui.label(egui::RichText::new("Belum ada file yang cocok.").color(text_muted()));
+            ui.label(egui::RichText::new("Belum ada file yang cocok.").color(crate::theme::text_muted()));
         });
         return;
     }
@@ -991,7 +1014,7 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controlle
     ui.add_space(30.0);
     ui.vertical_centered(|ui| {
         let vault_total = state.total_vault_size();
-        ui.label(egui::RichText::new(format!("Vault Usage: {}", format_size(vault_total))).size(16.0).color(text_muted()));
+        ui.label(egui::RichText::new(format!("Vault Usage: {}", format_size(vault_total))).size(16.0).color(crate::theme::text_muted()));
     });
     
     ui.add_space(20.0);
@@ -1041,7 +1064,7 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controlle
                         ui.label(egui::RichText::new(label).color(text_primary()).size(14.0));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.add_space(20.0);
-                            ui.label(egui::RichText::new(format_size(*val as u64)).color(text_muted()).size(14.0));
+                            ui.label(egui::RichText::new(format_size(*val as u64)).color(crate::theme::text_muted()).size(14.0));
                         });
                     });
                     ui.add_space(12.0);
@@ -1133,7 +1156,7 @@ fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                 ctrl.backup_database(state);
             }
             ui.add_space(4.0);
-            ui.label(egui::RichText::new("Simpan cadangan .db di tempat aman.").size(12.0).color(text_muted()));
+            ui.label(egui::RichText::new("Simpan cadangan .db di tempat aman.").size(12.0).color(crate::theme::text_muted()));
             
             ui.add_space(30.0);
             
@@ -1141,15 +1164,15 @@ fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
             ui.label(egui::RichText::new("Ubah Password").color(teal_strong()).strong());
             ui.add_space(10.0);
             
-            ui.label(egui::RichText::new("Password Lama").size(12.0).color(text_muted()));
+            ui.label(egui::RichText::new("Password Lama").size(12.0).color(crate::theme::text_muted()));
             ui.add(egui::TextEdit::singleline(&mut state.profile_old_password).password(true).desired_width(200.0));
             ui.add_space(8.0);
             
-            ui.label(egui::RichText::new("Password Baru (min. 4 karakter)").size(12.0).color(text_muted()));
+            ui.label(egui::RichText::new("Password Baru (min. 4 karakter)").size(12.0).color(crate::theme::text_muted()));
             ui.add(egui::TextEdit::singleline(&mut state.profile_new_password).password(true).desired_width(200.0));
             ui.add_space(8.0);
             
-            ui.label(egui::RichText::new("Konfirmasi Password Baru").size(12.0).color(text_muted()));
+            ui.label(egui::RichText::new("Konfirmasi Password Baru").size(12.0).color(crate::theme::text_muted()));
             ui.add(egui::TextEdit::singleline(&mut state.profile_confirm_password).password(true).desired_width(200.0));
             ui.add_space(12.0);
             
@@ -1174,7 +1197,7 @@ fn render_tab_notifications(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Con
     ui.vertical_centered(|ui| {
         ui.label(egui::RichText::new("Audit Log Keamanan").size(22.0).color(text_primary()).strong());
         ui.add_space(8.0);
-        ui.label(egui::RichText::new("Aktivitas terbaru di dalam brankas.").color(text_muted()));
+        ui.label(egui::RichText::new("Aktivitas terbaru di dalam brankas.").color(crate::theme::text_muted()));
     });
     
     ui.add_space(30.0);
@@ -1184,7 +1207,7 @@ fn render_tab_notifications(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Con
     if state.audit_logs.is_empty() {
         ui.vertical_centered(|ui| {
             ui.add_space(20.0);
-            ui.label(egui::RichText::new("Belum ada catatan aktivitas.").color(text_muted()));
+            ui.label(egui::RichText::new("Belum ada catatan aktivitas.").color(crate::theme::text_muted()));
         });
     } else {
         egui::ScrollArea::vertical().show(ui, |ui| {
@@ -1246,7 +1269,7 @@ fn render_decrypt_panel(
                                   FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
                 ui.add_space(10.0);
-                ui.label(egui::RichText::new("Pulihkan file").size(15.0).color(text_body()).strong());
+                ui.label(egui::RichText::new("Pulihkan file").size(15.0).color(crate::theme::text_body()).strong());
             });
 
             ui.add_space(24.0);
@@ -1282,7 +1305,7 @@ fn render_decrypt_panel(
                     ("Dienkripsi", record.encrypted_at.clone()),
                 ] {
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(*k).size(11.0).color(text_muted()));
+                        ui.label(egui::RichText::new(*k).size(11.0).color(crate::theme::text_muted()));
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             ui.label(egui::RichText::new(v).size(11.0).color(text_dimmed())
                                 .text_style(egui::TextStyle::Monospace));
@@ -1294,15 +1317,15 @@ fn render_decrypt_panel(
             ui.add_space(20.0);
 
             // Output name field
-            ui.label(egui::RichText::new("Nama file output").size(12.0).color(text_muted()));
+            ui.label(egui::RichText::new("Nama file output").size(12.0).color(crate::theme::text_muted()));
             ui.add_space(6.0);
             egui::Frame::none()
-                .fill(bg_surface()).stroke(Stroke::new(0.5, border_default()))
+                .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
                 .rounding(Rounding::same(8.0))
                 .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("📤").size(16.0).color(text_muted()));
+                        ui.label(egui::RichText::new("📤").size(16.0).color(crate::theme::text_muted()));
                         ui.add_space(8.0);
                         ui.add(egui::TextEdit::singleline(&mut state.decrypt_out_name)
                             .desired_width(ui.available_width())
@@ -1401,7 +1424,7 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                                   FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
                 ui.add_space(10.0);
-                ui.label(egui::RichText::new("Setup Autentikasi 2FA").size(15.0).color(text_body()).strong());
+                ui.label(egui::RichText::new("Setup Autentikasi 2FA").size(15.0).color(crate::theme::text_body()).strong());
             });
 
             ui.add_space(16.0);
@@ -1441,10 +1464,10 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 ui.add_space(12.0);
 
                 // Manual secret key
-                ui.label(egui::RichText::new("Atau masukkan kunci manual:").size(11.0).color(text_muted()));
+                ui.label(egui::RichText::new("Atau masukkan kunci manual:").size(11.0).color(crate::theme::text_muted()));
                 ui.add_space(4.0);
                 egui::Frame::none()
-                    .fill(bg_surface())
+                    .fill(crate::theme::bg_surface())
                     .stroke(Stroke::new(0.5, border_default()))
                     .rounding(Rounding::same(6.0))
                     .inner_margin(egui::Margin::symmetric(10.0, 6.0))
@@ -1469,10 +1492,10 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 ui.add_space(20.0);
 
                 // Verify input
-                ui.label(egui::RichText::new("Masukkan kode 6-digit dari app:").size(12.0).color(text_muted()));
+                ui.label(egui::RichText::new("Masukkan kode 6-digit dari app:").size(12.0).color(crate::theme::text_muted()));
                 ui.add_space(6.0);
                 egui::Frame::none()
-                    .fill(bg_surface())
+                    .fill(crate::theme::bg_surface())
                     .stroke(Stroke::new(0.5, if state.totp_code.len() == 6 { teal_strong() } else { border_default() }))
                     .rounding(Rounding::same(8.0))
                     .inner_margin(egui::Margin::symmetric(14.0, 10.0))
@@ -1514,10 +1537,10 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                               FontId::new(26.0, FontFamily::Proportional), teal_faint());
 
             ui.add_space(14.0);
-            ui.label(egui::RichText::new("Verifikasi 2FA").size(18.0).color(text_body()).strong());
+            ui.label(egui::RichText::new("Verifikasi 2FA").size(18.0).color(crate::theme::text_body()).strong());
             ui.add_space(4.0);
             ui.label(egui::RichText::new("Masukkan kode dari aplikasi authenticator")
-                .size(13.0).color(text_muted()));
+                .size(13.0).color(crate::theme::text_muted()));
 
             ui.add_space(8.0);
 
@@ -1532,7 +1555,7 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 
             // Code input
             egui::Frame::none()
-                .fill(bg_surface())
+                .fill(crate::theme::bg_surface())
                 .stroke(Stroke::new(0.5, if state.totp_code.len() == 6 { teal_strong() } else { border_default() }))
                 .rounding(Rounding::same(10.0))
                 .inner_margin(egui::Margin::symmetric(16.0, 14.0))
@@ -1729,7 +1752,7 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                     return; 
                 }
                 ui.add_space(10.0);
-                ui.label(egui::RichText::new(format!("Pratinjau: {}", state.preview_filename)).size(15.0).color(text_body()).strong());
+                ui.label(egui::RichText::new(format!("Pratinjau: {}", state.preview_filename)).size(15.0).color(crate::theme::text_body()).strong());
             });
 
             ui.add_space(24.0);
@@ -1742,8 +1765,8 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         ui.add_space(80.0);
                         ui.label(egui::RichText::new("📺 File Dibuka di Aplikasi Bawaan").size(24.0).color(teal_strong()));
                         ui.add_space(20.0);
-                        ui.label(egui::RichText::new("Format file ini tidak dapat ditampilkan langsung di layar aplikasi.").color(text_muted()));
-                        ui.label(egui::RichText::new("Aplikasi secara otomatis membuka file ini di perangkat Anda.").color(text_muted()));
+                        ui.label(egui::RichText::new("Format file ini tidak dapat ditampilkan langsung di layar aplikasi.").color(crate::theme::text_muted()));
+                        ui.label(egui::RichText::new("Aplikasi secara otomatis membuka file ini di perangkat Anda.").color(crate::theme::text_muted()));
                         ui.add_space(40.0);
                         ui.label(egui::RichText::new("Anda dapat menutup layar ini atau memulihkan file menggunakan tombol di bawah.").color(Color32::from_rgb(120, 120, 140)));
                     });
@@ -2023,5 +2046,120 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         if let Some(dest_dir) = dest_dir {
             ctrl.restore_system_trash_custom(state, idx, dest_dir);
         }
+    }
+
+}
+
+// ── VIRTUAL SECURE KEYBOARD ──────────────────────────────────
+fn render_virtual_keyboard(ctx: &egui::Context, state: &mut AppState) {
+    let mut close_keyboard = false;
+    egui::TopBottomPanel::bottom("virtual_keyboard")
+        .exact_height(300.0)
+        .frame(egui::Frame::none().fill(crate::theme::bg_surface()).inner_margin(egui::Margin::symmetric(8.0, 12.0)))
+        .show(ctx, |ui| {
+            ui.horizontal(|ui| {
+                ui.label(egui::RichText::new("🔐 Secure Keyboard").color(crate::theme::text_muted()).size(13.0));
+                ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                    if ui.button(egui::RichText::new("Tutup 🔽").size(13.0)).clicked() {
+                        close_keyboard = true;
+                    }
+                });
+            });
+            ui.add_space(12.0);
+            
+            let target_str = match state.focused_field {
+                crate::app_state::FocusedField::LoginUsername => &mut state.login_username,
+                crate::app_state::FocusedField::LoginPassword => &mut state.login_password,
+                crate::app_state::FocusedField::SetupUsername => &mut state.setup_username,
+                crate::app_state::FocusedField::SetupDisplayName => &mut state.setup_display_name,
+                crate::app_state::FocusedField::SetupPassword => &mut state.setup_password,
+                crate::app_state::FocusedField::SetupConfirmPassword => &mut state.setup_password_confirm,
+                crate::app_state::FocusedField::None => { close_keyboard = true; return; }
+            };
+
+            let keys = [
+                ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"],
+                ["q", "w", "e", "r", "t", "y", "u", "i", "o", "p"],
+                ["a", "s", "d", "f", "g", "h", "j", "k", "l", ""],
+                ["SFT", "z", "x", "c", "v", "b", "n", "m", "DEL", ""],
+            ];
+
+            let spacing = 6.0;
+            let btn_width_base = (ui.available_width() - (spacing * 9.0)) / 10.0;
+            let btn_height = 42.0;
+
+            // OVERRIDE STYLE SO BUTTONS DON'T EXPAND DUE TO PADDING!
+            ui.spacing_mut().item_spacing = egui::vec2(spacing, spacing);
+            ui.spacing_mut().button_padding = egui::vec2(0.0, 0.0); // CRUCIAL: Remove padding so buttons fit!
+
+            for (_r_idx, row) in keys.iter().enumerate() {
+                ui.horizontal(|ui| {
+                    // Calculate precise row width
+                    let mut row_width = 0.0;
+                    for key in row {
+                        if key.is_empty() { continue; }
+                        let w = if *key == "DEL" || *key == "SFT" { btn_width_base * 1.5 + spacing * 0.5 } else { btn_width_base };
+                        row_width += w + spacing;
+                    }
+                    row_width -= spacing;
+                    
+                    let indent = (ui.available_width() - row_width) / 2.0;
+                    if indent > 1.0 {
+                        ui.add_space(indent);
+                    }
+                    
+                    for key in row {
+                        if key.is_empty() { continue; }
+                        let label = key.to_string();
+                        let w = if *key == "DEL" || *key == "SFT" { btn_width_base * 1.5 + spacing * 0.5 } else { btn_width_base };
+                        
+                        let display_label = match label.as_str() {
+                            "SFT" => "⇧",
+                            "DEL" => "⌫",
+                            _ => label.as_str(),
+                        };
+                        
+                        let bg_color = if label == "SFT" || label == "DEL" {
+                            Color32::from_rgb(45, 50, 60)
+                        } else {
+                            crate::theme::bg_card()
+                        };
+
+                        let btn = egui::Button::new(egui::RichText::new(display_label).size(18.0).color(Color32::WHITE))
+                            .min_size(egui::vec2(w, btn_height))
+                            .fill(bg_color)
+                            .rounding(6.0);
+                            
+                        if ui.add(btn).clicked() {
+                            if label == "DEL" {
+                                target_str.pop();
+                            } else if label != "SFT" {
+                                target_str.push_str(&label);
+                            }
+                        }
+                    }
+                });
+            }
+            
+            // SPACE BAR ROW
+            ui.horizontal(|ui| {
+                let space_w = btn_width_base * 5.0 + spacing * 4.0;
+                let indent = (ui.available_width() - space_w) / 2.0;
+                if indent > 1.0 {
+                    ui.add_space(indent);
+                }
+                let space_btn = egui::Button::new(egui::RichText::new("SPACE").size(14.0).color(Color32::WHITE))
+                    .min_size(egui::vec2(space_w, btn_height))
+                    .fill(Color32::from_rgb(45, 50, 60))
+                    .rounding(6.0);
+                if ui.add(space_btn).clicked() {
+                    target_str.push(' ');
+                }
+            });
+        });
+
+    if close_keyboard {
+        state.show_keyboard = false;
+        state.focused_field = crate::app_state::FocusedField::None;
     }
 }

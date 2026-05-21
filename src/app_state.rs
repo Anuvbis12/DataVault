@@ -22,6 +22,18 @@ pub enum AppScreen {
 }
 
 #[derive(Default, PartialEq, Clone)]
+pub enum FocusedField {
+    #[default]
+    None,
+    LoginUsername,
+    LoginPassword,
+    SetupUsername,
+    SetupDisplayName,
+    SetupPassword,
+    SetupConfirmPassword,
+}
+
+#[derive(Default, PartialEq, Clone)]
 pub enum DashboardTab {
     #[default]
     Home,
@@ -159,6 +171,10 @@ pub struct AppState {
 
     // Animation
     pub pin_shake_timer: f32,
+
+    pub request_keyboard: bool,
+    pub focused_field: FocusedField,
+    pub show_keyboard: bool,
 }
 
 impl Default for AppState {
@@ -223,6 +239,9 @@ impl Default for AppState {
             device_disk_free: 0,
             last_esc_press: None,
             pin_shake_timer: 0.0,
+            request_keyboard: false,
+            focused_field: FocusedField::None,
+            show_keyboard: false,
         }
     }
 }
