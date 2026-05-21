@@ -11,6 +11,7 @@ crate-type = ["lib", "cdylib"]
 # GUI
 eframe         = { version = "0.27", features = ["default", "android-native-activity"] }
 egui           = "0.27"
+egui-file-dialog = "0.5.0"
 egui_extras    = { version = "0.27", features = ["image"] }
 android-activity = "0.5"
 
@@ -69,3 +70,10 @@ path = "C:/Users/Rizma Indra/.android/debug.keystore"
 keystore_password = "android"
 key_password = "android"
 key_alias = "androiddebugkey"
+
+[[package.metadata.android.uses_permission]]
+name = "android.permission.READ_EXTERNAL_STORAGE"
+[[package.metadata.android.uses_permission]]
+name = "android.permission.WRITE_EXTERNAL_STORAGE"
+[[package.metadata.android.uses_permission]]
+name = "android.permission.MANAGE_EXTERNAL_STORAGE"

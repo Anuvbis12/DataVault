@@ -175,6 +175,9 @@ pub struct AppState {
     pub request_keyboard: bool,
     pub focused_field: FocusedField,
     pub show_keyboard: bool,
+    
+    // File Picker
+    pub file_dialog: Option<egui_file_dialog::FileDialog>,
 }
 
 impl Default for AppState {
@@ -242,6 +245,7 @@ impl Default for AppState {
             request_keyboard: false,
             focused_field: FocusedField::None,
             show_keyboard: false,
+            file_dialog: None,
         }
     }
 }

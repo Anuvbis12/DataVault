@@ -72,6 +72,17 @@ pub fn render(
                 AppScreen::PreviewMedia      => render_preview_panel(ui, state, controller),
             }
         });
+
+    // Update File Dialog
+    let mut picked_path = None;
+    if let Some(dialog) = &mut state.file_dialog {
+        if let Some(path) = dialog.update(ctx).selected() {
+            picked_path = Some(path.to_path_buf());
+        }
+    }
+    if let Some(path) = picked_path {
+        controller.encrypt_file(state, path);
+    }
 }
 
 // ── Background gradien ────────────────────────────────────
@@ -516,12 +527,11 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             filled_rect(ui, fab_rect, fab_fill, Stroke::new(4.0, bg_base()), 28.0);
             ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(24.0, FontFamily::Proportional), bg_base());
             if fab_resp.clicked() {
-                #[cfg(not(target_os = "android"))]
-                let picked_file = rfd::FileDialog::new().pick_file();
-                #[cfg(target_os = "android")]
-                let picked_file: Option<std::path::PathBuf> = { state.set_status("Pilih file via dialog belum didukung di Android", false); None };
-                if let Some(path) = picked_file {
-                    ctrl.encrypt_file(state, path);
+                if state.file_dialog.is_none() {
+                    state.file_dialog = Some(egui_file_dialog::FileDialog::new());
+                }
+                if let Some(dialog) = &mut state.file_dialog {
+                    dialog.select_file();
                 }
             }
         } else {
