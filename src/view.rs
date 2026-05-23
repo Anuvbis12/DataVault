@@ -864,11 +864,10 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                         let extract_resp = ui.allocate_rect(extract_rect, egui::Sense::click());
                         ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(20.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
                         
-                        let mut preview_clicked = false;
                         let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 104.0, rect.center().y), Vec2::splat(30.0));
                         let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
                         ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(20.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
-                        preview_clicked = preview_resp.clicked();
+                        let preview_clicked = preview_resp.clicked();
 
                         if del_resp.clicked() {
                             *to_soft_delete = Some(record.id.clone());
@@ -918,12 +917,11 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                     ui.painter().circle_filled(extract_rect.center(), 12.0, bg_card());
                     ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(12.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
 
-                    let mut preview_clicked = false;
                     let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 72.0), Vec2::splat(24.0));
                     let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
                     ui.painter().circle_filled(preview_rect.center(), 12.0, bg_card());
                     ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(12.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
-                    preview_clicked = preview_resp.clicked();
+                    let preview_clicked = preview_resp.clicked();
 
                     if del_resp.clicked() {
                         *to_soft_delete = Some(record.id.clone());

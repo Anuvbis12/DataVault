@@ -86,13 +86,34 @@ cargo build --release
 ```
 </details>
 
-### 3. Jalankan Aplikasi
+### 3. Jalankan Aplikasi (Lintas Platform)
+
 > [!IMPORTANT]
 > **Selalu jalankan dalam mode `--release`!** Operasi kriptografi membutuhkan komputasi berat. Mode release membuat aplikasi berjalan ratusan kali lebih cepat dibandingkan mode debug.
 
+**🖥️ Windows / Desktop:**
 ```bash
 cargo run --release
 ```
+
+**🤖 Android:**
+Pastikan `cargo-apk` sudah terinstal (`cargo install cargo-apk`).
+```bash
+cargo apk run --lib --release
+```
+
+**🍎 iOS (Wajib menggunakan macOS & Xcode):**
+1. Salin/kloning proyek ini ke komputer Mac Anda.
+2. Tambahkan arsitektur iOS:
+   ```bash
+   rustup target add aarch64-apple-ios aarch64-apple-ios-sim
+   ```
+3. Lakukan kompilasi ke *Static Library* (`.a`):
+   ```bash
+   cargo build --target aarch64-apple-ios --release
+   ```
+4. Buka **Xcode**, buat proyek *iOS App* baru dengan Swift, lalu tarik file `libaegis_vault.a` ke dalam proyek.
+5. Buat *Bridging Header* (`void start_app_ios();`), lalu panggil fungsi `start_app_ios()` tersebut dari *App Delegate* atau *SwiftUI* Anda.
 
 [⬆ Kembali ke Atas](#-datavault-aegis-vault)
 

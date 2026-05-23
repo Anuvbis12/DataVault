@@ -9,6 +9,7 @@ pub mod theme;
 pub mod totp;
 pub mod view;
 
+#[cfg(target_os = "android")]
 use std::path::Path;
 
 // ── Root struct MVC (harus public agar bisa dibaca main.rs) ──
@@ -96,6 +97,26 @@ fn android_main(app: android_activity::AndroidApp) {
             let mut mvc = VaultMvc::new(db);
             mvc.android_app = Some(app);
             Box::new(mvc)
+        }),
+    ).unwrap();
+}
+
+// ── ENTRY POINT KHUSUS IOS ──
+#[cfg(target_os = "ios")]
+#[no_mangle]
+pub extern "C" fn start_app_ios() {
+    // Pastikan folder vault tersedia
+    std::fs::create_dir_all(controller::VAULT_DIR).ok();
+
+    let options = eframe::NativeOptions::default();
+    eframe::run_native(
+        "Aegis Vault",
+        options,
+        Box::new(|cc| {
+            theme::apply(&cc.egui_ctx);
+            let db = db::VaultDb::open(std::path::Path::new(controller::DB_PATH))
+                .expect("Gagal membuka database iOS");
+            Box::new(VaultMvc::new(db))
         }),
     ).unwrap();
 }
