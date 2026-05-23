@@ -73,6 +73,7 @@ impl eframe::App for VaultMvc {
 #[no_mangle]
 fn android_main(app: android_activity::AndroidApp) {
     if let Some(path) = app.internal_data_path() {
+        std::fs::create_dir_all(&path).ok();
         std::env::set_current_dir(&path).ok();
     }
     std::fs::create_dir_all(controller::VAULT_DIR).ok();
