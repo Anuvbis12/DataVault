@@ -66,6 +66,29 @@ impl eframe::App for VaultMvc {
         }
 
         view::render(ctx, &mut self.state, &self.controller);
+
+        // 🛡️ FITUR KEAMANAN LINTAS PLATFORM (Termasuk iOS, Android, & Desktop)
+        // Jika aplikasi kehilangan fokus (masuk ke background / Recent Apps), 
+        // tutup seluruh layar dengan warna hitam untuk mencegah isinya diintip.
+        if !ctx.input(|i| i.focused) {
+            let screen_rect = ctx.screen_rect();
+            let painter = ctx.layer_painter(eframe::egui::LayerId::new(
+                eframe::egui::Order::Tooltip,
+                eframe::egui::Id::new("privacy_screen"),
+            ));
+            
+            // 1. Gambar latar belakang hitam penuh
+            painter.rect_filled(screen_rect, 0.0, eframe::egui::Color32::BLACK);
+            
+            // 2. Tambahkan teks/ikon di tengah agar pengguna tidak mengira aplikasi error
+            painter.text(
+                screen_rect.center(),
+                eframe::egui::Align2::CENTER_CENTER,
+                "🔒 DataVault Secured",
+                eframe::egui::FontId::proportional(28.0),
+                eframe::egui::Color32::WHITE,
+            );
+        }
     }
 }
 
@@ -73,6 +96,12 @@ impl eframe::App for VaultMvc {
 #[cfg(target_os = "android")]
 #[no_mangle]
 fn android_main(app: android_activity::AndroidApp) {
+    // 🛡️ FITUR KEAMANAN: Anti-Screenshot & Layar Hitam di Recent Apps
+    app.set_window_flags(
+        android_activity::WindowManagerFlags::SECURE,
+        android_activity::WindowManagerFlags::empty(),
+    );
+
     if let Some(path) = app.internal_data_path() {
         std::fs::create_dir_all(&path).ok();
         std::env::set_current_dir(&path).ok();
