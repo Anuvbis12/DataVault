@@ -190,48 +190,45 @@ Berikut adalah alur kerja sistem keamanan **DataVault** dari sisi pengguna hingg
 
 ```mermaid
 flowchart LR
-    %% Custom Styles
-    classDef userLayer fill:#f3e8fd,stroke:#B185DB,stroke-width:2px,color:#333,stroke-dasharray: 5 5
-    classDef secLayer fill:#e8f5e9,stroke:#4CAF50,stroke-width:2px,color:#333,stroke-dasharray: 5 5
-    classDef storeLayer fill:#ffebee,stroke:#E34F26,stroke-width:2px,color:#333,stroke-dasharray: 5 5
+    %% Professional Corporate Styles
+    classDef presentation fill:#2B3A42,stroke:#1E282C,stroke-width:2px,color:#FFF,rx:4,ry:4
+    classDef controller fill:#ECEFF1,stroke:#B0BEC5,stroke-width:2px,color:#263238,rx:4,ry:4
+    classDef security fill:#E8EAF6,stroke:#7986CB,stroke-width:2px,color:#1A237E,rx:4,ry:4
+    classDef storage fill:#FFF8E1,stroke:#FFCA28,stroke-width:2px,color:#FF8F00,rx:4,ry:4
+    classDef boundary fill:none,stroke:#90A4AE,stroke-width:1.5px,stroke-dasharray: 4 4,color:#546E7A
 
-    classDef ui fill:#B185DB,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
-    classDef core fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
-    classDef storage fill:#E34F26,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
-    classDef alert fill:#F44336,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
-
-    subgraph Step1 ["🧑‍💻 1. Lapisan Pengguna (Akses)"]
-        direction TB
-        User(("👤 User")):::ui
-        App["🖥️ Aplikasi (GUI)"]:::ui
-        User -->|1. Pilih File & Input PIN| App
+    subgraph PresentationLayer ["Presentation Layer"]
+        UI["Egui Framework<br/>(Immediate Mode GUI)"]:::presentation
     end
 
-    subgraph Step2 ["🛡️ 2. Lapisan Keamanan (Proses)"]
-        direction TB
-        Auth{"🔑 Validasi<br>PIN & TOTP"}:::core
-        Fail["❌ Ditolak"]:::alert
-        Crypto["⚙️ Enkripsi AES-256"]:::core
+    subgraph CoreLogic ["Application Core (Rust)"]
+        State["State Controller<br/>(Event & I/O Manager)"]:::controller
         
-        Auth -.->|Gagal| Fail
-        Auth ==>|Sukses| Crypto
+        subgraph SecurityModule ["Cryptography & Auth Module"]
+            direction TB
+            KDF["Key Derivation<br/>(PBKDF2-HMAC-SHA256)"]:::security
+            TOTP["2FA Validator<br/>(Time-Based OTP)"]:::security
+            AES["Cipher Engine<br/>(AES-256-GCM)"]:::security
+        end
     end
 
-    subgraph Step3 ["💾 3. Lapisan Penyimpanan (Brankas)"]
+    subgraph PersistenceLayer ["Persistence & Storage Layer"]
         direction TB
-        DB[("🗄️ SQLite Database<br>(Hanya Metadata)")]:::storage
-        Vault[("🔒 Vault Lokal<br>(File Terenkripsi)")]:::storage
+        SQLite[("Metadata Store<br/>(SQLite / Rusqlite)") ]:::storage
+        FileSystem[("Vault Storage<br/>(Encrypted Binary Blobs)") ]:::storage
     end
 
-    %% Main Flow
-    App ====>|2. Kirim Permintaan| Auth
-    Crypto ====>|3a. Simpan/Baca Info| DB
-    Crypto ====>|3b. Kunci/Buka File| Vault
+    %% Flow of execution
+    UI <==> |Action & Render| State
+    State ---> |Derive Master Key| KDF
+    State ---> |MFA Verification| TOTP
+    KDF ---> |Provide Key| AES
+    
+    AES ===> |Query/Update (SHA-256 Hash)| SQLite
+    AES ===> |I/O File Streams| FileSystem
 
-    %% Apply Subgraph Styles
-    class Step1 userLayer
-    class Step2 secLayer
-    class Step3 storeLayer
+    %% Apply boundary classes
+    class PresentationLayer,CoreLogic,SecurityModule,PersistenceLayer boundary
 ```
 
 <div align="right">
