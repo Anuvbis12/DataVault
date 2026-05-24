@@ -43,12 +43,15 @@ chrono = "0.4"
 eframe         = { version = "0.27", features = ["default", "android-native-activity"] }
 android-activity = "0.5"
 winit = { version = "0.29", features = ["android-native-activity"] }
+android_logger = "0.13"
+log = "0.4"
 
 [profile.release]
-opt-level     = 3
+opt-level     = "z"
 lto           = true
 codegen-units = 1
 strip         = true
+panic         = "abort"
 
 [package.metadata.android]
 apk_label = "Aegis Vault"
@@ -67,7 +70,7 @@ rfd = "0.14"
 "android:windowSoftInputMode" = "adjustResize"
 
 [package.metadata.android.signing.release]
-path = "C:/Users/Rizma Indra/.android/debug.keystore"
+path = "C:/Users/USER/.android/debug.keystore"
 keystore_password = "android"
 key_password = "android"
 key_alias = "androiddebugkey"

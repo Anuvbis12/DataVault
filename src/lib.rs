@@ -9,8 +9,6 @@ pub mod theme;
 pub mod totp;
 pub mod view;
 
-#[cfg(target_os = "android")]
-use std::path::Path;
 
 // ── Root struct MVC (harus public agar bisa dibaca main.rs) ──
 pub struct VaultMvc {
@@ -92,42 +90,59 @@ impl eframe::App for VaultMvc {
     }
 }
 
-// ── ENTRY POINT KHUSUS ANDROID ──
 #[cfg(target_os = "android")]
 #[no_mangle]
 fn android_main(app: android_activity::AndroidApp) {
-    // 🛡️ FITUR KEAMANAN: Anti-Screenshot & Layar Hitam di Recent Apps
-    app.set_window_flags(
-        android_activity::WindowManagerFlags::SECURE,
-        android_activity::WindowManagerFlags::empty(),
+    android_logger::init_once(
+        android_logger::Config::default()
+            .with_max_level(log::LevelFilter::Trace)
+            .with_tag("rust.aegis_vault")
     );
+    log::info!("Aegis Vault Android is starting...");
 
-    if let Some(path) = app.internal_data_path() {
-        std::fs::create_dir_all(&path).ok();
-        std::env::set_current_dir(&path).ok();
-    }
-    std::fs::create_dir_all(controller::VAULT_DIR).ok();
+    let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+        let data_path = app.internal_data_path().unwrap_or_else(|| std::path::PathBuf::from("/data/data/rust.aegis_vault/files"));
+        std::fs::create_dir_all(&data_path).expect("Gagal membuat direktori internal_data_path");
 
-    let mut options = eframe::NativeOptions::default();
-    let app_clone = app.clone();
-    options.event_loop_builder = Some(Box::new(move |builder| {
-        use winit::platform::android::EventLoopBuilderExtAndroid;
-        builder.with_android_app(app_clone);
+        // Set absolute paths based on Android internal storage
+        let vault_p = data_path.join("vault_storage");
+        let _ = crate::controller::VAULT_DIR_OVERRIDE.set(vault_p.clone());
+        let _ = crate::controller::DB_PATH_OVERRIDE.set(vault_p.join("vault.db"));
+        
+        std::fs::create_dir_all(&vault_p).expect("Gagal membuat VAULT_DIR");
+
+        let mut options = eframe::NativeOptions::default();
+        let app_clone = app.clone();
+        options.event_loop_builder = Some(Box::new(move |builder| {
+            use winit::platform::android::EventLoopBuilderExtAndroid;
+            builder.with_android_app(app_clone);
+        }));
+
+        eframe::run_native(
+            "Aegis Vault",
+            options,
+            Box::new(move |cc| {
+                crate::theme::apply(&cc.egui_ctx);
+                
+                // Tangkap error SQLite ke file teks
+                let db_res = crate::db::VaultDb::open(crate::controller::db_path());
+                if let Err(e) = &db_res {
+                    log::error!("SQLite Error: {:?}", e);
+                    panic!("SQLite Error: {:?}", e);
+                }
+                let db = db_res.unwrap();
+                
+                let mut mvc = VaultMvc::new(db);
+                mvc.android_app = Some(app);
+                Box::new(mvc)
+            }),
+        ).unwrap();
     }));
 
-    eframe::run_native(
-        "Aegis Vault",
-        options,
-        Box::new(move |cc| {
-            theme::apply(&cc.egui_ctx);
-            // Pada Android, letakkan database di root/sandbox penyimpanan internal aplikasi
-            let db = db::VaultDb::open(Path::new(controller::DB_PATH))
-                .expect("Gagal membuka database Android");
-            let mut mvc = VaultMvc::new(db);
-            mvc.android_app = Some(app);
-            Box::new(mvc)
-        }),
-    ).unwrap();
+    if let Err(e) = res {
+        log::error!("CAUGHT PANIC IN ANDROID MAIN: {:?}", e);
+        std::thread::sleep(std::time::Duration::from_secs(3));
+    }
 }
 
 // ── ENTRY POINT KHUSUS IOS ──
@@ -135,7 +150,7 @@ fn android_main(app: android_activity::AndroidApp) {
 #[no_mangle]
 pub extern "C" fn start_app_ios() {
     // Pastikan folder vault tersedia
-    std::fs::create_dir_all(controller::VAULT_DIR).ok();
+    std::fs::create_dir_all(controller::vault_dir()).ok();
 
     let options = eframe::NativeOptions::default();
     eframe::run_native(
@@ -143,7 +158,7 @@ pub extern "C" fn start_app_ios() {
         options,
         Box::new(|cc| {
             theme::apply(&cc.egui_ctx);
-            let db = db::VaultDb::open(std::path::Path::new(controller::DB_PATH))
+            let db = db::VaultDb::open(controller::db_path())
                 .expect("Gagal membuka database iOS");
             Box::new(VaultMvc::new(db))
         }),

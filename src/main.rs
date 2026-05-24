@@ -1,5 +1,4 @@
 // main.rs — Launcher Aegis Vault untuk Desktop (Windows/macOS/Linux)
-use std::path::Path;
 use aegis_vault::db::VaultDb;
 use aegis_vault::VaultMvc;
 
@@ -14,7 +13,7 @@ fn main() -> Result<(), eframe::Error> {
     }
 
     // ── Mode desktop normal ───────────────────────────────
-    std::fs::create_dir_all(aegis_vault::controller::VAULT_DIR).ok();
+    std::fs::create_dir_all(aegis_vault::controller::vault_dir()).ok();
 
     let options = eframe::NativeOptions {
         viewport: eframe::egui::ViewportBuilder::default()
@@ -29,7 +28,7 @@ fn main() -> Result<(), eframe::Error> {
         options,
         Box::new(|cc| {
             aegis_vault::theme::apply(&cc.egui_ctx);
-            let db = VaultDb::open(Path::new(aegis_vault::controller::DB_PATH))
+            let db = VaultDb::open(aegis_vault::controller::db_path())
                 .expect("Gagal membuka database");
             Box::new(VaultMvc::new(db))
         }),

@@ -17,8 +17,16 @@ use crate::crypto::{
 };
 use crate::db::{FileRecord, VaultDb};
 
-pub const VAULT_DIR: &str = "vault_storage";
-pub const DB_PATH:   &str = "vault_storage/vault.db";
+pub static VAULT_DIR_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+pub static DB_PATH_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+
+pub fn vault_dir() -> &'static Path {
+    VAULT_DIR_OVERRIDE.get_or_init(|| PathBuf::from("vault_storage"))
+}
+
+pub fn db_path() -> &'static Path {
+    DB_PATH_OVERRIDE.get_or_init(|| vault_dir().join("vault.db"))
+}
 
 // ── Controller ────────────────────────────────────────────
 pub struct Controller {
@@ -178,7 +186,7 @@ impl Controller {
     /// Reset Vault: Hapus semua file terenkripsi dan reset database.
     pub fn reset_vault(&self, state: &mut AppState) {
         // Hapus semua file fisik di direktori vault
-        if let Ok(entries) = std::fs::read_dir(VAULT_DIR) {
+        if let Ok(entries) = std::fs::read_dir(crate::controller::vault_dir()) {
             for entry in entries.flatten() {
                 let path = entry.path();
                 // Hapus file .vlt
@@ -224,12 +232,12 @@ impl Controller {
             None    => { state.set_status("Sesi tidak valid.", false); return; }
         };
 
-        let vault_dir = Path::new(VAULT_DIR);
+        let vault_dir_path = crate::controller::vault_dir();
         let file_size = source_path.metadata().map(|m| m.len()).unwrap_or(0);
         let file_name = source_path.file_name()
             .unwrap_or_default().to_string_lossy().to_string();
 
-        match secure_encrypt_file(&source_path, vault_dir, &key) {
+        match secure_encrypt_file(&source_path, vault_dir_path, &key) {
             Ok(result) => {
                 let record = FileRecord {
                     id:             Uuid::new_v4().to_string(),
@@ -277,7 +285,7 @@ impl Controller {
             None    => { state.set_status("Sesi tidak valid.", false); return; }
         };
 
-        let vault_path = Path::new(VAULT_DIR).join(&record.vault_filename);
+        let vault_path = crate::controller::vault_dir().join(&record.vault_filename);
         let out_path   = out_dir.join(out_name);
 
         match secure_decrypt_file(&vault_path, &out_path, &key, &record.sha256_hash) {
@@ -329,7 +337,7 @@ impl Controller {
     }
 
     pub fn permanent_delete_file(&self, state: &mut AppState, record: &FileRecord) {
-        let vault_path = Path::new(VAULT_DIR).join(&record.vault_filename);
+        let vault_path = crate::controller::vault_dir().join(&record.vault_filename);
         let _ = crate::crypto::secure_delete(&vault_path); // 3-pass delete
 
         let db = self.db.lock().unwrap();
@@ -442,10 +450,10 @@ impl Controller {
             None    => { state.set_status("Sesi tidak valid.", false); return; }
         };
 
-        let vault_dir = Path::new(VAULT_DIR);
+        let vault_dir_path = crate::controller::vault_dir();
         let source_path = Path::new(&item.recycle_path);
 
-        match crate::crypto::secure_encrypt_file(source_path, vault_dir, &key) {
+        match crate::crypto::secure_encrypt_file(source_path, vault_dir_path, &key) {
             Ok(result) => {
                 let record = FileRecord {
                     id:             uuid::Uuid::new_v4().to_string(),
@@ -601,7 +609,7 @@ impl Controller {
         let dest: Option<PathBuf> = { state.set_status("Backup via dialog belum didukung di Android", false); None };
 
         if let Some(dest) = dest {
-            if let Err(e) = std::fs::copy(DB_PATH, dest) {
+            if let Err(e) = std::fs::copy(crate::controller::db_path(), dest) {
                 state.set_status(&format!("❌ Gagal backup: {}", e), false);
             } else {
                 state.set_status("✅ Backup database berhasil.", true);
@@ -670,7 +678,7 @@ impl Controller {
             None => { state.set_status("Kunci sesi tidak tersedia", false); return; }
         };
 
-        let enc_path = std::path::Path::new(VAULT_DIR).join(&record.vault_filename);
+        let enc_path = crate::controller::vault_dir().join(&record.vault_filename);
         let ext = crate::theme::file_ext(&record.original_name).to_lowercase();
         
         if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt" {
