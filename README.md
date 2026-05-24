@@ -36,6 +36,7 @@
 - [🚀 Panduan Memulai (Quick Start)](#-panduan-memulai-quick-start)
 - [📖 Cara Penggunaan](#-cara-penggunaan)
 - [📂 Struktur Penyimpanan](#-struktur-penyimpanan)
+- [🏗️ Architecture Workflow](#️-architecture-workflow)
 - [🛠️ Teknologi yang Digunakan](#️-teknologi-yang-digunakan)
 - [👥 Tim Pengembang](#-tim-pengembang)
 
@@ -176,6 +177,62 @@ DataVault mengelola file Anda dengan rapi dan aman di dalam direktori `vault_sto
 
 > [!CAUTION]
 > **DILARANG KERAS** mengubah, menghapus, atau memindahkan file di dalam `vault_storage/` secara manual melalui File Explorer. Hal ini dapat menyebabkan kerusakan database dan kehilangan data permanen!
+
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
+
+---
+
+## 🏗️ Architecture Workflow
+
+Berikut adalah alur kerja sistem keamanan **DataVault** dari sisi pengguna hingga ke penyimpanan:
+
+```mermaid
+flowchart LR
+    %% Custom Styles
+    classDef userLayer fill:#f3e8fd,stroke:#B185DB,stroke-width:2px,color:#333,stroke-dasharray: 5 5
+    classDef secLayer fill:#e8f5e9,stroke:#4CAF50,stroke-width:2px,color:#333,stroke-dasharray: 5 5
+    classDef storeLayer fill:#ffebee,stroke:#E34F26,stroke-width:2px,color:#333,stroke-dasharray: 5 5
+
+    classDef ui fill:#B185DB,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
+    classDef core fill:#4CAF50,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
+    classDef storage fill:#E34F26,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
+    classDef alert fill:#F44336,stroke:#fff,stroke-width:2px,color:#fff,rx:10,ry:10
+
+    subgraph Step1 ["🧑‍💻 1. Lapisan Pengguna (Akses)"]
+        direction TB
+        User(("👤 User")):::ui
+        App["🖥️ Aplikasi (GUI)"]:::ui
+        User -->|1. Pilih File & Input PIN| App
+    end
+
+    subgraph Step2 ["🛡️ 2. Lapisan Keamanan (Proses)"]
+        direction TB
+        Auth{"🔑 Validasi<br>PIN & TOTP"}:::core
+        Fail["❌ Ditolak"]:::alert
+        Crypto["⚙️ Enkripsi AES-256"]:::core
+        
+        Auth -.->|Gagal| Fail
+        Auth ==>|Sukses| Crypto
+    end
+
+    subgraph Step3 ["💾 3. Lapisan Penyimpanan (Brankas)"]
+        direction TB
+        DB[("🗄️ SQLite Database<br>(Hanya Metadata)")]:::storage
+        Vault[("🔒 Vault Lokal<br>(File Terenkripsi)")]:::storage
+    end
+
+    %% Main Flow
+    App ====>|2. Kirim Permintaan| Auth
+    Crypto ====>|3a. Simpan/Baca Info| DB
+    Crypto ====>|3b. Kunci/Buka File| Vault
+
+    %% Apply Subgraph Styles
+    class Step1 userLayer
+    class Step2 secLayer
+    class Step3 storeLayer
+```
 
 <div align="right">
   <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
