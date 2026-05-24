@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=B185DB&height=250&section=header&text=Aegis%20Vault&fontSize=70&fontColor=ffffff&fontAlignY=40&desc=Keamanan%20Privasi%20Tingkat%20Tinggi&descColor=ffffff&descAlignY=65&descAlign=50&animation=twinkling" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=B185DB&height=150&section=header&animation=twinkling" />
 
-# 🛡️ DataVault (Aegis Vault)
+[![Typing SVG Title](https://readme-typing-svg.herokuapp.com?font=Syncopate&weight=700&size=45&pause=2000&color=B185DB&center=true&vCenter=true&width=800&height=80&lines=A+E+G+I+S+++V+A+U+L+T;D+A+T+A+++V+A+U+L+T)](https://git.io/typing-svg)
 
-[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter&weight=800&size=28&pause=1000&color=B185DB&center=true&vCenter=true&width=600&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
+[![Typing SVG Subtitle](https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=22&pause=1000&color=B185DB&center=true&vCenter=true&width=800&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
 
 **Akses Aman & Privasi Penuh untuk Data Anda**
 
