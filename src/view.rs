@@ -89,6 +89,11 @@ pub fn render(
     if let Some(path) = picked_path {
         controller.encrypt_file(state, path);
     }
+
+    // Overlay P2P Sharing
+    if state.share_active_record.is_some() {
+        render_share_modal(ctx, state, controller);
+    }
 }
 
 // ── Background gradien ────────────────────────────────────
@@ -775,6 +780,21 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
     ui.horizontal(|ui| {
         ui.add_space(pad);
         ui.label(egui::RichText::new("Brankas Anda").size(22.0).color(text_primary()).strong());
+        ui.add_space(ui.available_width() - 170.0);
+        
+        let folder_btn = ghost_btn(ui, "📁 Amankan Folder", 140.0);
+        if folder_btn.clicked() {
+            #[cfg(not(target_os = "android"))]
+            {
+                if let Some(path) = rfd::FileDialog::new().pick_folder() {
+                    ctrl.encrypt_file(state, path);
+                }
+            }
+            #[cfg(target_os = "android")]
+            {
+                state.set_status("Mengamankan folder belum didukung di Android.", false);
+            }
+        }
     });
     ui.add_space(10.0);
     
@@ -813,10 +833,10 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
     ui.add_space(16.0);
     
     // Filter & Sort Data
-    let mut files: Vec<_> = state.file_list.iter().filter(|f| {
+    let mut files: Vec<FileRecord> = state.file_list.iter().filter(|f| {
         if state.vault_search_query.is_empty() { return true; }
         f.original_name.to_lowercase().contains(&state.vault_search_query.to_lowercase())
-    }).collect();
+    }).cloned().collect();
     
     files.sort_by(|a, b| {
         match state.vault_sort_by {
@@ -849,8 +869,12 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                     let is_hover = resp.hovered();
                     filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
                     
-                    let ext = file_ext(&record.original_name);
-                    let (icon, badge) = file_badge(ext);
+                    let (icon, badge) = if record.is_folder {
+                        ("📁", BADGE_BLUE)
+                    } else {
+                        let ext = file_ext(&record.original_name);
+                        file_badge(ext)
+                    };
                     let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 34.0, rect.center().y), Vec2::splat(44.0));
                     filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 12.0);
                     ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(22.0, FontFamily::Proportional), badge.1);
@@ -875,16 +899,31 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, 
                         ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(20.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
                         let preview_clicked = preview_resp.clicked();
 
+                        let share_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 144.0, rect.center().y), Vec2::splat(30.0));
+                        let share_resp = ui.allocate_rect(share_rect, egui::Sense::click());
+                        ui.painter().text(share_rect.center(), egui::Align2::CENTER_CENTER, "📡", FontId::new(18.0, FontFamily::Proportional), if share_resp.hovered() { teal_strong() } else { text_muted() });
+                        let share_clicked = share_resp.clicked();
+
                         if del_resp.clicked() {
                             *to_soft_delete = Some(record.id.clone());
                         } else if extract_resp.clicked() {
                             *to_decrypt = Some(record.vault_filename.clone());
                         } else if preview_clicked {
-                            target_preview = Some(record.vault_filename.clone());
+                            if record.is_folder {
+                                *to_decrypt = Some(record.vault_filename.clone());
+                            } else {
+                                target_preview = Some(record.vault_filename.clone());
+                            }
+                        } else if share_clicked {
+                            ctrl.start_share(state, record.clone());
                         }
                     } else if resp.clicked() {
                          // Default action on click the whole card
-                         target_preview = Some(record.vault_filename.clone());
+                         if record.is_folder {
+                             *to_decrypt = Some(record.vault_filename.clone());
+                         } else {
+                             target_preview = Some(record.vault_filename.clone());
+                         }
                     }
                 });
                 ui.add_space(8.0);
@@ -2303,6 +2342,118 @@ fn render_security_violation(ctx: &egui::Context, details: &str) {
                     if ui.add(exit_btn).clicked() {
                         std::process::exit(0);
                     }
+                });
+            });
+        });
+}
+
+// ── Screen Overlay: P2P Wi-Fi Sharing ──────────────────────
+
+fn render_share_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    let record = match &state.share_active_record {
+        Some(r) => r.clone(),
+        None => return,
+    };
+
+    let share_url = format!("http://{}:{}/share/{}", state.share_ip, state.share_port, record.vault_filename);
+    let qr_matrix = crate::totp::qr_matrix(&share_url);
+
+    egui::Area::new(egui::Id::new("p2p_share_overlay"))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            // Latar belakang hitam transparan
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+
+            // Dialog Box (Glassmorphism layout)
+            let dialog_size = egui::vec2(380.0, 520.0);
+            let dialog_rect = egui::Rect::from_center_size(rect.center(), dialog_size);
+
+            ui.allocate_ui_at_rect(dialog_rect, |ui| {
+                theme::card_frame().show(ui, |ui| {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(8.0);
+                        
+                        // Icon & Title
+                        ui.label(egui::RichText::new("📡").size(32.0));
+                        ui.add_space(4.0);
+                        ui.label(egui::RichText::new("Secure Local Share").size(20.0).color(text_primary()).strong());
+                        ui.label(egui::RichText::new("Berbagi data aman via Wi-Fi Lokal").size(11.0).color(text_muted()));
+
+                        ui.add_space(16.0);
+
+                        // File Info Badge
+                        let file_card_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(300.0, 48.0));
+                        ui.allocate_rect(file_card_rect, egui::Sense::hover());
+                        filled_rect(ui, file_card_rect, bg_card(), Stroke::new(0.5, border_default()), 10.0);
+                        
+                        let (icon, badge) = if record.is_folder {
+                            ("📁", BADGE_BLUE)
+                        } else {
+                            let ext = file_ext(&record.original_name);
+                            file_badge(ext)
+                        };
+                        let file_icon_rect = egui::Rect::from_center_size(egui::pos2(file_card_rect.left() + 24.0, file_card_rect.center().y), Vec2::splat(32.0));
+                        filled_rect(ui, file_icon_rect, badge.0, Stroke::NONE, 8.0);
+                        ui.painter().text(file_icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(16.0, FontFamily::Proportional), badge.1);
+                        
+                        let name_disp = if record.original_name.len() > 24 {
+                            format!("{}…", &record.original_name[..22])
+                        } else {
+                            record.original_name.clone()
+                        };
+                        ui.painter().text(
+                            egui::pos2(file_icon_rect.right() + 10.0, file_card_rect.top() + 10.0),
+                            egui::Align2::LEFT_TOP, &name_disp,
+                            FontId::new(13.0, FontFamily::Proportional), text_primary()
+                        );
+                        ui.painter().text(
+                            egui::pos2(file_icon_rect.right() + 10.0, file_card_rect.top() + 26.0),
+                            egui::Align2::LEFT_TOP,
+                            &format_size(record.file_size as u64),
+                            FontId::new(11.0, FontFamily::Proportional), text_muted()
+                        );
+
+                        ui.add_space(20.0);
+
+                        // QR Code
+                        if let Some(matrix) = qr_matrix {
+                            crate::totp::draw_qr(ui, &matrix, 160.0);
+                        } else {
+                            ui.label(egui::RichText::new("Gagal membuat QR Code").color(error_color()));
+                        }
+
+                        ui.add_space(16.0);
+
+                        // Teks Instruksi IP
+                        ui.label(egui::RichText::new("HUBUNGKAN PENERIMA KE WI-FI YANG SAMA & PINDAI QR").size(10.0).color(text_muted()).strong());
+                        ui.add_space(4.0);
+                        ui.label(egui::RichText::new(format!("Atau buka: http://{}:{}", state.share_ip, state.share_port)).size(12.0).color(teal_light()).text_style(egui::TextStyle::Monospace));
+
+                        ui.add_space(16.0);
+
+                        // Transfer PIN Display
+                        egui::Frame::none()
+                            .fill(Color32::from_rgba_unmultiplied(182, 102, 210, 15))
+                            .stroke(Stroke::new(0.5, border_accent()))
+                            .rounding(Rounding::same(8.0))
+                            .inner_margin(egui::Margin::symmetric(24.0, 10.0))
+                            .show(ui, |ui| {
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new("PIN TRANSFER: ").size(12.0).color(text_muted()));
+                                    ui.label(egui::RichText::new(&state.share_pin).size(20.0).color(teal_strong()).strong());
+                                });
+                            });
+
+                        ui.add_space(24.0);
+
+                        // Tombol Stop Share
+                        if ghost_btn(ui, "🛑 Hentikan Berbagi", 200.0).clicked() {
+                            ctrl.stop_share(state);
+                        }
+                        
+                        ui.add_space(8.0);
+                    });
                 });
             });
         });

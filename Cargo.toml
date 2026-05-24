@@ -27,7 +27,8 @@ zeroize        = "1.7"
 # Database
 rusqlite       = { version = "0.31", features = ["bundled"] }
 
-
+# Kompresi Folder
+zip            = { version = "0.6", default-features = false, features = ["deflate"] }
 
 # UUID
 uuid           = { version = "1.8", features = ["v4"] }

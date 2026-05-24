@@ -184,6 +184,13 @@ pub struct AppState {
 
     // Pelacakan aktivitas untuk Auto-Lock
     pub last_activity: std::time::Instant,
+
+    // P2P Sharing States
+    pub share_active_record: Option<FileRecord>,
+    pub share_pin: String,
+    pub share_port: u16,
+    pub share_ip: String,
+    pub share_stop_signal: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
 }
 
 impl Default for AppState {
@@ -254,6 +261,11 @@ impl Default for AppState {
             file_dialog: None,
             security_violation: None,
             last_activity: std::time::Instant::now(),
+            share_active_record: None,
+            share_pin: String::new(),
+            share_port: 0,
+            share_ip: String::new(),
+            share_stop_signal: None,
         }
     }
 }
