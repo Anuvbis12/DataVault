@@ -1,19 +1,28 @@
 <div align="center">
-  
+
+<img src="https://capsule-render.vercel.app/api?type=waving&color=F59E0B&height=200&section=header&text=Aegis%20Vault&fontSize=70&fontAlignY=35&desc=Keamanan%20Privasi%20Tingkat%20Tinggi&descAlignY=55&descAlign=50&animation=twinkling" />
+
 # 🛡️ DataVault (Aegis Vault)
 
-[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter&weight=700&size=24&pause=1000&color=F59E0B&center=true&vCenter=true&width=600&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter&weight=800&size=28&pause=1000&color=F59E0B&center=true&vCenter=true&width=600&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
 
 **Akses Aman & Privasi Penuh untuk Data Anda**
 
-[![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
-[![egui](https://img.shields.io/badge/GUI-egui-blue.svg?style=for-the-badge)](https://github.com/emilk/egui)
-[![Security](https://img.shields.io/badge/Security-AES--256-green.svg?style=for-the-badge&logo=security)](#)
-[![License](https://img.shields.io/badge/License-MIT-lightgray.svg?style=for-the-badge)](#)
+<p align="center">
+  <a href="https://www.rust-lang.org/"><img src="https://img.shields.io/badge/Rust-1.70+-E34F26.svg?style=for-the-badge&logo=rust&logoColor=white" alt="Rust"></a>
+  <a href="https://github.com/emilk/egui"><img src="https://img.shields.io/badge/GUI-egui-00C7B7.svg?style=for-the-badge" alt="egui"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Security-AES--256-4CAF50.svg?style=for-the-badge&logo=security" alt="Security"></a>
+  <a href="#"><img src="https://img.shields.io/badge/Platform-Windows%20%7C%20Android%20%7C%20iOS-0078D6.svg?style=for-the-badge&logo=windows&logoColor=white" alt="Platform"></a>
+  <a href="#"><img src="https://img.shields.io/badge/License-MIT-lightgray.svg?style=for-the-badge" alt="License"></a>
+</p>
 
 *Brankas digital modern yang memadukan performa tangguh Rust dengan antarmuka memukau.*
 
 **[📥 Unduh Rilis Terbaru](#) • [🚀 Cara Penggunaan](#-cara-penggunaan) • [🐛 Laporkan Bug](#)**
+
+<br/>
+
+<img src="https://user-images.githubusercontent.com/74038190/212284100-561aa473-3905-4a80-b561-0d28506553ee.gif" width="600">
 
 </div>
 
@@ -40,21 +49,27 @@
 
 > 💡 **Misi Kami:** Menyediakan alat keamanan data tingkat tinggi yang mudah digunakan oleh siapa saja, dengan antarmuka yang bersih, cepat, dan responsif.
 
-[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
 
 ---
 
 ## ✨ Fitur Unggulan
 
 | Fitur | Deskripsi |
-| :--- | :--- |
+| :---: | :--- |
 | 🛡️ **Keamanan Kelas Militer** | Menggunakan standar enkripsi **AES-256** dan **PBKDF2-HMAC-SHA256** untuk mencegah serangan *brute-force*. |
 | 🔑 **Sistem PIN Pintar** | Akses cepat dengan PIN 6-digit. PIN di-hash dengan aman dan tidak pernah disimpan dalam *plaintext*. |
+| 🔒 **Integrasi TOTP (2FA)** | Dukungan Autentikasi Dua Faktor untuk perlindungan ganda pada brankas Anda. |
 | ✅ **Validasi Integritas** | Hash **SHA-256** memastikan data Anda tidak pernah rusak atau dimodifikasi oleh pihak ketiga. |
 | 🗄️ **Database Lokal Terpusat**| Manajemen metadata pintar menggunakan **SQLite**, memastikan sinkronisasi data yang cepat dan aman. |
+| 🗑️ **Recycle Bin Aman** | Sistem pemulihan file cerdas dengan recycle bin internal yang terenkripsi. |
 | 🎨 **Desain Modern** | Antarmuka pengguna *glassmorphism* yang elegan, responsif, dan memanjakan mata. |
 
-[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
 
 ---
 
@@ -117,7 +132,9 @@ cargo apk run --lib --release
 4. Buka **Xcode**, buat proyek *iOS App* baru dengan Swift, lalu tarik file `libaegis_vault.a` ke dalam proyek.
 5. Buat *Bridging Header* (`void start_app_ios();`), lalu panggil fungsi `start_app_ios()` tersebut dari *App Delegate* atau *SwiftUI* Anda.
 
-[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
 
 ---
 
@@ -125,12 +142,16 @@ cargo apk run --lib --release
 
 1. **Setup Awal 🔐**
    Saat pertama kali dijalankan, buat **PIN 6-digit** Anda. Ini adalah kunci utama ke brankas Anda. *Jangan sampai lupa!*
-2. **Amankan File ➕**
+2. **Setup TOTP (2FA) 📱**
+   Scan QR Code yang muncul di layar dengan aplikasi Authenticator (Google Authenticator / Authy) Anda untuk lapisan keamanan ganda.
+3. **Amankan File ➕**
    Klik ikon tambah (+), lalu pilih dokumen, foto, atau video yang ingin disembunyikan. File akan dienkripsi secara otomatis.
-3. **Pulihkan Data 🔓**
+4. **Pulihkan Data 🔓**
    Klik ikon gembok pada file di dalam brankas, pilih lokasi penyimpanan tujuan, dan file Anda akan kembali ke format aslinya.
 
-[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
 
 ---
 
@@ -156,7 +177,9 @@ DataVault mengelola file Anda dengan rapi dan aman di dalam direktori `vault_sto
 > [!CAUTION]
 > **DILARANG KERAS** mengubah, menghapus, atau memindahkan file di dalam `vault_storage/` secara manual melalui File Explorer. Hal ini dapat menyebabkan kerusakan database dan kehilangan data permanen!
 
-[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
 
 ---
 
@@ -168,8 +191,11 @@ Aplikasi ini didukung oleh ekosistem Rust yang luar biasa:
 * **[RustCrypto](https://github.com/RustCrypto)**: Implementasi murni Rust untuk algoritma kriptografi (`aes`, `pbkdf2`, `sha2`).
 * **[rusqlite](https://github.com/rusqlite/rusqlite)**: Binding aman untuk SQLite.
 * **[rfd](https://github.com/PolyMeilex/rfd)**: Dialog file *native* lintas platform.
+* **[totp](https://github.com/zantinon/totp-rs)**: Implementasi *Time-Based One-Time Password*.
 
-[⬆ Kembali ke Atas](#-datavault-aegis-vault)
+<div align="right">
+  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+</div>
 
 ---
 
@@ -177,19 +203,20 @@ Aplikasi ini didukung oleh ekosistem Rust yang luar biasa:
 
 Proyek ini dikembangkan dengan dedikasi oleh:
 
-<details>
-<summary><b>👑 Lihat Anggota Tim</b></summary>
-<br>
+<div align="center">
 
-* 👨‍💻 **Rizma Indra Pramudya** (25051204370)
-* 👩‍💻 **Izora Elverda Narulita Putri** (25051204287)
-* 👨‍💻 **Putera Al Khalidi** (25051204362)
-* 👨‍💻 **Muhammad Abdullah Ro'in** (25051204270)
+| Foto | Nama Lengkap | NIM |
+| :---: | :--- | :--- |
+| <img src="https://ui-avatars.com/api/?name=Rizma+Indra+Pramudya&background=random&color=fff&rounded=true" width="40"> | **Rizma Indra Pramudya** | `25051204370` |
+| <img src="https://ui-avatars.com/api/?name=Izora+Elverda+Narulita+Putri&background=random&color=fff&rounded=true" width="40"> | **Izora Elverda Narulita Putri** | `25051204287` |
+| <img src="https://ui-avatars.com/api/?name=Putera+Al+Khalidi&background=random&color=fff&rounded=true" width="40"> | **Putera Al Khalidi** | `25051204362` |
+| <img src="https://ui-avatars.com/api/?name=Muhammad+Abdullah+Ro'in&background=random&color=fff&rounded=true" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
 
-</details>
+</div>
 
 ---
 
 <div align="center">
-  <p>Dibuat dengan ❤️ dan 🦀 (Rust) | Open Source</p>
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=F59E0B&height=100&section=footer" />
+  <p><b>Dibuat dengan ❤️ dan 🦀 (Rust) | Open Source</b></p>
 </div>
