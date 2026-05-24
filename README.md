@@ -219,13 +219,13 @@ flowchart LR
     end
 
     %% Flow of execution
-    UI <==> |Action & Render| State
-    State ---> |Derive Master Key| KDF
-    State ---> |MFA Verification| TOTP
-    KDF ---> |Provide Key| AES
+    UI <--> |Action & Render| State
+    State --> |Derive Master Key| KDF
+    State --> |MFA Verification| TOTP
+    KDF --> |Provide Key| AES
     
-    AES ===> |Query/Update (SHA-256 Hash)| SQLite
-    AES ===> |I/O File Streams| FileSystem
+    AES ==> |Query/Update (SHA-256 Hash)| SQLite
+    AES ==> |I/O File Streams| FileSystem
 
     %% Apply boundary classes
     class PresentationLayer,CoreLogic,SecurityModule,PersistenceLayer boundary
