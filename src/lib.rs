@@ -34,6 +34,29 @@ impl VaultMvc {
 
 impl eframe::App for VaultMvc {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        // ── Auto-Lock: Deteksi Aktivitas Input Pengguna ──
+        let has_activity = ctx.input(|i| {
+            !i.events.is_empty() || i.pointer.any_click() || i.pointer.any_down()
+        });
+        if has_activity {
+            self.state.last_activity = std::time::Instant::now();
+        }
+
+        // ── Auto-Lock: Timer Ketidakaktifan (Inactivity Timeout 2 Menit) ──
+        if self.state.is_authenticated() {
+            let elapsed = self.state.last_activity.elapsed().as_secs();
+            if elapsed >= 120 { // 120 detik = 2 menit
+                self.controller.logout(&mut self.state);
+                self.state.set_status("Brankas dikunci otomatis karena tidak ada aktivitas.", false);
+            } else {
+                // Request repaint 1 detik ke depan untuk mengevaluasi timer secara real-time
+                ctx.request_repaint_after(std::time::Duration::from_secs(1));
+            }
+        } else {
+            // Jika belum login, selalu segarkan last_activity
+            self.state.last_activity = std::time::Instant::now();
+        }
+
         // Panic Button (Double Esc to Lock & Minimize)
         if ctx.input(|i| i.key_pressed(eframe::egui::Key::Escape)) {
             if let Some(last) = self.state.last_esc_press {
@@ -70,8 +93,13 @@ impl eframe::App for VaultMvc {
 
         // 🛡️ FITUR KEAMANAN LINTAS PLATFORM (Termasuk iOS, Android, & Desktop)
         // Jika aplikasi kehilangan fokus (masuk ke background / Recent Apps), 
-        // tutup seluruh layar dengan warna hitam untuk mencegah isinya diintip.
+        // kunci otomatis brankas dan tutup seluruh layar dengan warna hitam untuk mencegah intip.
         if !ctx.input(|i| i.focused) {
+            // Auto-lock instan saat kehilangan fokus / minimize
+            if self.state.is_authenticated() {
+                self.controller.logout(&mut self.state);
+            }
+
             let screen_rect = ctx.screen_rect();
             let painter = ctx.layer_painter(eframe::egui::LayerId::new(
                 eframe::egui::Order::Tooltip,

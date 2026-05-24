@@ -181,6 +181,9 @@ pub struct AppState {
     
     // Anti-Tampering security violation details
     pub security_violation: Option<String>,
+
+    // Pelacakan aktivitas untuk Auto-Lock
+    pub last_activity: std::time::Instant,
 }
 
 impl Default for AppState {
@@ -250,6 +253,7 @@ impl Default for AppState {
             show_keyboard: false,
             file_dialog: None,
             security_violation: None,
+            last_activity: std::time::Instant::now(),
         }
     }
 }
