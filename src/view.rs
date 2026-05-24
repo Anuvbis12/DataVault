@@ -1137,6 +1137,46 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
             ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Logout / Kunci Vault", FontId::new(16.0, FontFamily::Proportional), text_primary());
             if resp.clicked() { ctrl.logout(state); }
         });
+
+        // 🛡️ Secure File Shredder Info Card
+        ui.add_space(20.0);
+        ui.horizontal(|ui| {
+            ui.add_space(pad);
+            let card_w = avail.width() - pad*2.0;
+            egui::Frame::none()
+                .fill(Color32::from_rgba_unmultiplied(182, 102, 210, 12)) // Purple glow matching brand theme
+                .stroke(Stroke::new(1.0, Color32::from_rgba_unmultiplied(182, 102, 210, 38)))
+                .rounding(Rounding::same(16.0))
+                .inner_margin(egui::Margin::symmetric(18.0, 14.0))
+                .show(ui, |ui| {
+                    ui.set_max_width(card_w - 36.0);
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("🛡️").size(16.0));
+                            ui.add_space(4.0);
+                            ui.label(egui::RichText::new("Shredder File Asli").size(15.0).color(text_primary()).strong());
+                            
+                            // Visual "AKTIF" badge
+                            ui.add_space((ui.available_width() - 55.0).max(0.0));
+                            let cursor_pos = ui.cursor().min;
+                            let badge_rect = egui::Rect::from_min_max(
+                                cursor_pos,
+                                cursor_pos + egui::vec2(50.0, 18.0)
+                            );
+                            filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(74, 222, 128, 25), Stroke::NONE, 9.0);
+                            ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "AKTIF", FontId::new(9.0, FontFamily::Proportional), success_color());
+                        });
+                        ui.add_space(8.0);
+                        ui.label(
+                            egui::RichText::new(
+                                "Setiap file asli yang Anda masukkan otomatis dihancurkan dengan metode 3-Pass Secure Overwrite (menimpa dengan data acak 3 kali) sebelum dihapus. File asli tidak dapat dipulihkan dengan software recovery."
+                            )
+                            .size(11.5)
+                            .color(text_muted())
+                        );
+                    });
+                });
+        });
     });
 }
 
