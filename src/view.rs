@@ -18,6 +18,12 @@ pub fn render(
     state:      &mut AppState,
     controller: &Controller,
 ) {
+    // 🛡️ Anti-Tampering Check
+    if let Some(ref details) = state.security_violation {
+        render_security_violation(ctx, details);
+        return;
+    }
+
     draw_background(ctx);
 
     // Overlay Virtual Keyboard (Secure Keyboard)
@@ -2170,4 +2176,94 @@ fn render_virtual_keyboard(ctx: &egui::Context, state: &mut AppState) {
         state.show_keyboard = false;
         state.focused_field = crate::app_state::FocusedField::None;
     }
+}
+
+// 🛡️ Anti-Tampering Render Helpers
+fn draw_security_background(ctx: &egui::Context) {
+    let painter = ctx.layer_painter(egui::LayerId::background());
+    let rect    = ctx.screen_rect();
+    let mut mesh = Mesh::default();
+    
+    // Deep crimson/black high-security gradient mesh
+    mesh.vertices.extend([
+        Vertex { pos: rect.left_top(),     uv: egui::pos2(0.,0.), color: Color32::from_rgb(25, 8, 10) },
+        Vertex { pos: rect.right_top(),    uv: egui::pos2(1.,0.), color: Color32::from_rgb(25, 8, 10) },
+        Vertex { pos: rect.right_bottom(), uv: egui::pos2(1.,1.), color: Color32::from_rgb(10, 4, 5) },
+        Vertex { pos: rect.left_bottom(),  uv: egui::pos2(0.,1.), color: Color32::from_rgb(10, 4, 5) },
+    ]);
+    mesh.add_triangle(0,1,2);
+    mesh.add_triangle(0,2,3);
+    painter.add(egui::Shape::Mesh(mesh));
+}
+
+fn render_security_violation(ctx: &egui::Context, details: &str) {
+    draw_security_background(ctx);
+    
+    egui::CentralPanel::default()
+        .frame(egui::Frame::none())
+        .show(ctx, |ui| {
+            let avail = ui.available_rect_before_wrap();
+            
+            ui.allocate_ui_at_rect(avail, |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.add_space((avail.height() - 440.0).max(0.0) / 2.0);
+                    
+                    // Danger/Shield Icon
+                    let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(68.0), egui::Sense::hover());
+                    filled_rect(ui, icon_rect, Color32::from_rgb(45, 12, 16), Stroke::new(1.0, error_color()), 18.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "⚠️",
+                                      FontId::new(32.0, FontFamily::Proportional), error_color());
+                    
+                    ui.add_space(20.0);
+                    ui.label(egui::RichText::new("AKSES DITOLAK").size(24.0).color(error_color()).strong());
+                    ui.label(egui::RichText::new("Modifikasi Sistem Terdeteksi").size(14.0).color(text_muted()));
+                    
+                    ui.add_space(24.0);
+                    
+                    // Warning Card
+                    let card_w = (avail.width() - 40.0).min(380.0);
+                    egui::Frame::none()
+                        .fill(bg_surface())
+                        .stroke(Stroke::new(1.0, Color32::from_rgba_unmultiplied(244, 63, 94, 50)))
+                        .rounding(Rounding::same(12.0))
+                        .inner_margin(egui::Margin::symmetric(20.0, 16.0))
+                        .show(ui, |ui| {
+                            ui.set_max_width(card_w - 40.0);
+                            ui.vertical(|ui| {
+                                ui.label(egui::RichText::new("Aplikasi Aegis Vault tidak dapat dijalankan pada perangkat yang di-Root atau di dalam Emulator karena rentan terhadap penyadapan dan manipulasi memori demi keamanan data sensitif Anda.").size(13.0).color(text_body()));
+                                ui.add_space(14.0);
+                                
+                                // Details Box
+                                egui::Frame::none()
+                                    .fill(Color32::from_rgb(26, 12, 14))
+                                    .stroke(Stroke::new(0.5, Color32::from_rgb(80, 20, 25)))
+                                    .rounding(Rounding::same(8.0))
+                                    .inner_margin(egui::Margin::symmetric(12.0, 10.0))
+                                    .show(ui, |ui| {
+                                        ui.horizontal_top(|ui| {
+                                            ui.label(egui::RichText::new("🛡️").size(12.0).color(error_color()));
+                                            ui.add_space(6.0);
+                                            ui.vertical(|ui| {
+                                                ui.label(egui::RichText::new("Detail Indikasi:").size(11.0).color(error_color()).strong());
+                                                ui.add_space(2.0);
+                                                ui.label(egui::RichText::new(details).size(11.0).color(text_body()));
+                                            });
+                                        });
+                                    });
+                            });
+                        });
+                        
+                    ui.add_space(32.0);
+                    
+                    // Exit Application Button
+                    let exit_btn = egui::Button::new(egui::RichText::new("🚪  Keluar Aplikasi").size(15.0).color(Color32::WHITE))
+                        .fill(error_color())
+                        .min_size(Vec2::new(200.0, 44.0));
+                    
+                    if ui.add(exit_btn).clicked() {
+                        std::process::exit(0);
+                    }
+                });
+            });
+        });
 }

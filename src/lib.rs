@@ -1,4 +1,5 @@
 // lib.rs — Pintu masuk utama untuk Library & Android Aegis Vault
+pub mod anti_tamper;
 pub mod app_state;
 pub mod controller;
 pub mod crypto;
@@ -20,8 +21,10 @@ pub struct VaultMvc {
 
 impl VaultMvc {
     pub fn new(db: db::VaultDb) -> Self {
+        let mut state = app_state::AppState::default();
+        state.security_violation = anti_tamper::check_security_violation();
         Self {
-            state:      app_state::AppState::default(),
+            state,
             controller: controller::Controller::new(db),
             #[cfg(target_os = "android")]
             android_app: None,

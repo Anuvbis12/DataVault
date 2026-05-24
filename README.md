@@ -189,46 +189,35 @@ DataVault mengelola file Anda dengan rapi dan aman di dalam direktori `vault_sto
 Berikut adalah alur kerja sistem keamanan **DataVault** dari sisi pengguna hingga ke penyimpanan:
 
 ```mermaid
-flowchart LR
-    %% Professional Corporate Styles
-    classDef presentation fill:#2B3A42,stroke:#1E282C,stroke-width:2px,color:#FFF,rx:4,ry:4
-    classDef controller fill:#ECEFF1,stroke:#B0BEC5,stroke-width:2px,color:#263238,rx:4,ry:4
-    classDef security fill:#E8EAF6,stroke:#7986CB,stroke-width:2px,color:#1A237E,rx:4,ry:4
-    classDef storage fill:#FFF8E1,stroke:#FFCA28,stroke-width:2px,color:#FF8F00,rx:4,ry:4
-    classDef boundary fill:none,stroke:#90A4AE,stroke-width:1.5px,stroke-dasharray: 4 4,color:#546E7A
+sequenceDiagram
+    autonumber
+    actor User as Pengguna
+    participant GUI as Egui UI (Frontend)
+    participant Core as App State (Controller)
+    participant Auth as Security & Auth (TOTP)
+    participant Crypto as Cipher (AES-256)
+    participant DB as SQLite (Metadata)
+    participant FS as Vault Storage
 
-    subgraph PresentationLayer ["Presentation Layer"]
-        UI["Egui Framework<br/>(Immediate Mode GUI)"]:::presentation
-    end
-
-    subgraph CoreLogic ["Application Core (Rust)"]
-        State["State Controller<br/>(Event & I/O Manager)"]:::controller
-        
-        subgraph SecurityModule ["Cryptography & Auth Module"]
-            direction TB
-            KDF["Key Derivation<br/>(PBKDF2-HMAC-SHA256)"]:::security
-            TOTP["2FA Validator<br/>(Time-Based OTP)"]:::security
-            AES["Cipher Engine<br/>(AES-256-GCM)"]:::security
-        end
-    end
-
-    subgraph PersistenceLayer ["Persistence & Storage Layer"]
-        direction TB
-        SQLite[("Metadata Store<br/>(SQLite / Rusqlite)") ]:::storage
-        FileSystem[("Vault Storage<br/>(Encrypted Binary Blobs)") ]:::storage
-    end
-
-    %% Flow of execution
-    UI <--> |Action & Render| State
-    State --> |Derive Master Key| KDF
-    State --> |MFA Verification| TOTP
-    KDF --> |Provide Key| AES
+    User->>GUI: Input PIN & Pilih File
+    GUI->>Core: Kirim Event Enkripsi
+    Core->>Auth: Validasi Kredensial (PBKDF2 & TOTP)
     
-    AES ==> |Query/Update (SHA-256 Hash)| SQLite
-    AES ==> |I/O File Streams| FileSystem
-
-    %% Apply boundary classes
-    class PresentationLayer,CoreLogic,SecurityModule,PersistenceLayer boundary
+    alt Kredensial Tidak Valid
+        Auth-->>Core: ❌ Akses Ditolak
+        Core-->>GUI: Tampilkan Pesan Error
+    else Kredensial Valid
+        Auth-->>Core: ✅ Master Key Diturunkan
+        Core->>Crypto: Inisiasi AES-256-GCM dengan Key
+        Crypto->>FS: Baca Stream File Asli
+        Crypto->>Crypto: Proses Enkripsi Data
+        Crypto->>FS: Simpan Encrypted Blob (UUID)
+        Crypto->>DB: Simpan Metadata (Nama File Asli & Hash)
+        DB-->>Crypto: OK
+        Crypto-->>Core: File Berhasil Diamankan
+        Core-->>GUI: Update Tampilan Beranda
+        GUI-->>User: Tampilkan Notifikasi Sukses
+    end
 ```
 
 <div align="right">

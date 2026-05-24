@@ -178,6 +178,9 @@ pub struct AppState {
     
     // File Picker
     pub file_dialog: Option<egui_file_dialog::FileDialog>,
+    
+    // Anti-Tampering security violation details
+    pub security_violation: Option<String>,
 }
 
 impl Default for AppState {
@@ -246,6 +249,7 @@ impl Default for AppState {
             focused_field: FocusedField::None,
             show_keyboard: false,
             file_dialog: None,
+            security_violation: None,
         }
     }
 }
