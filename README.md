@@ -1,6 +1,6 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=B185DB&height=250&section=header&text=Aegis%20Vault&fontSize=70&fontAlignY=40&desc=Keamanan%20Privasi%20Tingkat%20Tinggi&descAlignY=65&descAlign=50&animation=twinkling" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=B185DB&height=250&section=header&text=Aegis%20Vault&fontSize=70&fontColor=ffffff&fontAlignY=40&desc=Keamanan%20Privasi%20Tingkat%20Tinggi&descColor=ffffff&descAlignY=65&descAlign=50&animation=twinkling" />
 
 # 🛡️ DataVault (Aegis Vault)
 
