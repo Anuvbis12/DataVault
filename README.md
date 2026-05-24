@@ -1,10 +1,10 @@
 <div align="center">
 
-<img src="https://capsule-render.vercel.app/api?type=waving&color=F59E0B&height=200&section=header&text=Aegis%20Vault&fontSize=70&fontAlignY=35&desc=Keamanan%20Privasi%20Tingkat%20Tinggi&descAlignY=55&descAlign=50&animation=twinkling" />
+<img src="https://capsule-render.vercel.app/api?type=waving&color=8B5CF6&height=250&section=header&text=Aegis%20Vault&fontSize=70&fontAlignY=40&desc=Keamanan%20Privasi%20Tingkat%20Tinggi&descAlignY=65&descAlign=50&animation=twinkling" />
 
 # 🛡️ DataVault (Aegis Vault)
 
-[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter&weight=800&size=28&pause=1000&color=F59E0B&center=true&vCenter=true&width=600&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter&weight=800&size=28&pause=1000&color=8B5CF6&center=true&vCenter=true&width=600&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
 
 **Akses Aman & Privasi Penuh untuk Data Anda**
 
@@ -217,6 +217,6 @@ Proyek ini dikembangkan dengan dedikasi oleh:
 ---
 
 <div align="center">
-  <img src="https://capsule-render.vercel.app/api?type=waving&color=F59E0B&height=100&section=footer" />
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=8B5CF6&height=100&section=footer" />
   <p><b>Dibuat dengan ❤️ dan 🦀 (Rust) | Open Source</b></p>
 </div>
