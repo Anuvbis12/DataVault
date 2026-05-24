@@ -2,6 +2,8 @@
   
 # 🛡️ DataVault (Aegis Vault)
 
+[![Typing SVG](https://readme-typing-svg.herokuapp.com?font=Inter&weight=700&size=24&pause=1000&color=F59E0B&center=true&vCenter=true&width=600&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!)](https://git.io/typing-svg)
+
 **Akses Aman & Privasi Penuh untuk Data Anda**
 
 [![Rust](https://img.shields.io/badge/Rust-1.70+-orange.svg?style=for-the-badge&logo=rust)](https://www.rust-lang.org/)
