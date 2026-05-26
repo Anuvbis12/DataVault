@@ -20,17 +20,17 @@ pub fn is_light() -> bool {
 // ── Palet Warna ───────────────────────────────────────────
 // Background layers
 pub fn bg_base() -> Color32 {
-    if is_light() { Color32::from_rgb(250, 250, 250) } else { Color32::from_rgb(6, 6, 5) }
-}       // #060605
+    if is_light() { Color32::from_rgb(250, 250, 250) } else { Color32::from_rgb(7, 9, 19) }
+}       // #070913
 pub fn bg_surface() -> Color32 {
-    if is_light() { Color32::from_rgb(240, 240, 240) } else { Color32::from_rgb(16, 16, 16) }
-}    // #101010
+    if is_light() { Color32::from_rgb(240, 240, 240) } else { Color32::from_rgb(13, 15, 30) }
+}    // #0d0f1e
 pub fn bg_card() -> Color32 {
-    if is_light() { Color32::from_rgb(255, 255, 255) } else { Color32::from_rgb(24, 24, 23) }
-}    // #181817
+    if is_light() { Color32::from_rgb(255, 255, 255) } else { Color32::from_rgb(20, 22, 45) }
+}    // #14162d
 pub fn bg_input() -> Color32 {
-    if is_light() { Color32::from_rgb(235, 235, 235) } else { Color32::from_rgb(34, 34, 33) }
-}    // #222221
+    if is_light() { Color32::from_rgb(235, 235, 235) } else { Color32::from_rgb(26, 28, 54) }
+}    // #1a1c36
 
 // Borders
 pub fn border_default() -> Color32 {
@@ -43,67 +43,67 @@ pub fn border_hover() -> Color32 {
     if is_light() { Color32::from_rgba_unmultiplied(100, 100, 100, 255) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 30) }
 } // white alpha 30
 pub fn border_accent() -> Color32 {
-    if is_light() { Color32::from_rgb(150, 60, 180) } else { Color32::from_rgb(182, 102, 210) }
-} // Purple border
+    if is_light() { Color32::from_rgb(99, 102, 241) } else { Color32::from_rgb(129, 140, 248) }
+} // Indigo border
 
 // Text
 pub fn text_primary() -> Color32 {
-    if is_light() { Color32::from_rgb(10, 10, 10) } else { Color32::from_rgb(242, 242, 239) }
-} // #f2f2ef
+    if is_light() { Color32::from_rgb(10, 10, 10) } else { Color32::from_rgb(255, 255, 255) }
+} // #ffffff
 pub fn text_body() -> Color32 {
-    if is_light() { Color32::from_rgb(40, 40, 40) } else { Color32::from_rgb(200, 200, 195) }
-} 
+    if is_light() { Color32::from_rgb(40, 40, 40) } else { Color32::from_rgb(115, 121, 150) }
+} // #737996
 pub fn text_muted() -> Color32 {
-    if is_light() { Color32::from_rgb(100, 100, 100) } else { Color32::from_rgb(122, 122, 118) }
-} // #7a7a76
+    if is_light() { Color32::from_rgb(100, 100, 100) } else { Color32::from_rgb(71, 77, 102) }
+} // #474d66
 pub fn text_dimmed() -> Color32 {
-    if is_light() { Color32::from_rgb(140, 140, 140) } else { Color32::from_rgb(90, 90, 87) }
+    if is_light() { Color32::from_rgb(140, 140, 140) } else { Color32::from_rgb(71, 77, 102) }
 }
 pub fn text_faint() -> Color32 {
     if is_light() { Color32::from_rgb(180, 180, 180) } else { Color32::from_rgb(51, 51, 50) }
 } // #333332
 
-// Accents — Purple (using old TEAL name to avoid breaking view.rs)
+// Accents — Indigo (using old TEAL name to avoid breaking view.rs)
 pub fn teal_strong() -> Color32 {
-    if is_light() { Color32::from_rgb(150, 60, 180) } else { Color32::from_rgb(182, 102, 210) }
-} // #b666d2
+    if is_light() { Color32::from_rgb(99, 102, 241) } else { Color32::from_rgb(129, 140, 248) }
+} // #818cf8
 pub fn teal_dark() -> Color32 {
-    if is_light() { Color32::from_rgb(100, 40,  120) } else { Color32::from_rgb(130, 70,  150) }
-}
+    if is_light() { Color32::from_rgb(79, 70, 229) } else { Color32::from_rgb(99, 102, 241) }
+} // #6366f1
 pub fn teal_light() -> Color32 {
-    if is_light() { Color32::from_rgb(180, 100, 200) } else { Color32::from_rgb(200, 130, 220) }
-}
+    if is_light() { Color32::from_rgb(129, 140, 248) } else { Color32::from_rgb(165, 180, 252) }
+} // #a5b4fc
 pub fn teal_faint() -> Color32 {
-    if is_light() { Color32::from_rgb(230, 210, 240) } else { Color32::from_rgba_unmultiplied(182, 102, 210, 33) }
+    if is_light() { Color32::from_rgb(224, 231, 255) } else { Color32::from_rgba_unmultiplied(129, 140, 248, 25) }
 }
 
 // Accent palette helpers
-pub fn accent_purple() -> Color32 { Color32::from_rgb(182, 102, 210) } // #b666d2
-pub fn accent_mint() -> Color32 { Color32::from_rgb(0, 229, 160) } // #00e5a0
-pub fn accent_sky() -> Color32 { Color32::from_rgb(77, 184, 255) } // #4db8ff
-pub fn accent_peach() -> Color32 { Color32::from_rgb(255, 126, 95) } // #ff7e5f
-pub fn accent_gold() -> Color32 { Color32::from_rgb(245, 200, 66) } // #f5c842
-pub fn accent_rose() -> Color32 { Color32::from_rgb(255, 95, 158) } // #ff5f9e
+pub fn accent_purple() -> Color32 { Color32::from_rgb(168, 85, 247) } // #a855f7
+pub fn accent_mint() -> Color32 { Color32::from_rgb(16, 185, 129) } // #10b981
+pub fn accent_sky() -> Color32 { Color32::from_rgb(6, 182, 212) } // #06b6d4
+pub fn accent_peach() -> Color32 { Color32::from_rgb(251, 146, 60) } // #fb923c
+pub fn accent_gold() -> Color32 { Color32::from_rgb(251, 191, 36) } // #fbbf24
+pub fn accent_rose() -> Color32 { Color32::from_rgb(244, 63, 94) } // #f43f5e
 
 // Translucent variations
-pub fn accent_purple_a() -> Color32 { Color32::from_rgba_unmultiplied(182, 102, 210, 33) }
-pub fn accent_purple_b() -> Color32 { Color32::from_rgba_unmultiplied(182, 102, 210, 71) }
-pub fn accent_mint_a() -> Color32 { Color32::from_rgba_unmultiplied(0, 229, 160, 33) }
-pub fn accent_sky_a() -> Color32 { Color32::from_rgba_unmultiplied(77, 184, 255, 33) }
-pub fn accent_peach_a() -> Color32 { Color32::from_rgba_unmultiplied(255, 126, 95, 33) }
-pub fn accent_gold_a() -> Color32 { Color32::from_rgba_unmultiplied(245, 200, 66, 33) }
-pub fn accent_rose_a() -> Color32 { Color32::from_rgba_unmultiplied(255, 95, 158, 33) }
+pub fn accent_purple_a() -> Color32 { Color32::from_rgba_unmultiplied(168, 85, 247, 25) }
+pub fn accent_purple_b() -> Color32 { Color32::from_rgba_unmultiplied(168, 85, 247, 60) }
+pub fn accent_mint_a() -> Color32 { Color32::from_rgba_unmultiplied(16, 185, 129, 25) }
+pub fn accent_sky_a() -> Color32 { Color32::from_rgba_unmultiplied(6, 182, 212, 25) }
+pub fn accent_peach_a() -> Color32 { Color32::from_rgba_unmultiplied(251, 146, 60, 25) }
+pub fn accent_gold_a() -> Color32 { Color32::from_rgba_unmultiplied(251, 191, 36, 25) }
+pub fn accent_rose_a() -> Color32 { Color32::from_rgba_unmultiplied(244, 63, 94, 25) }
 
 // Status
 pub fn error_color() -> Color32 {
-    if is_light() { Color32::from_rgb(220, 30, 60) } else { Color32::from_rgb(255, 79, 79) }
-}  // #ff4f4f
+    if is_light() { Color32::from_rgb(220, 30, 60) } else { Color32::from_rgb(239, 68, 68) }
+}  // #ef4444
 pub fn warn_color() -> Color32 {
-    if is_light() { Color32::from_rgb(210, 150, 10) } else { Color32::from_rgb(245, 200, 66) }
-}  // #f5c842
+    if is_light() { Color32::from_rgb(210, 150, 10) } else { Color32::from_rgb(251, 191, 36) }
+}  // #fbbf24
 pub fn success_color() -> Color32 {
-    if is_light() { Color32::from_rgb(30, 160, 80) } else { Color32::from_rgb(0, 229, 160) }
-}  // #00e5a0
+    if is_light() { Color32::from_rgb(30, 160, 80) } else { Color32::from_rgb(16, 185, 129) }
+}  // #10b981
 
 // File type badge (fill, border/fg)
 pub const BADGE_PURPLE: (Color32, Color32) = (Color32::from_rgb(32, 21, 36), Color32::from_rgb(182, 102, 210));

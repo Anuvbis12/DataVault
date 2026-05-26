@@ -10,6 +10,7 @@ use crate::db::{FileRecord, AuditLog};
 #[derive(Default, PartialEq, Clone)]
 pub enum AppScreen {
     #[default]
+    Splash,
     Login,
     SetupAccount,
     Dashboard,
@@ -39,6 +40,7 @@ pub enum DashboardTab {
     Home,
     Vault,
     Storage,
+    Kuat,
     Settings,
     Profile,
     Notifications,
@@ -189,6 +191,9 @@ pub struct AppState {
     // Di-set setiap frame dari content_rect().top pada Android, 0.0 di platform lain
     pub status_bar_height: f32,
 
+    // Splash Screen Start
+    pub splash_start: Option<std::time::Instant>,
+
     // P2P Sharing States
     pub share_active_record: Option<FileRecord>,
     pub share_pin: String,
@@ -200,7 +205,7 @@ pub struct AppState {
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            screen:           AppScreen::Login,
+            screen:           AppScreen::Splash,
             dashboard_tab:    DashboardTab::Home,
 
             login_username:   String::new(),
@@ -266,6 +271,7 @@ impl Default for AppState {
             security_violation: None,
             last_activity: std::time::Instant::now(),
             status_bar_height: 0.0,
+            splash_start:      None,
             share_active_record: None,
             share_pin: String::new(),
             share_port: 0,
