@@ -23,39 +23,45 @@ pub fn bg_base() -> Color32 {
     if is_light() { Color32::from_rgb(250, 250, 250) } else { Color32::from_rgb(6, 6, 5) }
 }       // #060605
 pub fn bg_surface() -> Color32 {
-    if is_light() { Color32::from_rgb(240, 240, 240) } else { Color32::from_rgb(18, 18, 17) }
-}    // #121211
+    if is_light() { Color32::from_rgb(240, 240, 240) } else { Color32::from_rgb(16, 16, 16) }
+}    // #101010
 pub fn bg_card() -> Color32 {
-    if is_light() { Color32::from_rgb(255, 255, 255) } else { Color32::from_rgb(30, 30, 29) }
-}    // #1e1e1d
+    if is_light() { Color32::from_rgb(255, 255, 255) } else { Color32::from_rgb(24, 24, 23) }
+}    // #181817
 pub fn bg_input() -> Color32 {
-    if is_light() { Color32::from_rgb(235, 235, 235) } else { Color32::from_rgb(26, 26, 25) }
-}
+    if is_light() { Color32::from_rgb(235, 235, 235) } else { Color32::from_rgb(34, 34, 33) }
+}    // #222221
 
 // Borders
 pub fn border_default() -> Color32 {
-    if is_light() { Color32::from_rgba_premultiplied(200, 200, 200, 255) } else { Color32::from_rgba_premultiplied(20, 20, 20, 20) }
-} // white alpha 20
+    if is_light() { Color32::from_rgba_unmultiplied(200, 200, 200, 255) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 15) }
+} // white alpha 15
 pub fn border_subtle() -> Color32 {
-    if is_light() { Color32::from_rgba_premultiplied(230, 230, 230, 255) } else { Color32::from_rgba_premultiplied(10, 10, 10, 10) }
-} // white alpha 10
+    if is_light() { Color32::from_rgba_unmultiplied(230, 230, 230, 255) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 8) }
+} // white alpha 8
+pub fn border_hover() -> Color32 {
+    if is_light() { Color32::from_rgba_unmultiplied(100, 100, 100, 255) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 30) }
+} // white alpha 30
 pub fn border_accent() -> Color32 {
     if is_light() { Color32::from_rgb(150, 60, 180) } else { Color32::from_rgb(182, 102, 210) }
 } // Purple border
 
 // Text
 pub fn text_primary() -> Color32 {
-    if is_light() { Color32::from_rgb(10, 10, 10) } else { Color32::from_rgb(255, 255, 255) }
-} // #ffffff
+    if is_light() { Color32::from_rgb(10, 10, 10) } else { Color32::from_rgb(242, 242, 239) }
+} // #f2f2ef
 pub fn text_body() -> Color32 {
-    if is_light() { Color32::from_rgb(40, 40, 40) } else { Color32::from_rgb(220, 220, 220) }
+    if is_light() { Color32::from_rgb(40, 40, 40) } else { Color32::from_rgb(200, 200, 195) }
 } 
 pub fn text_muted() -> Color32 {
-    if is_light() { Color32::from_rgb(100, 100, 100) } else { Color32::from_rgb(136, 136, 136) }
-} // #888888
+    if is_light() { Color32::from_rgb(100, 100, 100) } else { Color32::from_rgb(122, 122, 118) }
+} // #7a7a76
 pub fn text_dimmed() -> Color32 {
-    if is_light() { Color32::from_rgb(140, 140, 140) } else { Color32::from_rgb(100, 100, 100) }
+    if is_light() { Color32::from_rgb(140, 140, 140) } else { Color32::from_rgb(90, 90, 87) }
 }
+pub fn text_faint() -> Color32 {
+    if is_light() { Color32::from_rgb(180, 180, 180) } else { Color32::from_rgb(51, 51, 50) }
+} // #333332
 
 // Accents — Purple (using old TEAL name to avoid breaking view.rs)
 pub fn teal_strong() -> Color32 {
@@ -68,25 +74,49 @@ pub fn teal_light() -> Color32 {
     if is_light() { Color32::from_rgb(180, 100, 200) } else { Color32::from_rgb(200, 130, 220) }
 }
 pub fn teal_faint() -> Color32 {
-    if is_light() { Color32::from_rgb(230, 210, 240) } else { Color32::from_rgb(220, 180, 240) }
+    if is_light() { Color32::from_rgb(230, 210, 240) } else { Color32::from_rgba_unmultiplied(182, 102, 210, 33) }
 }
+
+// Accent palette helpers
+pub fn accent_purple() -> Color32 { Color32::from_rgb(182, 102, 210) } // #b666d2
+pub fn accent_mint() -> Color32 { Color32::from_rgb(0, 229, 160) } // #00e5a0
+pub fn accent_sky() -> Color32 { Color32::from_rgb(77, 184, 255) } // #4db8ff
+pub fn accent_peach() -> Color32 { Color32::from_rgb(255, 126, 95) } // #ff7e5f
+pub fn accent_gold() -> Color32 { Color32::from_rgb(245, 200, 66) } // #f5c842
+pub fn accent_rose() -> Color32 { Color32::from_rgb(255, 95, 158) } // #ff5f9e
+
+// Translucent variations
+pub fn accent_purple_a() -> Color32 { Color32::from_rgba_unmultiplied(182, 102, 210, 33) }
+pub fn accent_purple_b() -> Color32 { Color32::from_rgba_unmultiplied(182, 102, 210, 71) }
+pub fn accent_mint_a() -> Color32 { Color32::from_rgba_unmultiplied(0, 229, 160, 33) }
+pub fn accent_sky_a() -> Color32 { Color32::from_rgba_unmultiplied(77, 184, 255, 33) }
+pub fn accent_peach_a() -> Color32 { Color32::from_rgba_unmultiplied(255, 126, 95, 33) }
+pub fn accent_gold_a() -> Color32 { Color32::from_rgba_unmultiplied(245, 200, 66, 33) }
+pub fn accent_rose_a() -> Color32 { Color32::from_rgba_unmultiplied(255, 95, 158, 33) }
 
 // Status
 pub fn error_color() -> Color32 {
-    if is_light() { Color32::from_rgb(220, 30, 60) } else { Color32::from_rgb(244,  63,  94) }
-}  // #f43f5e
+    if is_light() { Color32::from_rgb(220, 30, 60) } else { Color32::from_rgb(255, 79, 79) }
+}  // #ff4f4f
 pub fn warn_color() -> Color32 {
-    if is_light() { Color32::from_rgb(210, 150, 10) } else { Color32::from_rgb(250, 204,  21) }
-}  // #facc15
+    if is_light() { Color32::from_rgb(210, 150, 10) } else { Color32::from_rgb(245, 200, 66) }
+}  // #f5c842
 pub fn success_color() -> Color32 {
-    if is_light() { Color32::from_rgb(30, 160, 80) } else { Color32::from_rgb(74,  222, 128) }
-}  // #4ade80
+    if is_light() { Color32::from_rgb(30, 160, 80) } else { Color32::from_rgb(0, 229, 160) }
+}  // #00e5a0
 
-// File type badge (fill, border)
-pub const BADGE_GREEN:    (Color32, Color32) = (Color32::from_rgb(12, 31, 24), Color32::from_rgb(15, 110, 86));
-pub const BADGE_PURPLE:   (Color32, Color32) = (Color32::from_rgb(26, 20, 32), Color32::from_rgb(58, 42, 72));
-pub const BADGE_ORANGE:   (Color32, Color32) = (Color32::from_rgb(26, 21,  8), Color32::from_rgb(58, 46, 26));
-pub const BADGE_BLUE:     (Color32, Color32) = (Color32::from_rgb(12, 20, 40), Color32::from_rgb(26, 42, 72));
+// File type badge (fill, border/fg)
+pub const BADGE_PURPLE: (Color32, Color32) = (Color32::from_rgb(32, 21, 36), Color32::from_rgb(182, 102, 210));
+pub const BADGE_SKY:    (Color32, Color32) = (Color32::from_rgb(18, 31, 41), Color32::from_rgb(77, 184, 255));
+pub const BADGE_ROSE:   (Color32, Color32) = (Color32::from_rgb(41, 20, 28), Color32::from_rgb(255, 95, 158));
+pub const BADGE_GOLD:   (Color32, Color32) = (Color32::from_rgb(40, 33, 17), Color32::from_rgb(245, 200, 66));
+pub const BADGE_MINT:   (Color32, Color32) = (Color32::from_rgb(8, 37, 28), Color32::from_rgb(0, 229, 160));
+pub const BADGE_PEACH:  (Color32, Color32) = (Color32::from_rgb(41, 24, 20), Color32::from_rgb(255, 126, 95));
+
+// Aliases for compatibility
+pub const BADGE_BLUE:   (Color32, Color32) = BADGE_SKY;
+pub const BADGE_GREEN:  (Color32, Color32) = BADGE_MINT;
+pub const BADGE_ORANGE: (Color32, Color32) = BADGE_PEACH;
 
 // ── Style Setup ───────────────────────────────────────────
 pub fn apply(ctx: &egui::Context) {
@@ -101,16 +131,16 @@ pub fn apply(ctx: &egui::Context) {
     let w = &mut visuals.widgets;
     w.noninteractive.bg_fill   = bg_surface();
     w.noninteractive.fg_stroke = Stroke::new(1.0, text_muted());
-    w.noninteractive.rounding  = Rounding::same(16.0);
+    w.noninteractive.rounding  = Rounding::same(20.0);
     w.inactive.bg_fill         = bg_input();
     w.inactive.fg_stroke       = Stroke::new(0.5, border_default());
-    w.inactive.rounding        = Rounding::same(16.0);
+    w.inactive.rounding        = Rounding::same(18.0);
     w.hovered.bg_fill          = bg_card();
     w.hovered.bg_stroke        = Stroke::new(0.5, teal_strong());
-    w.hovered.rounding         = Rounding::same(16.0);
+    w.hovered.rounding         = Rounding::same(18.0);
     w.active.bg_fill           = teal_dark();
     w.active.fg_stroke         = Stroke::new(1.0, Color32::WHITE);
-    w.active.rounding          = Rounding::same(16.0);
+    w.active.rounding          = Rounding::same(18.0);
 
     style.text_styles = [
         (egui::TextStyle::Heading,   FontId::new(20.0, FontFamily::Proportional)),
@@ -199,12 +229,12 @@ pub fn numpad_btn(ui: &mut egui::Ui, label: &str) -> egui::Response {
 /// Ikon dan warna badge berdasarkan ekstensi file
 pub fn file_badge(ext: &str) -> (&'static str, (Color32, Color32)) {
     match ext {
-        "pdf"|"doc"|"docx"|"txt"|"md"   => ("📄", BADGE_GREEN),
-        "zip"|"tar"|"gz"|"rar"|"7z"     => ("📦", BADGE_PURPLE),
-        "jpg"|"jpeg"|"png"|"gif"|"webp" => ("🖼",  BADGE_BLUE),
-        "mp4"|"mov"|"avi"|"mkv"         => ("🎬", BADGE_PURPLE),
-        "env"|"sh"|"rs"|"py"|"js"       => ("⚙",  BADGE_ORANGE),
-        _                               => ("📁", BADGE_BLUE),
+        "pdf"|"doc"|"docx"|"txt"|"md"   => ("📄", BADGE_PURPLE),
+        "zip"|"tar"|"gz"|"rar"|"7z"     => ("📦", BADGE_GOLD),
+        "jpg"|"jpeg"|"png"|"gif"|"webp" => ("🖼",  BADGE_SKY),
+        "mp4"|"mov"|"avi"|"mkv"         => ("🎬", BADGE_ROSE),
+        "env"|"sh"|"rs"|"py"|"js"       => ("⚙",  BADGE_MINT),
+        _                               => ("📁", BADGE_PEACH),
     }
 }
 

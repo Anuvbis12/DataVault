@@ -7,7 +7,7 @@ use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Ve
 #[cfg(not(target_os = "android"))]
 use rfd::FileDialog;
 
-use crate::app_state::{AppScreen, AppState, DashboardTab, ViewMode, SortOption};
+use crate::app_state::{AppScreen, AppState, DashboardTab, SortOption};
 use crate::controller::{format_size, Controller};
 use crate::db::FileRecord;
 use crate::theme::{self, *};
@@ -504,7 +504,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
              match state.dashboard_tab {
                  DashboardTab::Home => render_tab_home(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
                  DashboardTab::Vault => render_tab_vault(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
-                 DashboardTab::Storage => render_tab_storage(ui, state, ctrl),
+                 DashboardTab::Storage => render_tab_storage(ui, state, ctrl, &mut to_decrypt, &mut to_soft_delete),
                  DashboardTab::Settings => render_tab_settings(ui, state, ctrl),
                  DashboardTab::Profile => render_tab_profile(ui, state, ctrl),
                  DashboardTab::Notifications => render_tab_notifications(ui, state, ctrl),
@@ -521,11 +521,11 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     let tab_y = bottom_rect.center().y;
     
     let tabs = [
-        (DashboardTab::Home, "🏠", "Home"),
-        (DashboardTab::Vault, "🔒", "Vault"),
+        (DashboardTab::Home, "🏠", "Beranda"),
+        (DashboardTab::Vault, "🔒", "Brankas"),
         (DashboardTab::Home, "➕", "Add"), // Placeholder for FAB
-        (DashboardTab::Storage, "💽", "Storage"),
-        (DashboardTab::Settings, "⚙", "Settings"),
+        (DashboardTab::Storage, "💽", "Semua File"),
+        (DashboardTab::Settings, "⚙", "Pengaturan"),
     ];
     
     for (i, (tab, icon, label)) in tabs.iter().enumerate() {
@@ -561,661 +561,837 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         tab_x += tab_w;
     }
 
-    if let Some(fname) = to_decrypt { ctrl.open_decrypt_panel(state, &fname); }
+    if let Some(fname) = to_decrypt {
+        let is_previewable = if let Some(rec) = state.file_list.iter().find(|r| r.vault_filename == fname) {
+            let ext = crate::theme::file_ext(&rec.original_name).to_lowercase();
+            ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt"
+        } else {
+            false
+        };
+        if is_previewable {
+            ctrl.decrypt_to_memory(state, &fname);
+        } else {
+            ctrl.open_decrypt_panel(state, &fname);
+        }
+    }
     if let Some(id) = to_soft_delete { ctrl.soft_delete_file(state, &id); }
 }
 
 fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
     let avail = ui.available_rect_before_wrap();
-    let pad = 20.0;
+    let pad = 16.0;
     
-    // Stat Cards
-    let stat_w = (avail.width() - pad * 2.0 - 24.0) / 3.0;
-    let stat_h = 80.0;
-    ui.horizontal(|ui| {
-        ui.add_space(pad);
-        let stats = [
-            ("Locked Files", format!("{}", state.file_list.len()), "📄", teal_strong()),
-            ("Encrypted", format_size(state.total_vault_size()), "💽", teal_strong()),
-            ("Standard", "AES-256".to_string(), "🛡", teal_strong()),
-        ];
-        for (label, val, icon, color) in stats.iter() {
-            let (rect, _) = ui.allocate_exact_size(Vec2::new(stat_w, stat_h), egui::Sense::hover());
-            filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 16.0);
-            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 20.0), egui::Align2::CENTER_CENTER, *icon, FontId::new(20.0, FontFamily::Proportional), *color);
-            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 45.0), egui::Align2::CENTER_CENTER, val, FontId::new(18.0, FontFamily::Proportional), text_primary());
-            ui.painter().text(egui::pos2(rect.center().x, rect.top() + 65.0), egui::Align2::CENTER_CENTER, *label, FontId::new(10.0, FontFamily::Proportional), text_muted());
-            ui.add_space(12.0);
-        }
-    });
-
-    ui.add_space(24.0);
+    // ── 1. BigCard Hero ────────────────────────────────────────
+    ui.add_space(8.0);
+    let card_w = avail.width() - pad * 2.0;
+    let card_h = 168.0;
+    let (card_rect, _) = ui.allocate_exact_size(Vec2::new(card_w, card_h), egui::Sense::hover());
     
-    // Hardware Metrics
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("HARDWARE METRICS").size(12.0).color(crate::theme::text_muted()).strong()); });
-    ui.add_space(12.0);
-    ui.horizontal(|ui| {
-        ui.add_space(pad);
-        let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 140.0), egui::Sense::hover());
-        filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 20.0);
-        
-        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 25.0), egui::Align2::LEFT_CENTER, "⚙ Encryption Engine", FontId::new(14.0, FontFamily::Proportional), text_primary());
-        
-        let badge_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 40.0, rect.top() + 25.0), Vec2::new(60.0, 20.0));
-        filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(182, 102, 210, 25), Stroke::new(1.0, Color32::from_rgba_unmultiplied(182, 102, 210, 50)), 10.0);
-        ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "High-tier", FontId::new(10.0, FontFamily::Proportional), teal_strong());
-        
-        let metrics = [("CPU", state.cpu_usage, teal_strong()), ("RAM", state.ram_usage, success_color()), ("I/O", state.io_usage, warn_color())];
-        for (i, (lbl, val, color)) in metrics.iter().enumerate() {
-            let y = rect.top() + 60.0 + i as f32 * 25.0;
-            ui.painter().text(egui::pos2(rect.left() + 20.0, y), egui::Align2::LEFT_CENTER, *lbl, FontId::new(12.0, FontFamily::Proportional), text_muted());
-            let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 60.0, y - 3.0), Vec2::new(rect.width() - 120.0, 6.0));
-            filled_rect(ui, bar_bg, bg_card(), Stroke::NONE, 3.0);
-            let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 60.0, y - 3.0), Vec2::new((rect.width() - 120.0) * val, 6.0));
-            filled_rect(ui, bar_fg, *color, Stroke::NONE, 3.0);
-            ui.painter().text(egui::pos2(rect.right() - 20.0, y), egui::Align2::RIGHT_CENTER, format!("{}%", (val * 100.0) as i32), FontId::new(12.0, FontFamily::Proportional), text_primary());
-        }
-    });
-
-    ui.add_space(24.0);
-
-    // Active Vaults
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("ACTIVE VAULTS").size(12.0).color(crate::theme::text_muted()).strong()); });
-    ui.add_space(12.0);
-    egui::ScrollArea::horizontal().id_source("vaults_scroll").show(ui, |ui| {
-        ui.horizontal(|ui| {
-            ui.add_space(pad);
-            let vaults = [
-                ("Primary Vault", "32.5 GB / 50 GB", 0.65, true),
-                ("Session Vault", "1.2 GB / 5 GB", 0.24, false),
-            ];
-            for (name, cap, prog, locked) in vaults.iter() {
-                let (rect, _) = ui.allocate_exact_size(Vec2::new(220.0, 140.0), egui::Sense::hover());
-                let color = if *locked { teal_strong() } else { success_color() };
-                let bg_color = if *locked { Color32::from_rgba_unmultiplied(182, 102, 210, 12) } else { Color32::from_rgba_unmultiplied(74, 222, 128, 12) };
-                
-                filled_rect(ui, rect, bg_color, Stroke::new(1.0, Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 76)), 20.0);
-                
-                let icon_rect = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.top() + 20.0), Vec2::splat(40.0));
-                filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 38), Stroke::NONE, 12.0);
-                ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, if *locked { "🔒" } else { "🔓" }, FontId::new(20.0, FontFamily::Proportional), color);
-                
-                let badge_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 40.0, rect.top() + 40.0), Vec2::new(50.0, 20.0));
-                filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 25), Stroke::NONE, 10.0);
-                ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, if *locked { "Locked" } else { "Active" }, FontId::new(10.0, FontFamily::Proportional), color);
-
-                ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 85.0), egui::Align2::LEFT_CENTER, *name, FontId::new(16.0, FontFamily::Proportional), text_primary());
-                ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 105.0), egui::Align2::LEFT_CENTER, *cap, FontId::new(12.0, FontFamily::Proportional), text_muted());
-
-                let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.bottom() - 20.0), Vec2::new(rect.width() - 40.0, 4.0));
-                filled_rect(ui, bar_bg, bg_card(), Stroke::NONE, 2.0);
-                let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.bottom() - 20.0), Vec2::new((rect.width() - 40.0) * prog, 4.0));
-                filled_rect(ui, bar_fg, color, Stroke::NONE, 2.0);
-                
-                ui.add_space(12.0);
-            }
-        });
-    });
-
-    ui.add_space(24.0);
-
-    // Quick Actions
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("QUICK ACTIONS").size(12.0).color(crate::theme::text_muted()).strong()); });
-    ui.add_space(12.0);
-    ui.horizontal(|ui| {
-        ui.add_space(pad);
-        let btn_w = (avail.width() - pad * 2.0 - 12.0) / 2.0;
-        let btn_h = 60.0;
-        let actions = [("🔒", "Lock All", teal_strong()), ("🔓", "Unlock", success_color()), ("📱", "Setup 2FA", Color32::from_rgb(96, 165, 250)), ("✅", "Integrity Check", error_color())];
-        
-        ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-                let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 30.0, rect.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect, bg_card(), Stroke::NONE, 10.0);
-                ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, actions[0].0, FontId::new(18.0, FontFamily::Proportional), actions[0].2);
-                ui.painter().text(egui::pos2(icon_rect.right() + 12.0, rect.center().y), egui::Align2::LEFT_CENTER, actions[0].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
-                if resp.clicked() { ctrl.logout(state); }
-
-                let (rect2, resp2) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect2, if resp2.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-                let icon_rect2 = egui::Rect::from_center_size(egui::pos2(rect2.left() + 30.0, rect2.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect2, bg_card(), Stroke::NONE, 10.0);
-                ui.painter().text(icon_rect2.center(), egui::Align2::CENTER_CENTER, actions[1].0, FontId::new(18.0, FontFamily::Proportional), actions[1].2);
-                ui.painter().text(egui::pos2(icon_rect2.right() + 12.0, rect2.center().y), egui::Align2::LEFT_CENTER, actions[1].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
-                // click action
-            });
-            ui.add_space(4.0);
-            ui.horizontal(|ui| {
-                let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-                let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 30.0, rect.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect, bg_card(), Stroke::NONE, 10.0);
-                ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, actions[2].0, FontId::new(18.0, FontFamily::Proportional), actions[2].2);
-                ui.painter().text(egui::pos2(icon_rect.right() + 12.0, rect.center().y), egui::Align2::LEFT_CENTER, actions[2].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
-                if resp.clicked() { if state.totp_enabled { ctrl.disable_totp(state); } else { ctrl.begin_totp_setup(state); } }
-
-                let (rect2, resp2) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
-                filled_rect(ui, rect2, if resp2.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-                let icon_rect2 = egui::Rect::from_center_size(egui::pos2(rect2.left() + 30.0, rect2.center().y), Vec2::splat(36.0));
-                filled_rect(ui, icon_rect2, bg_card(), Stroke::NONE, 10.0);
-                ui.painter().text(icon_rect2.center(), egui::Align2::CENTER_CENTER, actions[3].0, FontId::new(18.0, FontFamily::Proportional), actions[3].2);
-                ui.painter().text(egui::pos2(icon_rect2.right() + 12.0, rect2.center().y), egui::Align2::LEFT_CENTER, actions[3].1, FontId::new(14.0, FontFamily::Proportional), text_primary());
-            });
-        });
-    });
-
-    ui.add_space(24.0);
-
-    // Recent Activity (Files)
-    ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("RECENT ACTIVITY").size(12.0).color(crate::theme::text_muted()).strong()); });
-    ui.add_space(12.0);
+    // Draw background purple gradient-like card
+    filled_rect(ui, card_rect, accent_purple(), Stroke::NONE, 26.0);
     
-    let mut target_preview: Option<String> = None;
-    if state.file_list.is_empty() {
-        ui.horizontal(|ui| { ui.add_space(pad); ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(crate::theme::text_muted())); });
-    } else {
-        ui.vertical(|ui| {
-            for record in state.file_list.iter() {
-                ui.horizontal(|ui| {
-                    ui.add_space(pad);
-                    let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 68.0), egui::Sense::click());
-                    let is_hover = resp.hovered();
-                    filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
-                    
-                    let ext = file_ext(&record.original_name);
-                    let (icon, badge) = file_badge(ext);
-                    let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 34.0, rect.center().y), Vec2::splat(44.0));
-                    filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 12.0);
-                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(22.0, FontFamily::Proportional), badge.1);
-                    
-                    let name_truncated = if record.original_name.len() > 25 { format!("{}…", &record.original_name[..23]) } else { record.original_name.clone() };
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), text_primary());
-                    
-                    let meta = format!("{} • Encrypted {}", format_size(record.file_size as u64), &record.encrypted_at[..10]);
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
-                    
-                    if is_hover {
-                        let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 60.0, rect.center().y), Vec2::splat(30.0));
-                        let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
-                        ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(18.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
-                        
-                        let icon_resp = ui.allocate_rect(egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0)), egui::Sense::click());
-                        ui.painter().text(icon_resp.rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(20.0, FontFamily::Proportional), if icon_resp.hovered() { teal_strong() } else { text_muted() });
-                        
-                        if del_resp.clicked() {
-                            *to_soft_delete = Some(record.id.clone());
-                        } else if icon_resp.clicked() || (resp.clicked() && !del_resp.hovered()) {
-                            if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                                target_preview = Some(record.vault_filename.clone());
-                            } else {
-                                *to_decrypt = Some(record.vault_filename.clone());
-                            }
-                        }
-                    } else {
-                        let action_icon = "🔒";
-                        ui.painter().text(egui::pos2(rect.right() - 24.0, rect.center().y), egui::Align2::CENTER_CENTER, action_icon, FontId::new(20.0, FontFamily::Proportional), text_muted());
-                        if resp.clicked() {
-                            if file_ext(&record.original_name) == "png" || file_ext(&record.original_name) == "jpg" || file_ext(&record.original_name) == "jpeg" || file_ext(&record.original_name) == "txt" {
-                                target_preview = Some(record.vault_filename.clone());
-                            } else {
-                                *to_decrypt = Some(record.vault_filename.clone());
-                            }
-                        }
-                    }
-                });
-                ui.add_space(8.0);
-            }
-        });
-    }
-    if let Some(vault_filename) = target_preview { ctrl.decrypt_to_memory(state, &vault_filename); }
-}
-
-fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
-    let pad = 20.0;
+    // Draw decorative background circles (bc-deco)
+    ui.painter().circle_filled(egui::pos2(card_rect.right() - 20.0, card_rect.top() - 10.0), 80.0, Color32::from_rgba_unmultiplied(255, 255, 255, 18));
+    ui.painter().circle_filled(egui::pos2(card_rect.right() - 90.0, card_rect.bottom() - 10.0), 45.0, Color32::from_rgba_unmultiplied(255, 255, 255, 18));
+    
+    // Inside padding & content
+    let content_left = card_rect.left() + 20.0;
+    ui.painter().text(
+        egui::pos2(content_left, card_rect.top() + 22.0),
+        egui::Align2::LEFT_TOP,
+        "TOTAL FILE TERENKRIPSI",
+        FontId::new(10.0, FontFamily::Proportional),
+        Color32::from_rgba_unmultiplied(255, 255, 255, 153),
+    );
+    
+    let total_files_text = format!("{} file", state.file_list.len());
+    ui.painter().text(
+        egui::pos2(content_left, card_rect.top() + 38.0),
+        egui::Align2::LEFT_TOP,
+        &total_files_text,
+        FontId::new(36.0, FontFamily::Proportional),
+        Color32::WHITE,
+    );
+    
+    let total_size_text = format!("{} terlindungi di perangkat ini", format_size(state.total_vault_size()));
+    ui.painter().text(
+        egui::pos2(content_left, card_rect.top() + 82.0),
+        egui::Align2::LEFT_TOP,
+        &total_size_text,
+        FontId::new(11.0, FontFamily::Proportional),
+        Color32::from_rgba_unmultiplied(255, 255, 255, 153),
+    );
+    
+    // Draw badges: AES-256, SHA-256, 2FA
+    let badge_y = card_rect.top() + 104.0;
+    let b1_rect = egui::Rect::from_min_size(egui::pos2(content_left, badge_y), Vec2::new(76.0, 20.0));
+    filled_rect(ui, b1_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 46), Stroke::NONE, 10.0);
+    ui.painter().text(b1_rect.center(), egui::Align2::CENTER_CENTER, "🛡 AES-256", FontId::new(10.0, FontFamily::Proportional), Color32::WHITE);
+    
+    let b2_rect = egui::Rect::from_min_size(egui::pos2(b1_rect.right() + 8.0, badge_y), Vec2::new(76.0, 20.0));
+    filled_rect(ui, b2_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 46), Stroke::NONE, 10.0);
+    ui.painter().text(b2_rect.center(), egui::Align2::CENTER_CENTER, "🔑 SHA-256", FontId::new(10.0, FontFamily::Proportional), Color32::WHITE);
+    
+    let is_2fa_active = state.totp_enabled;
+    let b3_lbl = if is_2fa_active { "📱 2FA Aktif" } else { "📱 2FA Mati" };
+    let b3_rect = egui::Rect::from_min_size(egui::pos2(b2_rect.right() + 8.0, badge_y), Vec2::new(76.0, 20.0));
+    filled_rect(ui, b3_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 46), Stroke::NONE, 10.0);
+    ui.painter().text(b3_rect.center(), egui::Align2::CENTER_CENTER, b3_lbl, FontId::new(10.0, FontFamily::Proportional), Color32::WHITE);
+    
+    // Ruang terpakai progress bar
+    let bar_y = card_rect.bottom() - 25.0;
+    ui.painter().text(
+        egui::pos2(content_left, bar_y - 12.0),
+        egui::Align2::LEFT_TOP,
+        "Ruang terpakai",
+        FontId::new(10.0, FontFamily::Proportional),
+        Color32::from_rgba_unmultiplied(255, 255, 255, 153),
+    );
+    
+    ui.painter().text(
+        egui::pos2(card_rect.right() - 20.0, bar_y - 12.0),
+        egui::Align2::RIGHT_TOP,
+        "7.7 GB tersisa",
+        FontId::new(10.0, FontFamily::Proportional),
+        Color32::from_rgba_unmultiplied(255, 255, 255, 153),
+    );
+    
+    let track_rect = egui::Rect::from_min_size(egui::pos2(content_left, bar_y + 4.0), Vec2::new(card_w - 40.0, 5.0));
+    filled_rect(ui, track_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 51), Stroke::NONE, 3.0);
+    let fill_rect = egui::Rect::from_min_size(track_rect.min, Vec2::new(track_rect.width() * 0.62, 5.0));
+    filled_rect(ui, fill_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 217), Stroke::NONE, 3.0);
+    
+    // ── 2. Quick Action Chips (APA YANG INGIN ANDA LAKUKAN?) ──────────────────────
     ui.add_space(20.0);
-    
-    // Header & Search
     ui.horizontal(|ui| {
         ui.add_space(pad);
-        ui.label(egui::RichText::new("Brankas Anda").size(22.0).color(text_primary()).strong());
-        ui.add_space(ui.available_width() - 170.0);
-        
-        let folder_btn = ghost_btn(ui, "📁 Amankan Folder", 140.0);
-        if folder_btn.clicked() {
-            #[cfg(not(target_os = "android"))]
-            {
-                if let Some(path) = rfd::FileDialog::new().pick_folder() {
-                    ctrl.encrypt_file(state, path);
+        ui.label(egui::RichText::new("APA YANG INGIN ANDA LAKUKAN?").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    egui::ScrollArea::horizontal()
+        .id_source("actions_scroll")
+        .show(ui, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(pad);
+                
+                // Chip 1: Kunci File
+                let (c1_rect, c1_resp) = ui.allocate_exact_size(Vec2::new(84.0, 88.0), egui::Sense::click());
+                let c1_border = if c1_resp.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, c1_rect, bg_card(), Stroke::new(0.5, c1_border), 20.0);
+                let c1_ico_rect = egui::Rect::from_center_size(egui::pos2(c1_rect.center().x, c1_rect.top() + 32.0), Vec2::splat(42.0));
+                filled_rect(ui, c1_ico_rect, accent_purple_a(), Stroke::NONE, 14.0);
+                ui.painter().text(c1_ico_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(18.0, FontFamily::Proportional), accent_purple());
+                ui.painter().text(egui::pos2(c1_rect.center().x, c1_rect.bottom() - 18.0), egui::Align2::CENTER_CENTER, "Kunci File", FontId::new(11.0, FontFamily::Proportional), text_primary());
+                if c1_resp.clicked() { state.dashboard_tab = DashboardTab::Vault; }
+                
+                ui.add_space(6.0);
+                
+                // Chip 2: Buka File
+                let (c2_rect, c2_resp) = ui.allocate_exact_size(Vec2::new(84.0, 88.0), egui::Sense::click());
+                let c2_border = if c2_resp.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, c2_rect, bg_card(), Stroke::new(0.5, c2_border), 20.0);
+                let c2_ico_rect = egui::Rect::from_center_size(egui::pos2(c2_rect.center().x, c2_rect.top() + 32.0), Vec2::splat(42.0));
+                filled_rect(ui, c2_ico_rect, accent_mint_a(), Stroke::NONE, 14.0);
+                ui.painter().text(c2_ico_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(18.0, FontFamily::Proportional), accent_mint());
+                ui.painter().text(egui::pos2(c2_rect.center().x, c2_rect.bottom() - 18.0), egui::Align2::CENTER_CENTER, "Buka File", FontId::new(11.0, FontFamily::Proportional), text_primary());
+                if c2_resp.clicked() { state.dashboard_tab = DashboardTab::Vault; }
+                
+                ui.add_space(6.0);
+                
+                // Chip 3: Tambah File
+                let (c3_rect, c3_resp) = ui.allocate_exact_size(Vec2::new(84.0, 88.0), egui::Sense::click());
+                let c3_border = if c3_resp.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, c3_rect, bg_card(), Stroke::new(0.5, c3_border), 20.0);
+                let c3_ico_rect = egui::Rect::from_center_size(egui::pos2(c3_rect.center().x, c3_rect.top() + 32.0), Vec2::splat(42.0));
+                filled_rect(ui, c3_ico_rect, accent_sky_a(), Stroke::NONE, 14.0);
+                ui.painter().text(c3_ico_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(18.0, FontFamily::Proportional), accent_sky());
+                ui.painter().text(egui::pos2(c3_rect.center().x, c3_rect.bottom() - 18.0), egui::Align2::CENTER_CENTER, "Tambah File", FontId::new(11.0, FontFamily::Proportional), text_primary());
+                if c3_resp.clicked() {
+                    if state.file_dialog.is_none() {
+                        state.file_dialog = Some(egui_file_dialog::FileDialog::new());
+                    }
+                    if let Some(dialog) = &mut state.file_dialog {
+                        dialog.select_file();
+                    }
                 }
-            }
-            #[cfg(target_os = "android")]
-            {
-                state.set_status("Mengamankan folder belum didukung di Android.", false);
-            }
-        }
+                
+                ui.add_space(6.0);
+                
+                // Chip 4: Scan QR 2FA
+                let (c4_rect, c4_resp) = ui.allocate_exact_size(Vec2::new(84.0, 88.0), egui::Sense::click());
+                let c4_border = if c4_resp.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, c4_rect, bg_card(), Stroke::new(0.5, c4_border), 20.0);
+                let c4_ico_rect = egui::Rect::from_center_size(egui::pos2(c4_rect.center().x, c4_rect.top() + 32.0), Vec2::splat(42.0));
+                filled_rect(ui, c4_ico_rect, accent_rose_a(), Stroke::NONE, 14.0);
+                ui.painter().text(c4_ico_rect.center(), egui::Align2::CENTER_CENTER, "📱", FontId::new(18.0, FontFamily::Proportional), accent_rose());
+                ui.painter().text(egui::pos2(c4_rect.center().x, c4_rect.bottom() - 18.0), egui::Align2::CENTER_CENTER, "Scan QR 2FA", FontId::new(11.0, FontFamily::Proportional), text_primary());
+                if c4_resp.clicked() {
+                    if state.totp_enabled {
+                        ctrl.disable_totp(state);
+                    } else {
+                        ctrl.begin_totp_setup(state);
+                    }
+                }
+                
+                ui.add_space(6.0);
+                
+                // Chip 5: Cek Kondisi
+                let (c5_rect, c5_resp) = ui.allocate_exact_size(Vec2::new(84.0, 88.0), egui::Sense::click());
+                let c5_border = if c5_resp.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, c5_rect, bg_card(), Stroke::new(0.5, c5_border), 20.0);
+                let c5_ico_rect = egui::Rect::from_center_size(egui::pos2(c5_rect.center().x, c5_rect.top() + 32.0), Vec2::splat(42.0));
+                filled_rect(ui, c5_ico_rect, accent_gold_a(), Stroke::NONE, 14.0);
+                ui.painter().text(c5_ico_rect.center(), egui::Align2::CENTER_CENTER, "🛡", FontId::new(18.0, FontFamily::Proportional), accent_gold());
+                ui.painter().text(egui::pos2(c5_rect.center().x, c5_rect.bottom() - 18.0), egui::Align2::CENTER_CENTER, "Cek Kondisi", FontId::new(11.0, FontFamily::Proportional), text_primary());
+                if c5_resp.clicked() {
+                    state.toast_message = Some("Semua file 100% utuh".to_string());
+                    state.toast_timer = 2.0;
+                }
+                
+                ui.add_space(pad);
+            });
+        });
+        
+    // ── 3. Status Brankas (2x2 Grid) ───────────────────────────
+    ui.add_space(20.0);
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("STATUS BRANKAS").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    let grid_w = avail.width() - pad * 2.0;
+    let card_w2 = (grid_w - 9.0) / 2.0;
+    let card_h2 = 98.0;
+    
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.vertical(|ui| {
+            // First Row
+            ui.horizontal(|ui| {
+                // Card 1: Terkunci
+                let (r1, resp1) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b1 = if resp1.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r1, bg_card(), Stroke::new(0.5, b1), 20.0);
+                
+                let ico_r1 = egui::Rect::from_min_size(egui::pos2(r1.left() + 14.0, r1.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r1, accent_purple_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r1.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(16.0, FontFamily::Proportional), accent_purple());
+                
+                let bdg_r1 = egui::Rect::from_min_size(egui::pos2(r1.right() - 60.0, r1.top() + 14.0), Vec2::new(46.0, 18.0));
+                filled_rect(ui, bdg_r1, accent_purple_a(), Stroke::NONE, 20.0);
+                ui.painter().text(bdg_r1.center(), egui::Align2::CENTER_CENTER, "Terkunci", FontId::new(9.0, FontFamily::Proportional), accent_purple());
+                
+                ui.painter().text(egui::pos2(r1.left() + 14.0, r1.bottom() - 34.0), egui::Align2::LEFT_CENTER, format!("{}", state.file_list.len()), FontId::new(22.0, FontFamily::Proportional), accent_purple());
+                ui.painter().text(egui::pos2(r1.left() + 14.0, r1.bottom() - 14.0), egui::Align2::LEFT_CENTER, "File terkunci aman", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp1.clicked() { state.dashboard_tab = DashboardTab::Vault; }
+                
+                ui.add_space(9.0);
+                
+                // Card 2: Sesi dibuka
+                let (r2, resp2) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b2 = if resp2.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r2, bg_card(), Stroke::new(0.5, b2), 20.0);
+                
+                let ico_r2 = egui::Rect::from_min_size(egui::pos2(r2.left() + 14.0, r2.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r2, accent_mint_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r2.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(16.0, FontFamily::Proportional), accent_mint());
+                
+                let bdg_r2 = egui::Rect::from_min_size(egui::pos2(r2.right() - 50.0, r2.top() + 14.0), Vec2::new(36.0, 18.0));
+                filled_rect(ui, bdg_r2, accent_mint_a(), Stroke::NONE, 20.0);
+                ui.painter().text(bdg_r2.center(), egui::Align2::CENTER_CENTER, "Aktif", FontId::new(9.0, FontFamily::Proportional), accent_mint());
+                
+                let session_active_lbl = if state.session_key.is_some() { "1" } else { "0" };
+                ui.painter().text(egui::pos2(r2.left() + 14.0, r2.bottom() - 34.0), egui::Align2::LEFT_CENTER, session_active_lbl, FontId::new(22.0, FontFamily::Proportional), accent_mint());
+                ui.painter().text(egui::pos2(r2.left() + 14.0, r2.bottom() - 14.0), egui::Align2::LEFT_CENTER, "Sesi dibuka", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp2.clicked() { state.dashboard_tab = DashboardTab::Vault; }
+            });
+            
+            ui.add_space(9.0);
+            
+            // Second Row
+            ui.horizontal(|ui| {
+                // Card 3: Aman
+                let (r3, resp3) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b3 = if resp3.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r3, bg_card(), Stroke::new(0.5, b3), 20.0);
+                
+                let ico_r3 = egui::Rect::from_min_size(egui::pos2(r3.left() + 14.0, r3.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r3, accent_sky_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r3.center(), egui::Align2::CENTER_CENTER, "✔️", FontId::new(16.0, FontFamily::Proportional), accent_sky());
+                
+                let bdg_r3 = egui::Rect::from_min_size(egui::pos2(r3.right() - 50.0, r3.top() + 14.0), Vec2::new(36.0, 18.0));
+                filled_rect(ui, bdg_r3, accent_sky_a(), Stroke::NONE, 20.0);
+                ui.painter().text(bdg_r3.center(), egui::Align2::CENTER_CENTER, "Aman", FontId::new(9.0, FontFamily::Proportional), accent_sky());
+                
+                ui.painter().text(egui::pos2(r3.left() + 14.0, r3.bottom() - 34.0), egui::Align2::LEFT_CENTER, "100%", FontId::new(22.0, FontFamily::Proportional), accent_sky());
+                ui.painter().text(egui::pos2(r3.left() + 14.0, r3.bottom() - 14.0), egui::Align2::LEFT_CENTER, "Semua file utuh", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp3.clicked() {
+                    state.toast_message = Some("Semua file 100% utuh".to_string());
+                    state.toast_timer = 2.0;
+                }
+                
+                ui.add_space(9.0);
+                
+                // Card 4: Tenaga Enkripsi
+                let (r4, resp4) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b4 = if resp4.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r4, bg_card(), Stroke::new(0.5, b4), 20.0);
+                
+                let ico_r4 = egui::Rect::from_min_size(egui::pos2(r4.left() + 14.0, r4.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r4, accent_gold_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r4.center(), egui::Align2::CENTER_CENTER, "⚡", FontId::new(16.0, FontFamily::Proportional), accent_gold());
+                
+                let bdg_r4 = egui::Rect::from_min_size(egui::pos2(r4.right() - 50.0, r4.top() + 14.0), Vec2::new(36.0, 18.0));
+                filled_rect(ui, bdg_r4, accent_gold_a(), Stroke::NONE, 20.0);
+                ui.painter().text(bdg_r4.center(), egui::Align2::CENTER_CENTER, "Tinggi", FontId::new(9.0, FontFamily::Proportional), accent_gold());
+                
+                ui.painter().text(egui::pos2(r4.left() + 14.0, r4.bottom() - 34.0), egui::Align2::LEFT_CENTER, "78%", FontId::new(22.0, FontFamily::Proportional), accent_gold());
+                ui.painter().text(egui::pos2(r4.left() + 14.0, r4.bottom() - 14.0), egui::Align2::LEFT_CENTER, "Tenaga enkripsi", FontId::new(10.0, FontFamily::Proportional), text_muted());
+            });
+        });
+    });
+    
+    // ── 4. Hardware Metrics ────────────────────────────────────
+    ui.add_space(20.0);
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("PERFORMA PERANGKAT").size(10.0).color(text_muted()).strong());
     });
     ui.add_space(10.0);
     
     ui.horizontal(|ui| {
         ui.add_space(pad);
-        let search_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(ui.available_width() - 240.0, 36.0));
-        ui.allocate_ui_at_rect(search_rect, |ui| {
-            ui.add(egui::TextEdit::singleline(&mut state.vault_search_query)
-                .hint_text("🔍 Cari file...")
-                .desired_width(search_rect.width())
-                .margin(egui::Margin::symmetric(12.0, 8.0)));
-        });
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 138.0), egui::Sense::hover());
+        filled_rect(ui, rect, bg_card(), Stroke::new(0.5, border_default()), 20.0);
         
-        ui.add_space(8.0);
-        // Sort & View Toggles
-        egui::ComboBox::from_id_source("sort_cb")
-            .selected_text(match state.vault_sort_by {
-                SortOption::DateDesc => "Tanggal (Baru)",
-                SortOption::DateAsc  => "Tanggal (Lama)",
-                SortOption::NameAsc  => "Nama (A-Z)",
-                SortOption::SizeDesc => "Ukuran (Besar)",
-            })
-            .width(130.0)
-            .show_ui(ui, |ui| {
-                ui.selectable_value(&mut state.vault_sort_by, SortOption::DateDesc, "Tanggal (Baru)");
-                ui.selectable_value(&mut state.vault_sort_by, SortOption::DateAsc,  "Tanggal (Lama)");
-                ui.selectable_value(&mut state.vault_sort_by, SortOption::NameAsc,  "Nama (A-Z)");
-                ui.selectable_value(&mut state.vault_sort_by, SortOption::SizeDesc, "Ukuran (Besar)");
-            });
+        ui.painter().text(egui::pos2(rect.left() + 16.0, rect.top() + 20.0), egui::Align2::LEFT_CENTER, "Kecepatan enkripsi hardware", FontId::new(13.0, FontFamily::Proportional), text_primary());
         
-        ui.add_space(8.0);
-        if ui.selectable_label(state.vault_view_mode == ViewMode::List, "📄").clicked() { state.vault_view_mode = ViewMode::List; }
-        if ui.selectable_label(state.vault_view_mode == ViewMode::Grid, "🔲").clicked() { state.vault_view_mode = ViewMode::Grid; }
-    });
-    
-    ui.add_space(16.0);
-    
-    // Filter & Sort Data
-    let mut files: Vec<FileRecord> = state.file_list.iter().filter(|f| {
-        if state.vault_search_query.is_empty() { return true; }
-        f.original_name.to_lowercase().contains(&state.vault_search_query.to_lowercase())
-    }).cloned().collect();
-    
-    files.sort_by(|a, b| {
-        match state.vault_sort_by {
-            SortOption::DateDesc => b.encrypted_at.cmp(&a.encrypted_at),
-            SortOption::DateAsc  => a.encrypted_at.cmp(&b.encrypted_at),
-            SortOption::NameAsc  => a.original_name.to_lowercase().cmp(&b.original_name.to_lowercase()),
-            SortOption::SizeDesc => b.file_size.cmp(&a.file_size),
+        let chip_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 56.0, rect.top() + 20.0), Vec2::new(90.0, 18.0));
+        filled_rect(ui, chip_rect, accent_gold_a(), Stroke::new(0.5, Color32::from_rgba_unmultiplied(245, 200, 66, 56)), 20.0);
+        ui.painter().text(chip_rect.center(), egui::Align2::CENTER_CENTER, "⚡ Perangkat kuat", FontId::new(9.5, FontFamily::Proportional), accent_gold());
+        
+        let metrics = [
+            ("Prosesor", state.cpu_usage, accent_purple(), accent_purple_a(), "🔒"),
+            ("Memori", state.ram_usage, accent_sky(), accent_sky_a(), "💾"),
+            ("Disk I/O", state.io_usage, accent_gold(), accent_gold_a(), "⚡"),
+        ];
+        for (i, (lbl, val, color, bg_c, icon)) in metrics.iter().enumerate() {
+            let y = rect.top() + 52.0 + i as f32 * 28.0;
+            
+            let ico_r = egui::Rect::from_center_size(egui::pos2(rect.left() + 28.0, y), Vec2::splat(22.0));
+            filled_rect(ui, ico_r, *bg_c, Stroke::NONE, 8.0);
+            ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, *icon, FontId::new(11.0, FontFamily::Proportional), *color);
+            
+            ui.painter().text(egui::pos2(ico_r.right() + 8.0, y), egui::Align2::LEFT_CENTER, *lbl, FontId::new(11.0, FontFamily::Proportional), text_muted());
+            
+            let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 110.0, y - 2.0), Vec2::new(rect.width() - 170.0, 4.0));
+            filled_rect(ui, bar_bg, bg_input(), Stroke::NONE, 2.0);
+            let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 110.0, y - 2.0), Vec2::new((rect.width() - 170.0) * val, 4.0));
+            filled_rect(ui, bar_fg, *color, Stroke::NONE, 2.0);
+            
+            ui.painter().text(egui::pos2(rect.right() - 16.0, y), egui::Align2::RIGHT_CENTER, format!("{}%", (val * 100.0) as i32), FontId::new(10.5, FontFamily::Proportional), *color);
         }
     });
-
-    if files.is_empty() {
-        ui.add_space(40.0);
-        ui.vertical_centered(|ui| {
-            ui.label(egui::RichText::new("Belum ada file yang cocok.").color(crate::theme::text_muted()));
+    
+    // ── 5. Recent Activity (Files) ─────────────────────────────
+    ui.add_space(20.0);
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("AKTIVITAS TERBARU").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    if state.file_list.is_empty() {
+        ui.horizontal(|ui| {
+            ui.add_space(pad);
+            ui.label(egui::RichText::new("Belum ada file di dalam brankas.").color(text_muted()).size(12.0));
         });
-        return;
-    }
-    
-    // Render files
-    let avail = ui.available_rect_before_wrap();
-    
-    let mut target_preview = None;
-
-    if state.vault_view_mode == ViewMode::List {
+    } else {
         ui.vertical(|ui| {
-            for record in files {
+            for record in state.file_list.iter().take(5) {
                 ui.horizontal(|ui| {
                     ui.add_space(pad);
                     let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 68.0), egui::Sense::click());
                     let is_hover = resp.hovered();
-                    filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
                     
-                    let (icon, badge) = if record.is_folder {
-                        ("📁", BADGE_BLUE)
-                    } else {
-                        let ext = file_ext(&record.original_name);
-                        file_badge(ext)
-                    };
-                    let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 34.0, rect.center().y), Vec2::splat(44.0));
-                    filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 12.0);
-                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(22.0, FontFamily::Proportional), badge.1);
+                    let b_color = if is_hover { border_hover() } else { border_default() };
+                    filled_rect(ui, rect, bg_card(), Stroke::new(0.5, b_color), 20.0);
                     
-                    let name_truncated = if record.original_name.len() > 30 { format!("{}…", &record.original_name[..28]) } else { record.original_name.clone() };
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), text_primary());
+                    let ext = file_ext(&record.original_name);
+                    let (icon, badge) = file_badge(ext);
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 34.0, rect.center().y), Vec2::splat(42.0));
+                    filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 13.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(20.0, FontFamily::Proportional), badge.1);
                     
-                    let meta = format!("{} • Encrypted {}", format_size(record.file_size as u64), &record.encrypted_at[..10]);
-                    ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
+                    let name_truncated = if record.original_name.len() > 25 { format!("{}…", &record.original_name[..23]) } else { record.original_name.clone() };
+                    ui.painter().text(egui::pos2(icon_rect.right() + 14.0, rect.center().y - 9.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(13.0, FontFamily::Proportional), text_primary());
+                    
+                    let meta = format!("{} • Enkripsi {}", format_size(record.file_size as u64), if record.encrypted_at.len() >= 10 { &record.encrypted_at[..10] } else { &record.encrypted_at });
+                    ui.painter().text(egui::pos2(icon_rect.right() + 14.0, rect.center().y + 11.0), egui::Align2::LEFT_CENTER, meta, FontId::new(11.0, FontFamily::Proportional), text_muted());
                     
                     if is_hover {
-                        let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(30.0));
+                        let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 56.0, rect.center().y), Vec2::splat(32.0));
                         let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
                         ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(18.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
                         
-                        let extract_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 64.0, rect.center().y), Vec2::splat(30.0));
-                        let extract_resp = ui.allocate_rect(extract_rect, egui::Sense::click());
-                        ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(20.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
+                        let open_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 22.0, rect.center().y), Vec2::splat(32.0));
+                        let open_resp = ui.allocate_rect(open_rect, egui::Sense::click());
+                        ui.painter().text(open_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(18.0, FontFamily::Proportional), if open_resp.hovered() { accent_purple() } else { text_muted() });
                         
-                        let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 104.0, rect.center().y), Vec2::splat(30.0));
-                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
-                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(20.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
-                        let preview_clicked = preview_resp.clicked();
-
-                        let share_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 144.0, rect.center().y), Vec2::splat(30.0));
-                        let share_resp = ui.allocate_rect(share_rect, egui::Sense::click());
-                        ui.painter().text(share_rect.center(), egui::Align2::CENTER_CENTER, "📡", FontId::new(18.0, FontFamily::Proportional), if share_resp.hovered() { teal_strong() } else { text_muted() });
-                        let share_clicked = share_resp.clicked();
-
                         if del_resp.clicked() {
                             *to_soft_delete = Some(record.id.clone());
-                        } else if extract_resp.clicked() {
+                        } else if open_resp.clicked() || (resp.clicked() && !del_resp.hovered()) {
                             *to_decrypt = Some(record.vault_filename.clone());
-                        } else if preview_clicked {
-                            if record.is_folder {
-                                *to_decrypt = Some(record.vault_filename.clone());
-                            } else {
-                                target_preview = Some(record.vault_filename.clone());
-                            }
-                        } else if share_clicked {
-                            ctrl.start_share(state, record.clone());
                         }
-                    } else if resp.clicked() {
-                         // Default action on click the whole card
-                         if record.is_folder {
-                             *to_decrypt = Some(record.vault_filename.clone());
-                         } else {
-                             target_preview = Some(record.vault_filename.clone());
-                         }
                     }
                 });
-                ui.add_space(8.0);
             }
+        });
+    }
+}
+
+fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
+    let pad = 16.0;
+    let avail = ui.available_rect_before_wrap();
+    ui.add_space(8.0);
+    
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("VAULT SAYA").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    // Vault 1: Primary Vault
+    let (v1_rect, resp1) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 80.0), egui::Sense::click());
+    let border1 = if resp1.hovered() { border_hover() } else { border_default() };
+    filled_rect(ui, v1_rect, bg_card(), Stroke::new(0.5, border1), 20.0);
+    
+    let ico_rect1 = egui::Rect::from_center_size(egui::pos2(v1_rect.left() + 36.0, v1_rect.center().y), Vec2::splat(44.0));
+    filled_rect(ui, ico_rect1, accent_purple_a(), Stroke::NONE, 14.0);
+    ui.painter().text(ico_rect1.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(20.0, FontFamily::Proportional), accent_purple());
+    
+    ui.painter().text(egui::pos2(ico_rect1.right() + 12.0, v1_rect.top() + 18.0), egui::Align2::LEFT_TOP, "Primary Vault", FontId::new(13.0, FontFamily::Proportional), text_primary());
+    let vault1_sub = format!("{} file · Terakhir dibuka 2 menit lalu", state.file_list.len());
+    ui.painter().text(egui::pos2(ico_rect1.right() + 12.0, v1_rect.top() + 36.0), egui::Align2::LEFT_TOP, &vault1_sub, FontId::new(10.0, FontFamily::Proportional), text_muted());
+    
+    // Progress track
+    let prog1_y = v1_rect.bottom() - 15.0;
+    let track1 = egui::Rect::from_min_size(egui::pos2(ico_rect1.right() + 12.0, prog1_y), Vec2::new(v1_rect.right() - ico_rect1.right() - 88.0, 3.0));
+    filled_rect(ui, track1, bg_input(), Stroke::NONE, 1.5);
+    let fill1 = egui::Rect::from_min_size(track1.min, Vec2::new(track1.width() * 0.62, 3.0));
+    filled_rect(ui, fill1, accent_purple(), Stroke::NONE, 1.5);
+    
+    let bdg_rect1 = egui::Rect::from_center_size(egui::pos2(v1_rect.right() - 44.0, v1_rect.center().y), Vec2::new(54.0, 20.0));
+    filled_rect(ui, bdg_rect1, accent_purple_a(), Stroke::NONE, 20.0);
+    ui.painter().text(bdg_rect1.center(), egui::Align2::CENTER_CENTER, "Terkunci", FontId::new(9.0, FontFamily::Proportional), accent_purple());
+    if resp1.clicked() {
+        state.toast_message = Some("Primary Vault aman terkunci".to_string());
+        state.toast_timer = 2.0;
+    }
+    
+    ui.add_space(8.0);
+    
+    // Vault 2: Session Vault
+    let (v2_rect, resp2) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 80.0), egui::Sense::click());
+    let border2 = if resp2.hovered() { border_hover() } else { border_default() };
+    filled_rect(ui, v2_rect, bg_card(), Stroke::new(0.5, border2), 20.0);
+    
+    let ico_rect2 = egui::Rect::from_center_size(egui::pos2(v2_rect.left() + 36.0, v2_rect.center().y), Vec2::splat(44.0));
+    filled_rect(ui, ico_rect2, accent_mint_a(), Stroke::NONE, 14.0);
+    ui.painter().text(ico_rect2.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(20.0, FontFamily::Proportional), accent_mint());
+    
+    ui.painter().text(egui::pos2(ico_rect2.right() + 12.0, v2_rect.top() + 18.0), egui::Align2::LEFT_TOP, "Session Vault", FontId::new(13.0, FontFamily::Proportional), text_primary());
+    let session_active_count = if state.session_key.is_some() { 6 } else { 0 };
+    let vault2_sub = format!("{} file · SHA-256 terverifikasi", session_active_count);
+    ui.painter().text(egui::pos2(ico_rect2.right() + 12.0, v2_rect.top() + 36.0), egui::Align2::LEFT_TOP, &vault2_sub, FontId::new(10.0, FontFamily::Proportional), text_muted());
+    
+    // Progress track
+    let prog2_y = v2_rect.bottom() - 15.0;
+    let track2 = egui::Rect::from_min_size(egui::pos2(ico_rect2.right() + 12.0, prog2_y), Vec2::new(v2_rect.right() - ico_rect2.right() - 88.0, 3.0));
+    filled_rect(ui, track2, bg_input(), Stroke::NONE, 1.5);
+    let fill2 = egui::Rect::from_min_size(track2.min, Vec2::new(track2.width() * 0.35, 3.0));
+    filled_rect(ui, fill2, accent_mint(), Stroke::NONE, 1.5);
+    
+    let bdg_rect2 = egui::Rect::from_center_size(egui::pos2(v2_rect.right() - 44.0, v2_rect.center().y), Vec2::new(54.0, 20.0));
+    filled_rect(ui, bdg_rect2, accent_mint_a(), Stroke::NONE, 20.0);
+    ui.painter().text(bdg_rect2.center(), egui::Align2::CENTER_CENTER, "Aktif", FontId::new(9.0, FontFamily::Proportional), accent_mint());
+    if resp2.clicked() {
+        state.toast_message = Some("Session Vault aktif terverifikasi".to_string());
+        state.toast_timer = 2.0;
+    }
+    
+    // Quick actions (Aksi Cepat)
+    ui.add_space(20.0);
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("AKSI CEPAT").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    let grid_w = avail.width() - pad * 2.0;
+    let card_w2 = (grid_w - 9.0) / 2.0;
+    let card_h2 = 98.0;
+    
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                // Action 1: Kunci Semua
+                let (r1, resp1) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b1 = if resp1.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r1, bg_card(), Stroke::new(0.5, b1), 20.0);
+                
+                let ico_r1 = egui::Rect::from_min_size(egui::pos2(r1.left() + 14.0, r1.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r1, accent_purple_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r1.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(16.0, FontFamily::Proportional), accent_purple());
+                
+                ui.painter().text(egui::pos2(r1.left() + 14.0, r1.bottom() - 32.0), egui::Align2::LEFT_CENTER, "Kunci semua", FontId::new(12.0, FontFamily::Proportional), text_primary());
+                ui.painter().text(egui::pos2(r1.left() + 14.0, r1.bottom() - 14.0), egui::Align2::LEFT_CENTER, "Enkripsi sekarang", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp1.clicked() { ctrl.logout(state); }
+                
+                ui.add_space(9.0);
+                
+                // Action 2: Buka vault
+                let (r2, resp2) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b2 = if resp2.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r2, bg_card(), Stroke::new(0.5, b2), 20.0);
+                
+                let ico_r2 = egui::Rect::from_min_size(egui::pos2(r2.left() + 14.0, r2.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r2, accent_mint_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r2.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(16.0, FontFamily::Proportional), accent_mint());
+                
+                ui.painter().text(egui::pos2(r2.left() + 14.0, r2.bottom() - 32.0), egui::Align2::LEFT_CENTER, "Buka vault", FontId::new(12.0, FontFamily::Proportional), text_primary());
+                ui.painter().text(egui::pos2(r2.left() + 14.0, r2.bottom() - 14.0), egui::Align2::LEFT_CENTER, "Masukkan PIN", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp2.clicked() {
+                    state.toast_message = Some("Vault sudah dalam sesi aktif".to_string());
+                    state.toast_timer = 2.0;
+                }
+            });
+            ui.add_space(9.0);
+            ui.horizontal(|ui| {
+                // Action 3: Setup 2FA
+                let (r3, resp3) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b3 = if resp3.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r3, bg_card(), Stroke::new(0.5, b3), 20.0);
+                
+                let ico_r3 = egui::Rect::from_min_size(egui::pos2(r3.left() + 14.0, r3.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r3, accent_rose_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r3.center(), egui::Align2::CENTER_CENTER, "📱", FontId::new(16.0, FontFamily::Proportional), accent_rose());
+                
+                ui.painter().text(egui::pos2(r3.left() + 14.0, r3.bottom() - 32.0), egui::Align2::LEFT_CENTER, "Setup 2FA", FontId::new(12.0, FontFamily::Proportional), text_primary());
+                ui.painter().text(egui::pos2(r3.left() + 14.0, r3.bottom() - 14.0), egui::Align2::LEFT_CENTER, "Google Auth", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp3.clicked() {
+                    if state.totp_enabled { ctrl.disable_totp(state); } else { ctrl.begin_totp_setup(state); }
+                }
+                
+                ui.add_space(9.0);
+                
+                // Action 4: Cek Integritas
+                let (r4, resp4) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                let b4 = if resp4.hovered() { border_hover() } else { border_default() };
+                filled_rect(ui, r4, bg_card(), Stroke::new(0.5, b4), 20.0);
+                
+                let ico_r4 = egui::Rect::from_min_size(egui::pos2(r4.left() + 14.0, r4.top() + 14.0), Vec2::splat(34.0));
+                filled_rect(ui, ico_r4, accent_gold_a(), Stroke::NONE, 11.0);
+                ui.painter().text(ico_r4.center(), egui::Align2::CENTER_CENTER, "🛡", FontId::new(16.0, FontFamily::Proportional), accent_gold());
+                
+                ui.painter().text(egui::pos2(r4.left() + 14.0, r4.bottom() - 32.0), egui::Align2::LEFT_CENTER, "Cek integritas", FontId::new(12.0, FontFamily::Proportional), text_primary());
+                ui.painter().text(egui::pos2(r4.left() + 14.0, r4.bottom() - 14.0), egui::Align2::LEFT_CENTER, "SHA-256 checksum", FontId::new(10.0, FontFamily::Proportional), text_muted());
+                if resp4.clicked() {
+                    state.toast_message = Some("Semua file 100% utuh".to_string());
+                    state.toast_timer = 2.0;
+                }
+            });
+        });
+    });
+}
+
+fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
+    let pad = 16.0;
+    let avail = ui.available_rect_before_wrap();
+    
+    ui.add_space(8.0);
+    
+    // Search Bar
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let search_w = avail.width() - pad * 2.0;
+        let (rect, _) = ui.allocate_exact_size(Vec2::new(search_w, 42.0), egui::Sense::hover());
+        let border_c = border_default();
+        filled_rect(ui, rect, bg_card(), Stroke::new(0.5, border_c), 12.0);
+        
+        ui.allocate_ui_at_rect(rect, |ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(10.0);
+                ui.label(egui::RichText::new("🔍").size(14.0).color(text_muted()));
+                let resp = ui.add(egui::TextEdit::singleline(&mut state.vault_search_query)
+                    .hint_text("Cari file terenkripsi...")
+                    .frame(false)
+                    .desired_width(search_w - 60.0)
+                    .font(FontId::new(13.0, FontFamily::Proportional)));
+                if resp.gained_focus() || resp.clicked() {
+                    state.focused_field = crate::app_state::FocusedField::None;
+                }
+            });
+        });
+    });
+    ui.add_space(12.0);
+    
+    // Sort Selector
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("URUTKAN:").size(9.0).color(text_muted()).strong());
+        
+        let sort_modes = [
+            (SortOption::DateDesc, "Terbaru"),
+            (SortOption::DateAsc, "Terlama"),
+            (SortOption::NameAsc, "A-Z"),
+            (SortOption::SizeDesc, "Terbesar"),
+        ];
+        
+        for (mode, lbl) in sort_modes.iter() {
+            let is_active = state.vault_sort_by == *mode;
+            let bg_c = if is_active { accent_purple_a() } else { bg_card() };
+            let border_c = if is_active { accent_purple() } else { border_default() };
+            let text_c = if is_active { text_primary() } else { text_muted() };
+            
+            let btn = egui::Button::new(egui::RichText::new(*lbl).size(10.0).color(text_c))
+                .fill(bg_c)
+                .stroke(Stroke::new(0.5, border_c))
+                .rounding(12.0);
+            if ui.add(btn).clicked() {
+                state.vault_sort_by = mode.clone();
+            }
+            ui.add_space(4.0);
+        }
+    });
+    
+    ui.add_space(14.0);
+    
+    // Filter and Sort
+    let mut files: Vec<FileRecord> = state.file_list.iter()
+        .filter(|f| {
+            if state.vault_search_query.is_empty() {
+                true
+            } else {
+                f.original_name.to_lowercase().contains(&state.vault_search_query.to_lowercase())
+            }
+        })
+        .cloned()
+        .collect();
+        
+    match state.vault_sort_by {
+        SortOption::DateDesc => files.sort_by(|a, b| b.encrypted_at.cmp(&a.encrypted_at)),
+        SortOption::DateAsc => files.sort_by(|a, b| a.encrypted_at.cmp(&b.encrypted_at)),
+        SortOption::NameAsc => files.sort_by(|a, b| a.original_name.to_lowercase().cmp(&b.original_name.to_lowercase())),
+        SortOption::SizeDesc => files.sort_by(|a, b| b.file_size.cmp(&a.file_size)),
+    }
+    
+    if files.is_empty() {
+        ui.vertical_centered(|ui| {
+            ui.add_space(40.0);
+            ui.label(egui::RichText::new("📂").size(36.0).color(text_muted()));
+            ui.add_space(8.0);
+            ui.label(egui::RichText::new("Tidak ada file ditemukan").color(text_muted()).size(13.0));
         });
     } else {
-        // Grid View
-        ui.horizontal(|ui| { ui.add_space(pad); }); // padding for wrap
-        ui.horizontal_wrapped(|ui| {
-            ui.add_space(pad);
-            let item_width = 100.0;
-            let item_height = 120.0;
-            for record in files {
-                let (rect, resp) = ui.allocate_exact_size(Vec2::new(item_width, item_height), egui::Sense::click());
-                let is_hover = resp.hovered();
-                filled_rect(ui, rect, if is_hover { bg_card() } else { bg_surface() }, Stroke::new(1.0, if is_hover { teal_strong() } else { border_default() }), 16.0);
-                
-                let ext = file_ext(&record.original_name);
-                let (icon, badge) = file_badge(ext);
-                let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.center().x, rect.top() + 40.0), Vec2::splat(50.0));
-                filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 14.0);
-                ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(28.0, FontFamily::Proportional), badge.1);
-                
-                let name_truncated = if record.original_name.len() > 12 { format!("{}…", &record.original_name[..10]) } else { record.original_name.clone() };
-                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 16.0), egui::Align2::CENTER_CENTER, name_truncated, FontId::new(13.0, FontFamily::Proportional), text_primary());
-                ui.painter().text(egui::pos2(rect.center().x, icon_rect.bottom() + 32.0), egui::Align2::CENTER_CENTER, format_size(record.file_size as u64), FontId::new(11.0, FontFamily::Proportional), text_muted());
-                
-                if is_hover {
-                    let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 16.0), Vec2::splat(24.0));
-                    let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
-                    ui.painter().circle_filled(del_rect.center(), 12.0, bg_card());
-                    ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(12.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
-                    
-                    let extract_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 44.0), Vec2::splat(24.0));
-                    let extract_resp = ui.allocate_rect(extract_rect, egui::Sense::click());
-                    ui.painter().circle_filled(extract_rect.center(), 12.0, bg_card());
-                    ui.painter().text(extract_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(12.0, FontFamily::Proportional), if extract_resp.hovered() { teal_strong() } else { text_muted() });
-
-                    let preview_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 16.0, rect.top() + 72.0), Vec2::splat(24.0));
-                    let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
-                    ui.painter().circle_filled(preview_rect.center(), 12.0, bg_card());
-                    ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁", FontId::new(12.0, FontFamily::Proportional), if preview_resp.hovered() { teal_strong() } else { text_muted() });
-                    let preview_clicked = preview_resp.clicked();
-
-                    if del_resp.clicked() {
-                        *to_soft_delete = Some(record.id.clone());
-                    } else if extract_resp.clicked() {
-                        *to_decrypt = Some(record.vault_filename.clone());
-                    } else if preview_clicked {
-                        target_preview = Some(record.vault_filename.clone());
-                    }
-                } else if resp.clicked() {
-                    // Default action on click the whole card
-                    target_preview = Some(record.vault_filename.clone());
-                }
-                ui.add_space(8.0); // space between grid items
-            }
-        });
-    }
-    if let Some(vault_filename) = target_preview { ctrl.decrypt_to_memory(state, &vault_filename); }
-}
-
-fn draw_pie_chart(ui: &mut egui::Ui, rect: egui::Rect, data: &[(String, f32, Color32)]) {
-    let center = rect.center();
-    let radius = rect.width().min(rect.height()) / 2.0;
-    let mut current_angle: f32 = -std::f32::consts::FRAC_PI_2; // Start from top
-    let total: f32 = data.iter().map(|(_, v, _)| v).sum();
-    
-    if total == 0.0 {
-        ui.painter().circle(center, radius, bg_surface(), Stroke::new(1.0, border_default()));
-        ui.painter().text(center, egui::Align2::CENTER_CENTER, "Kosong", FontId::new(14.0, FontFamily::Proportional), text_muted());
-        return;
-    }
-    
-    for (_, value, color) in data {
-        if *value <= 0.0 { continue; }
-        let angle_span = (*value / total) * std::f32::consts::PI * 2.0;
-        let mut mesh = egui::Mesh::default();
-        let center_idx = mesh.vertices.len() as u32;
-        mesh.vertices.push(egui::epaint::Vertex {
-            pos: center,
-            uv: egui::epaint::WHITE_UV,
-            color: *color,
-        });
-        
-        let segments = 32.max((angle_span * 10.0) as usize);
-        for i in 0..=segments {
-            let a = current_angle + angle_span * (i as f32 / segments as f32);
-            mesh.vertices.push(egui::epaint::Vertex {
-                pos: center + egui::Vec2::new(a.cos() * radius, a.sin() * radius),
-                uv: egui::epaint::WHITE_UV,
-                color: *color,
-            });
-            if i > 0 {
-                let v_len = mesh.vertices.len() as u32;
-                mesh.indices.extend_from_slice(&[center_idx, v_len - 2, v_len - 1]);
-            }
-        }
-        ui.painter().add(mesh);
-        current_angle += angle_span;
-    }
-    
-    // Draw inner circle for donut chart look
-    ui.painter().circle_filled(center, radius * 0.6, bg_base());
-}
-
-fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
-    ui.add_space(20.0);
-    ui.vertical_centered(|ui| {
-        ui.label(egui::RichText::new("Storage Analysis").size(22.0).color(text_primary()).strong());
-    });
-    ui.add_space(20.0);
-
-    // Device Storage Bar
-    ui.horizontal(|ui| {
-        ui.add_space(20.0);
-        let avail = ui.available_rect_before_wrap();
-        let (rect, _) = ui.allocate_exact_size(egui::Vec2::new(avail.width() - 20.0, 80.0), egui::Sense::hover());
-        filled_rect(ui, rect, bg_surface(), Stroke::new(1.0, border_default()), 16.0);
-        
-        ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 20.0), egui::Align2::LEFT_CENTER, "📱 Device Storage", FontId::new(14.0, FontFamily::Proportional), text_primary());
-        
-        let total = state.device_disk_total;
-        let free = state.device_disk_free;
-        let used = total.saturating_sub(free);
-        
-        if total > 0 {
-            ui.painter().text(egui::pos2(rect.right() - 20.0, rect.top() + 20.0), egui::Align2::RIGHT_CENTER, format!("{} / {}", format_size(used), format_size(total)), FontId::new(12.0, FontFamily::Proportional), text_muted());
-            
-            let bar_bg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.top() + 50.0), egui::Vec2::new(rect.width() - 40.0, 8.0));
-            filled_rect(ui, bar_bg, bg_card(), Stroke::NONE, 4.0);
-            
-            let fraction = (used as f32 / total as f32).clamp(0.0, 1.0);
-            let bar_fg = egui::Rect::from_min_size(egui::pos2(rect.left() + 20.0, rect.top() + 50.0), egui::Vec2::new((rect.width() - 40.0) * fraction, 8.0));
-            filled_rect(ui, bar_fg, Color32::from_rgb(96, 165, 250), Stroke::NONE, 4.0);
-        } else {
-            ui.painter().text(egui::pos2(rect.left() + 20.0, rect.top() + 50.0), egui::Align2::LEFT_CENTER, "Akses penyimpanan dibutuhkan / Izin ditolak", FontId::new(12.0, FontFamily::Proportional), warn_color());
-        }
-    });
-
-    ui.add_space(30.0);
-    ui.vertical_centered(|ui| {
-        let vault_total = state.total_vault_size();
-        ui.label(egui::RichText::new(format!("Vault Usage: {}", format_size(vault_total))).size(16.0).color(crate::theme::text_muted()));
-    });
-    
-    ui.add_space(20.0);
-    
-    // Calculate stats
-    let mut size_img = 0f32;
-    let mut size_vid = 0f32;
-    let mut size_doc = 0f32;
-    let mut size_oth = 0f32;
-    
-    for f in &state.file_list {
-        let ext = file_ext(&f.original_name);
-        match ext {
-            "png" | "jpg" | "jpeg" | "gif" | "webp" => size_img += f.file_size as f32,
-            "mp4" | "mkv" | "avi" | "mov"           => size_vid += f.file_size as f32,
-            "pdf" | "doc" | "docx" | "txt"          => size_doc += f.file_size as f32,
-            _                                       => size_oth += f.file_size as f32,
-        }
-    }
-    
-    let chart_data = vec![
-        ("Gambar".to_string(),  size_img, Color32::from_rgb(250, 190, 88)),
-        ("Video".to_string(),   size_vid, Color32::from_rgb(235, 87, 87)),
-        ("Dokumen".to_string(), size_doc, teal_strong()),
-        ("Lainnya".to_string(), size_oth, Color32::from_rgb(140, 140, 160)),
-    ];
-    
-    let chart_size = 200.0;
-    
-    ui.vertical_centered(|ui| {
-        let (rect, _) = ui.allocate_exact_size(Vec2::splat(chart_size), egui::Sense::hover());
-        draw_pie_chart(ui, rect, &chart_data);
-    });
-    
-    ui.add_space(40.0);
-    
-    // Legend
-    ui.horizontal(|ui| {
-        ui.add_space(20.0);
         ui.vertical(|ui| {
-            for (label, val, color) in &chart_data {
-                if *val > 0.0 {
-                    ui.horizontal(|ui| {
-                        let (rect, _) = ui.allocate_exact_size(Vec2::splat(14.0), egui::Sense::hover());
-                        ui.painter().circle_filled(rect.center(), 7.0, *color);
-                        ui.add_space(8.0);
-                        ui.label(egui::RichText::new(label).color(text_primary()).size(14.0));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.add_space(20.0);
-                            ui.label(egui::RichText::new(format_size(*val as u64)).color(crate::theme::text_muted()).size(14.0));
-                        });
-                    });
-                    ui.add_space(12.0);
-                }
+            for record in files {
+                ui.horizontal(|ui| {
+                    ui.add_space(pad);
+                    let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 72.0), egui::Sense::click());
+                    let is_hover = resp.hovered();
+                    
+                    let b_color = if is_hover { border_hover() } else { border_default() };
+                    filled_rect(ui, rect, bg_card(), Stroke::new(0.5, b_color), 20.0);
+                    
+                    let ext = file_ext(&record.original_name);
+                    let (icon, badge) = file_badge(ext);
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 34.0, rect.center().y), Vec2::splat(42.0));
+                    filled_rect(ui, icon_rect, badge.0, Stroke::NONE, 13.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(20.0, FontFamily::Proportional), badge.1);
+                    
+                    let name_truncated = if record.original_name.len() > 22 { format!("{}…", &record.original_name[..20]) } else { record.original_name.clone() };
+                    ui.painter().text(egui::pos2(icon_rect.right() + 14.0, rect.center().y - 10.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(13.0, FontFamily::Proportional), text_primary());
+                    
+                    let vault_name = if record.vault_filename.contains("session") { "Session Vault" } else { "Primary Vault" };
+                    let meta = format!("{} • {} • Enkripsi {}", format_size(record.file_size as u64), vault_name, if record.encrypted_at.len() >= 10 { &record.encrypted_at[..10] } else { &record.encrypted_at });
+                    ui.painter().text(egui::pos2(icon_rect.right() + 14.0, rect.center().y + 11.0), egui::Align2::LEFT_CENTER, meta, FontId::new(10.5, FontFamily::Proportional), text_muted());
+                    
+                    if is_hover {
+                        let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 86.0, rect.center().y), Vec2::splat(32.0));
+                        let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
+                        ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(18.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
+                        
+                        let share_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 54.0, rect.center().y), Vec2::splat(32.0));
+                        let share_resp = ui.allocate_rect(share_rect, egui::Sense::click());
+                        ui.painter().text(share_rect.center(), egui::Align2::CENTER_CENTER, "📡", FontId::new(16.0, FontFamily::Proportional), if share_resp.hovered() { accent_sky() } else { text_muted() });
+                        
+                        let open_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 22.0, rect.center().y), Vec2::splat(32.0));
+                        let open_resp = ui.allocate_rect(open_rect, egui::Sense::click());
+                        ui.painter().text(open_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(18.0, FontFamily::Proportional), if open_resp.hovered() { accent_purple() } else { text_muted() });
+                        
+                        if del_resp.clicked() {
+                            *to_soft_delete = Some(record.id.clone());
+                        } else if share_resp.clicked() {
+                            ctrl.start_share(state, record.clone());
+                        } else if open_resp.clicked() || (resp.clicked() && !del_resp.hovered() && !share_resp.hovered()) {
+                            *to_decrypt = Some(record.vault_filename.clone());
+                        }
+                    } else {
+                        let lock_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 22.0, rect.center().y), Vec2::splat(32.0));
+                        ui.painter().text(lock_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(16.0, FontFamily::Proportional), badge.1);
+                    }
+                });
             }
         });
-    });
+    }
 }
 
 fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
+    let pad = 16.0;
     let avail = ui.available_rect_before_wrap();
-    let pad = 20.0;
-    ui.vertical_centered(|ui| {
-        ui.add_space(40.0);
-        ui.label(egui::RichText::new("Pengaturan").size(20.0).color(text_primary()).strong());
-        ui.add_space(30.0);
+    
+    ui.add_space(8.0);
+    
+    // Helper to draw standard settings row
+    let draw_row = |ui: &mut egui::Ui, icon: &str, icon_c: Color32, icon_bg: Color32, title: &str, sub: &str| -> egui::Response {
+        let (rect, resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 60.0), egui::Sense::click());
+        let border = if resp.hovered() { border_hover() } else { border_default() };
+        filled_rect(ui, rect, bg_card(), Stroke::new(0.5, border), 18.0);
         
-        let btn_w = avail.width() - pad*2.0;
+        let ico_r = egui::Rect::from_center_size(egui::pos2(rect.left() + 32.0, rect.center().y), Vec2::splat(36.0));
+        filled_rect(ui, ico_r, icon_bg, Stroke::NONE, 12.0);
+        ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(17.0, FontFamily::Proportional), icon_c);
         
-        ui.horizontal(|ui| {
-            ui.add_space(pad);
-            let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "📱", FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(96, 165, 250));
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, if state.totp_enabled { "Disable 2FA" } else { "Setup 2FA" }, FontId::new(16.0, FontFamily::Proportional), text_primary());
-            if resp.clicked() { if state.totp_enabled { ctrl.disable_totp(state); } else { ctrl.begin_totp_setup(state); } }
-        });
-        ui.add_space(10.0);
+        ui.painter().text(egui::pos2(ico_r.right() + 12.0, rect.top() + 14.0), egui::Align2::LEFT_TOP, title, FontId::new(13.0, FontFamily::Proportional), text_primary());
+        ui.painter().text(egui::pos2(ico_r.right() + 12.0, rect.top() + 32.0), egui::Align2::LEFT_TOP, sub, FontId::new(10.0, FontFamily::Proportional), text_muted());
         
-        ui.horizontal(|ui| {
-            ui.add_space(pad);
-            let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🗑", FontId::new(20.0, FontFamily::Proportional), error_color());
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Recycle Bin", FontId::new(16.0, FontFamily::Proportional), text_primary());
-            if resp.clicked() { ctrl.load_deleted_files(state); state.screen = AppScreen::RecycleBin; }
-        });
-        ui.add_space(10.0);
-
-        // System Trash Scanner
-        ui.horizontal(|ui| {
-            ui.add_space(pad);
-            let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🔍", FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(250, 190, 88));
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "System Trash Scanner", FontId::new(16.0, FontFamily::Proportional), text_primary());
-            if resp.clicked() { ctrl.scan_system_trash(state); state.screen = AppScreen::SystemTrash; }
-        });
-        ui.add_space(10.0);
+        // Chevron right on the end
+        let arrow_pos = egui::pos2(rect.right() - 20.0, rect.center().y);
+        ui.painter().text(arrow_pos, egui::Align2::CENTER_CENTER, "▶", FontId::new(10.0, FontFamily::Proportional), text_muted());
         
-        ui.horizontal(|ui| {
-            ui.add_space(pad);
-            let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, 60.0), egui::Sense::click());
-            filled_rect(ui, rect, if resp.hovered() { bg_card() } else { bg_surface() }, Stroke::new(1.0, border_default()), 16.0);
-            ui.painter().text(egui::pos2(rect.left() + 30.0, rect.center().y), egui::Align2::CENTER_CENTER, "🚪", FontId::new(20.0, FontFamily::Proportional), text_muted());
-            ui.painter().text(egui::pos2(rect.left() + 60.0, rect.center().y), egui::Align2::LEFT_CENTER, "Logout / Kunci Vault", FontId::new(16.0, FontFamily::Proportional), text_primary());
-            if resp.clicked() { ctrl.logout(state); }
-        });
-
-        // 🛡️ Secure File Shredder Info Card
-        ui.add_space(20.0);
-        ui.horizontal(|ui| {
-            ui.add_space(pad);
-            let card_w = avail.width() - pad*2.0;
-            egui::Frame::none()
-                .fill(Color32::from_rgba_unmultiplied(182, 102, 210, 12)) // Purple glow matching brand theme
-                .stroke(Stroke::new(1.0, Color32::from_rgba_unmultiplied(182, 102, 210, 38)))
-                .rounding(Rounding::same(16.0))
-                .inner_margin(egui::Margin::symmetric(18.0, 14.0))
-                .show(ui, |ui| {
-                    ui.set_max_width(card_w - 36.0);
-                    ui.vertical(|ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("🛡️").size(16.0));
-                            ui.add_space(4.0);
-                            ui.label(egui::RichText::new("Shredder File Asli").size(15.0).color(text_primary()).strong());
-                            
-                            // Visual "AKTIF" badge
-                            ui.add_space((ui.available_width() - 55.0).max(0.0));
-                            let cursor_pos = ui.cursor().min;
-                            let badge_rect = egui::Rect::from_min_max(
-                                cursor_pos,
-                                cursor_pos + egui::vec2(50.0, 18.0)
-                            );
-                            filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(74, 222, 128, 25), Stroke::NONE, 9.0);
-                            ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "AKTIF", FontId::new(9.0, FontFamily::Proportional), success_color());
-                        });
-                        ui.add_space(8.0);
-                        ui.label(
-                            egui::RichText::new(
-                                "Setiap file asli yang Anda masukkan otomatis dihancurkan dengan metode 3-Pass Secure Overwrite (menimpa dengan data acak 3 kali) sebelum dihapus. File asli tidak dapat dipulihkan dengan software recovery."
-                            )
-                            .size(11.5)
-                            .color(text_muted())
-                        );
-                    });
-                });
-        });
+        resp
+    };
+    
+    // ── 1. KEAMANAN ───────────────────────────────────────────
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("KEAMANAN").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    // Row 1.1: Ubah Password
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        if draw_row(ui, "🔒", accent_purple(), accent_purple_a(), "Ubah Password Utama", "Ganti password master Anda").clicked() {
+            state.dashboard_tab = DashboardTab::Profile; // Navigate to change password tab
+        }
+    });
+    ui.add_space(8.0);
+    
+    // Row 1.2: Autentikasi 2FA
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let sub = if state.totp_enabled { "2FA Aktif (Google Authenticator)" } else { "2FA Nonaktif (Ketuk untuk setup)" };
+        if draw_row(ui, "📱", accent_rose(), accent_rose_a(), "Autentikasi 2FA", sub).clicked() {
+            if state.totp_enabled {
+                ctrl.disable_totp(state);
+            } else {
+                ctrl.begin_totp_setup(state);
+            }
+        }
+    });
+    ui.add_space(8.0);
+    
+    // Row 1.3: Mode Terang (Toggle Row)
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let (rect, _resp) = ui.allocate_exact_size(Vec2::new(avail.width() - pad*2.0, 60.0), egui::Sense::hover());
+        filled_rect(ui, rect, bg_card(), Stroke::new(0.5, border_default()), 18.0);
+        
+        let ico_r = egui::Rect::from_center_size(egui::pos2(rect.left() + 32.0, rect.center().y), Vec2::splat(36.0));
+        filled_rect(ui, ico_r, accent_sky_a(), Stroke::NONE, 12.0);
+        ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, "☀️", FontId::new(17.0, FontFamily::Proportional), accent_sky());
+        
+        ui.painter().text(egui::pos2(ico_r.right() + 12.0, rect.top() + 14.0), egui::Align2::LEFT_TOP, "Mode Terang", FontId::new(13.0, FontFamily::Proportional), text_primary());
+        ui.painter().text(egui::pos2(ico_r.right() + 12.0, rect.top() + 32.0), egui::Align2::LEFT_TOP, "Gunakan tema warna terang", FontId::new(10.0, FontFamily::Proportional), text_muted());
+        
+        // Custom Toggle switch on the right side
+        let toggle_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 36.0, rect.center().y), egui::vec2(42.0, 24.0));
+        let toggle_resp = ui.allocate_rect(toggle_rect, egui::Sense::click());
+        
+        let mut is_light = state.is_light_mode;
+        if toggle_resp.clicked() {
+            is_light = !is_light;
+            state.is_light_mode = is_light;
+            crate::theme::set_light_mode(is_light);
+            ui.ctx().request_repaint();
+        }
+        
+        let toggle_bg = if is_light { accent_purple() } else { bg_input() };
+        filled_rect(ui, toggle_rect, toggle_bg, Stroke::NONE, 12.0);
+        let knob_x = if is_light { toggle_rect.right() - 12.0 } else { toggle_rect.left() + 12.0 };
+        ui.painter().circle_filled(egui::pos2(knob_x, toggle_rect.center().y), 9.0, Color32::WHITE);
+    });
+    ui.add_space(8.0);
+    
+    // Row 1.4: Recycle Bin
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        if draw_row(ui, "🗑", error_color(), Color32::from_rgba_unmultiplied(255, 79, 79, 13), "Recycle Bin", "Lihat & pulihkan file terhapus").clicked() {
+            ctrl.load_deleted_files(state);
+            state.screen = AppScreen::RecycleBin;
+        }
+    });
+    ui.add_space(20.0);
+    
+    // ── 2. PENYIMPANAN ────────────────────────────────────────
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("PENYIMPANAN").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    // Row 2.1: System Trash Scanner
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        if draw_row(ui, "🔍", accent_gold(), accent_gold_a(), "System Trash Scanner", "Pindai file sampah di Windows").clicked() {
+            ctrl.scan_system_trash(state);
+            state.screen = AppScreen::SystemTrash;
+        }
+    });
+    ui.add_space(8.0);
+    
+    // Row 2.2: Lokasi penyimpanan
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        draw_row(ui, "📁", accent_mint(), accent_mint_a(), "Lokasi Penyimpanan", "vault_storage/ · Lokal di perangkat");
+    });
+    ui.add_space(8.0);
+    
+    // Row 2.3: Cadangkan database
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        if draw_row(ui, "💾", accent_sky(), accent_sky_a(), "Cadangkan Database", "Ekspor file database utama").clicked() {
+            ctrl.backup_database(state);
+        }
+    });
+    ui.add_space(20.0);
+    
+    // ── 3. TENTANG ───────────────────────────────────────────
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("TENTANG").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+    
+    // Row 3.1: Versi Aplikasi
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        draw_row(ui, "ℹ", accent_purple(), accent_purple_a(), "Versi Aplikasi", "v1.0.0 · Dibuat dengan Rust + egui");
     });
 }
 

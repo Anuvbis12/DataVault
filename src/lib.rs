@@ -34,6 +34,17 @@ impl VaultMvc {
 
 impl eframe::App for VaultMvc {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        // ── Android Safe Area: Baca status bar height dari content_rect ──
+        // content_rect().top dikembalikan dalam PHYSICAL pixels, harus dibagi pixels_per_point
+        // agar sesuai dengan sistem koordinat logical (dp) yang dipakai egui.
+        #[cfg(target_os = "android")]
+        if let Some(app) = &self.android_app {
+            let content_top = app.content_rect().top as f32;
+            let ppp = ctx.pixels_per_point();
+            // Konversi ke logical pixels dan batasi ke nilai yang wajar (max 60dp)
+            self.state.status_bar_height = (content_top / ppp).clamp(0.0, 60.0);
+        }
+
         // ── Auto-Lock: Deteksi Aktivitas Input Pengguna ──
         let has_activity = ctx.input(|i| {
             !i.events.is_empty() || i.pointer.any_click() || i.pointer.any_down()
@@ -44,13 +55,18 @@ impl eframe::App for VaultMvc {
 
         // ── Auto-Lock: Timer Ketidakaktifan (Inactivity Timeout 2 Menit) ──
         if self.state.is_authenticated() {
-            let elapsed = self.state.last_activity.elapsed().as_secs();
-            if elapsed >= 120 { // 120 detik = 2 menit
-                self.controller.logout(&mut self.state);
-                self.state.set_status("Brankas dikunci otomatis karena tidak ada aktivitas.", false);
+            if ctx.input(|i| i.focused) {
+                let elapsed = self.state.last_activity.elapsed().as_secs();
+                if elapsed >= 120 { // 120 detik = 2 menit
+                    self.controller.logout(&mut self.state);
+                    self.state.set_status("Brankas dikunci otomatis karena tidak ada aktivitas.", false);
+                } else {
+                    // Request repaint 1 detik ke depan untuk mengevaluasi timer secara real-time
+                    ctx.request_repaint_after(std::time::Duration::from_secs(1));
+                }
             } else {
-                // Request repaint 1 detik ke depan untuk mengevaluasi timer secara real-time
-                ctx.request_repaint_after(std::time::Duration::from_secs(1));
+                // Jika tidak fokus (misal sedang membuka notifikasi atau lockscreen), segarkan last_activity agar tidak ter-lock
+                self.state.last_activity = std::time::Instant::now();
             }
         } else {
             // Jika belum login, selalu segarkan last_activity
@@ -91,31 +107,27 @@ impl eframe::App for VaultMvc {
 
         view::render(ctx, &mut self.state, &self.controller);
 
-        // 🛡️ FITUR KEAMANAN LINTAS PLATFORM (Termasuk iOS, Android, & Desktop)
-        // Jika aplikasi kehilangan fokus (masuk ke background / Recent Apps), 
-        // kunci otomatis brankas dan tutup seluruh layar dengan warna hitam untuk mencegah intip.
+        // 🛡️ PRIVACY SCREEN: Tutup layar saat kehilangan fokus (panel notifikasi, recent apps, dll)
+        // PENTING: Tidak melakukan logout — sesi tetap aktif.
+        // Layar hitam hanya mencegah isi brankas terlihat saat app tidak di foreground.
+        // Logout hanya terjadi via: inactivity timer 2 menit, tombol Lock, atau double-Esc.
         if !ctx.input(|i| i.focused) {
-            // Auto-lock instan saat kehilangan fokus / minimize
-            if self.state.is_authenticated() {
-                self.controller.logout(&mut self.state);
-            }
-
             let screen_rect = ctx.screen_rect();
             let painter = ctx.layer_painter(eframe::egui::LayerId::new(
                 eframe::egui::Order::Tooltip,
                 eframe::egui::Id::new("privacy_screen"),
             ));
             
-            // 1. Gambar latar belakang hitam penuh
+            // Gambar latar belakang hitam penuh menutupi seluruh konten
             painter.rect_filled(screen_rect, 0.0, eframe::egui::Color32::BLACK);
             
-            // 2. Tambahkan teks/ikon di tengah agar pengguna tidak mengira aplikasi error
+            // Teks informasi agar pengguna tidak bingung
             painter.text(
                 screen_rect.center(),
                 eframe::egui::Align2::CENTER_CENTER,
                 "🔒 DataVault Secured",
                 eframe::egui::FontId::proportional(28.0),
-                eframe::egui::Color32::WHITE,
+                eframe::egui::Color32::from_rgb(100, 100, 110),
             );
         }
     }

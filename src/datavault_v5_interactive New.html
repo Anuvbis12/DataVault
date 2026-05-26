@@ -1,0 +1,711 @@
+
+<h2 class="sr-only">DataVault Aegis — aplikasi mobile interaktif lengkap dengan navigasi antar layar yang bisa dipencet</h2>
+<style>
+*{box-sizing:border-box;margin:0;padding:0;-webkit-font-smoothing:antialiased;font-family:system-ui,sans-serif}
+:root{
+  --bg:#060605;--s1:#101010;--s2:#181817;--s3:#222221;
+  --bd:#ffffff10;--bd2:#ffffff1e;
+  --ink:#f2f2ef;--dim:#7a7a76;--faint:#333332;
+  --p:#b666d2;--pa:rgba(182,102,210,.13);--pb:rgba(182,102,210,.28);
+  --mint:#00e5a0;--minta:rgba(0,229,160,.12);
+  --sky:#4db8ff;--skya:rgba(77,184,255,.12);
+  --peach:#ff7e5f;--peacha:rgba(255,126,95,.13);
+  --gold:#f5c842;--golda:rgba(245,200,66,.12);
+  --rose:#ff5f9e;--rosea:rgba(255,95,158,.12);
+  --err:#ff4f4f;--erra:rgba(255,79,79,.12);
+}
+.wrap{display:flex;justify-content:center;padding:2rem 1rem;background:transparent}
+.phone{width:370px;min-height:860px;background:var(--bg);border-radius:48px;border:1.5px solid #252523;display:flex;flex-direction:column;position:relative;overflow:hidden}
+.notch{width:88px;height:5px;background:#1e1e1c;border-radius:3px;margin:13px auto 5px}
+.sbar{display:flex;justify-content:space-between;align-items:center;padding:4px 26px 6px;font-size:12px;color:var(--ink)}
+.sbar-r{display:flex;gap:5px;align-items:center;color:var(--dim);font-size:14px}
+
+.screen{display:none;flex-direction:column;flex:1}
+.screen.active{display:flex}
+
+.body{flex:1;overflow-y:auto;padding-bottom:88px}
+.body::-webkit-scrollbar{display:none}
+
+.topbar{display:flex;justify-content:space-between;align-items:center;padding:12px 20px 4px}
+.topbar-title{font-size:20px;font-weight:500;color:var(--ink)}
+.topbar-sub{font-size:11px;color:var(--dim);margin-top:2px}
+.tbr{display:flex;gap:8px}
+.ic{width:36px;height:36px;border-radius:12px;background:var(--s2);border:0.5px solid var(--bd);display:flex;align-items:center;justify-content:center;color:var(--dim);font-size:17px;cursor:pointer}
+.ic.hi{color:var(--p);border-color:var(--pb)}
+
+.bigcard{margin:14px 16px;border-radius:26px;background:var(--p);padding:22px 20px 20px;position:relative;overflow:hidden;cursor:default}
+.bc-deco{position:absolute;border-radius:50%;background:rgba(255,255,255,.07);pointer-events:none}
+.bc-lbl{font-size:10px;color:rgba(255,255,255,.6);letter-spacing:.6px;margin-bottom:8px}
+.bc-num{font-size:38px;font-weight:500;color:#fff;line-height:1;letter-spacing:-1px}
+.bc-unit{font-size:14px;font-weight:400;opacity:.7;margin-left:4px}
+.bc-sub{font-size:11px;color:rgba(255,255,255,.6);margin-top:5px}
+.bc-tags{display:flex;gap:7px;margin-top:14px;flex-wrap:wrap}
+.bct{font-size:10px;background:rgba(255,255,255,.18);color:#fff;border-radius:20px;padding:4px 11px;display:flex;align-items:center;gap:4px}
+.bct i{font-size:11px}
+.bc-bar-hdr{display:flex;justify-content:space-between;font-size:10px;color:rgba(255,255,255,.6);margin:14px 0 5px}
+.bc-track{height:5px;background:rgba(255,255,255,.2);border-radius:3px;overflow:hidden}
+.bc-fill{height:100%;border-radius:3px;background:rgba(255,255,255,.85)}
+
+.sec-lbl{font-size:10px;font-weight:500;color:var(--dim);letter-spacing:.7px;padding:0 20px;margin:18px 0 10px}
+
+.act-row{display:flex;gap:9px;padding:0 16px;overflow-x:auto;margin-bottom:2px}
+.act-row::-webkit-scrollbar{display:none}
+.act{flex-shrink:0;width:84px;background:var(--s2);border:0.5px solid var(--bd);border-radius:20px;padding:14px 8px 12px;display:flex;flex-direction:column;align-items:center;gap:8px;cursor:pointer;transition:border-color .15s,transform .1s;text-align:center}
+.act:active{transform:scale(.96)}
+.act:hover{border-color:var(--bd2)}
+.act-ico{width:42px;height:42px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px}
+.act-lbl{font-size:11px;font-weight:500;color:var(--ink);line-height:1.3}
+
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:9px;padding:0 16px;margin-bottom:2px}
+.scard{background:var(--s2);border:0.5px solid var(--bd);border-radius:20px;padding:14px}
+.scard-top{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.scard-ico{width:34px;height:34px;border-radius:11px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.scard-badge{font-size:9px;padding:3px 8px;border-radius:20px;font-weight:500}
+.scard-num{font-size:22px;font-weight:500}
+.scard-lbl{font-size:10px;color:var(--dim);margin-top:3px}
+
+.hw-card{background:var(--s2);border:0.5px solid var(--bd);border-radius:20px;margin:0 16px;padding:16px}
+.hw-hdr{display:flex;justify-content:space-between;align-items:center;margin-bottom:13px}
+.hw-t{font-size:13px;font-weight:500;color:var(--ink)}
+.hw-chip{font-size:10px;background:var(--golda);color:var(--gold);border:0.5px solid rgba(245,200,66,.22);padding:3px 9px;border-radius:20px;display:flex;align-items:center;gap:4px}
+.hrow{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.hrow:last-child{margin-bottom:0}
+.hico{width:26px;height:26px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0}
+.hlbl{font-size:11px;color:var(--dim);width:52px}
+.ht{flex:1;height:4px;background:var(--s3);border-radius:2px;overflow:hidden}
+.hf{height:100%;border-radius:2px}
+.hp{font-size:10px;min-width:26px;text-align:right}
+
+.flist{display:flex;flex-direction:column;gap:8px;padding:0 16px}
+.frow{background:var(--s2);border:0.5px solid var(--bd);border-radius:20px;padding:12px 14px;display:flex;align-items:center;gap:11px;cursor:pointer;transition:border-color .15s}
+.frow:hover{border-color:var(--bd2)}
+.frow:active{transform:scale(.98)}
+.fico{width:42px;height:42px;border-radius:13px;display:flex;align-items:center;justify-content:center;font-size:19px;flex-shrink:0}
+.finfo{flex:1;min-width:0}
+.fname{font-size:12px;font-weight:500;color:var(--ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fmeta{font-size:10px;color:var(--dim);margin-top:3px}
+.flk{font-size:16px}
+
+.vault-list{display:flex;flex-direction:column;gap:8px;padding:0 16px}
+.vi{background:var(--s2);border:0.5px solid var(--bd);border-radius:20px;padding:14px;display:flex;align-items:center;gap:12px;cursor:pointer;transition:border-color .15s}
+.vi:hover{border-color:var(--bd2)}
+.vi-ico{width:44px;height:44px;border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0}
+.vi-body{flex:1;min-width:0}
+.vi-name{font-size:13px;font-weight:500;color:var(--ink)}
+.vi-sub{font-size:10px;color:var(--dim);margin-top:2px}
+.vi-prog{height:3px;background:var(--s3);border-radius:2px;margin-top:7px;overflow:hidden}
+.vi-pf{height:100%;border-radius:2px}
+.vi-badge{font-size:9px;padding:4px 9px;border-radius:20px;font-weight:500;white-space:nowrap}
+
+.pin-wrap{display:flex;flex-direction:column;align-items:center;padding:30px 24px 20px;flex:1}
+.pin-icon{width:72px;height:72px;border-radius:24px;background:var(--pa);border:1.5px solid var(--pb);display:flex;align-items:center;justify-content:center;color:var(--p);font-size:34px;margin-bottom:20px}
+.pin-title{font-size:18px;font-weight:500;color:var(--ink);margin-bottom:6px}
+.pin-sub{font-size:12px;color:var(--dim);margin-bottom:28px;text-align:center}
+.pin-dots{display:flex;gap:14px;margin-bottom:32px}
+.pin-dot{width:14px;height:14px;border-radius:50%;background:var(--s3);border:1.5px solid var(--bd2);transition:background .2s}
+.pin-dot.filled{background:var(--p);border-color:var(--p)}
+.pin-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;width:100%;max-width:280px;margin-bottom:16px}
+.pin-btn{background:var(--s2);border:0.5px solid var(--bd);border-radius:18px;padding:18px 8px;text-align:center;cursor:pointer;transition:background .1s,transform .1s;color:var(--ink)}
+.pin-btn:active{transform:scale(.93);background:var(--s3)}
+.pin-num{font-size:22px;font-weight:500}
+.pin-abc{font-size:9px;color:var(--dim);margin-top:1px;letter-spacing:.5px}
+.pin-del{background:transparent;border:0.5px solid var(--bd);border-radius:18px;padding:18px 8px;text-align:center;cursor:pointer;color:var(--dim);font-size:20px;transition:transform .1s}
+.pin-del:active{transform:scale(.93)}
+.pin-face{background:var(--pa);border:0.5px solid var(--pb);color:var(--p)}
+
+.qr-wrap{display:flex;flex-direction:column;align-items:center;padding:20px 24px;flex:1}
+.qr-box{width:180px;height:180px;background:var(--s2);border:0.5px solid var(--bd);border-radius:20px;display:flex;align-items:center;justify-content:center;margin:16px 0;position:relative;overflow:hidden}
+.qr-inner{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;width:140px;height:140px}
+.qr-cell{border-radius:2px}
+.qr-corner{position:absolute;border:2.5px solid var(--p);border-radius:4px}
+.qr-step{display:flex;align-items:flex-start;gap:12px;width:100%;margin-bottom:14px;background:var(--s2);border:0.5px solid var(--bd);border-radius:16px;padding:13px}
+.qr-step-num{width:24px;height:24px;border-radius:8px;background:var(--pa);color:var(--p);display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:500;flex-shrink:0}
+.qr-step-txt{font-size:12px;color:var(--ink);line-height:1.5}
+.qr-step-sub{font-size:10px;color:var(--dim);margin-top:2px}
+
+.detail-hero{margin:8px 16px 14px;background:var(--s2);border:0.5px solid var(--bd);border-radius:22px;padding:20px}
+.detail-ico{width:60px;height:60px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-size:28px;margin-bottom:14px}
+.detail-name{font-size:16px;font-weight:500;color:var(--ink);margin-bottom:4px}
+.detail-sub{font-size:11px;color:var(--dim)}
+.detail-tags{display:flex;gap:7px;margin-top:12px;flex-wrap:wrap}
+.dtag{font-size:10px;border-radius:20px;padding:4px 11px;display:flex;align-items:center;gap:4px}
+.dtag i{font-size:11px}
+.detail-actions{display:grid;grid-template-columns:1fr 1fr;gap:10px;padding:0 16px;margin-bottom:14px}
+.dbtn{border-radius:18px;padding:14px 12px;text-align:center;cursor:pointer;font-size:13px;font-weight:500;border:0.5px solid var(--bd);transition:transform .1s}
+.dbtn:active{transform:scale(.97)}
+.dbtn.pri{background:var(--p);color:#fff;border-color:var(--p)}
+.dbtn.sec{background:var(--s2);color:var(--ink)}
+.info-rows{display:flex;flex-direction:column;gap:1px;padding:0 16px;margin-bottom:16px}
+.irow{background:var(--s2);padding:13px 14px;display:flex;justify-content:space-between;align-items:center}
+.irow:first-child{border-radius:16px 16px 4px 4px}
+.irow:last-child{border-radius:4px 4px 16px 16px}
+.irow-l{font-size:12px;color:var(--dim)}
+.irow-r{font-size:12px;color:var(--ink);font-weight:500}
+
+.back-btn{display:flex;align-items:center;gap:6px;cursor:pointer;color:var(--p);font-size:13px;padding:8px 20px 0}
+.back-btn i{font-size:16px}
+
+.settings-list{display:flex;flex-direction:column;gap:8px;padding:0 16px;margin-bottom:16px}
+.set-row{background:var(--s2);border:0.5px solid var(--bd);border-radius:18px;padding:14px 16px;display:flex;align-items:center;gap:12px;cursor:pointer}
+.set-row:hover{border-color:var(--bd2)}
+.set-ico{width:36px;height:36px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+.set-body{flex:1}
+.set-t{font-size:13px;font-weight:500;color:var(--ink)}
+.set-s{font-size:10px;color:var(--dim);margin-top:2px}
+.set-arr{color:var(--dim);font-size:18px}
+
+.toggle{width:42px;height:24px;border-radius:12px;background:var(--s3);position:relative;cursor:pointer;flex-shrink:0;transition:background .2s}
+.toggle.on{background:var(--p)}
+.toggle-knob{width:18px;height:18px;border-radius:50%;background:#fff;position:absolute;top:3px;left:3px;transition:left .2s}
+.toggle.on .toggle-knob{left:21px}
+
+.bnav{position:absolute;bottom:0;left:0;right:0;background:rgba(10,10,9,.97);border-top:0.5px solid var(--bd);display:flex;align-items:center;justify-content:space-around;padding:10px 6px 22px;height:82px}
+.ni{display:flex;flex-direction:column;align-items:center;gap:4px;flex:1;cursor:pointer;padding:6px 0;border-radius:12px;transition:background .1s}
+.ni:active{background:var(--s2)}
+.ni i{font-size:23px;color:var(--faint);transition:color .15s}
+.ni span{font-size:9px;color:var(--faint);transition:color .15s}
+.ni.on i{color:var(--p)}
+.ni.on span{color:var(--p);font-weight:500}
+.fab{width:54px;height:54px;border-radius:50%;background:var(--p);display:flex;align-items:center;justify-content:center;margin-bottom:18px;border:3.5px solid var(--bg);flex-shrink:0;cursor:pointer;transition:transform .1s}
+.fab:active{transform:scale(.93)}
+.fab i{font-size:24px;color:#fff}
+
+.toast{position:absolute;bottom:100px;left:50%;transform:translateX(-50%);background:var(--s3);border:0.5px solid var(--bd2);border-radius:20px;padding:10px 18px;font-size:12px;color:var(--ink);white-space:nowrap;opacity:0;transition:opacity .3s;pointer-events:none;z-index:99;display:flex;align-items:center;gap:7px}
+.toast.show{opacity:1}
+.toast i{font-size:14px}
+
+.empty-state{display:flex;flex-direction:column;align-items:center;justify-content:center;flex:1;padding:40px 30px;text-align:center}
+.empty-ico{font-size:48px;color:var(--faint);margin-bottom:16px}
+.empty-t{font-size:15px;font-weight:500;color:var(--ink);margin-bottom:6px}
+.empty-s{font-size:12px;color:var(--dim)}
+</style>
+
+<div class="wrap">
+<div class="phone">
+  <div class="notch"></div>
+  <div class="sbar">
+    <span id="clock">9:41</span>
+    <div class="sbar-r">
+      <i class="ti ti-wifi" aria-hidden="true"></i>
+      <i class="ti ti-battery-2" aria-hidden="true"></i>
+    </div>
+  </div>
+
+  <div id="scr-home" class="screen active">
+    <div class="body">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title">Aegis<span style="color:var(--p)">.</span>Vault</div>
+          <div class="topbar-sub">Brankas digital Anda</div>
+        </div>
+        <div class="tbr">
+          <div class="ic hi" onclick="toast('Tidak ada notifikasi baru')"><i class="ti ti-bell" aria-hidden="true"></i></div>
+          <div class="ic" onclick="nav('scr-pin')"><i class="ti ti-user-circle" aria-hidden="true"></i></div>
+        </div>
+      </div>
+
+      <div class="bigcard" onclick="toast('Brankas utama terbuka')">
+        <div class="bc-deco" style="width:160px;height:160px;top:-55px;right:-35px"></div>
+        <div class="bc-deco" style="width:80px;height:80px;bottom:-20px;right:55px"></div>
+        <div class="bc-lbl">TOTAL FILE TERENKRIPSI</div>
+        <div class="bc-num">24<span class="bc-unit">file</span></div>
+        <div class="bc-sub">1.24 GB terlindungi di perangkat ini</div>
+        <div class="bc-tags">
+          <div class="bct"><i class="ti ti-shield-check" aria-hidden="true"></i>AES-256</div>
+          <div class="bct"><i class="ti ti-fingerprint" aria-hidden="true"></i>SHA-256</div>
+          <div class="bct"><i class="ti ti-device-mobile" aria-hidden="true"></i>2FA Aktif</div>
+        </div>
+        <div class="bc-bar-hdr"><span>Ruang terpakai</span><span>7.7 GB tersisa</span></div>
+        <div class="bc-track"><div class="bc-fill" style="width:62%"></div></div>
+      </div>
+
+      <div class="sec-lbl">APA YANG INGIN ANDA LAKUKAN?</div>
+      <div class="act-row">
+        <div class="act" onclick="nav('scr-vault')">
+          <div class="act-ico" style="background:var(--pa);color:var(--p)"><i class="ti ti-lock" aria-hidden="true"></i></div>
+          <div class="act-lbl">Kunci File</div>
+        </div>
+        <div class="act" onclick="nav('scr-vault')">
+          <div class="act-ico" style="background:var(--minta);color:var(--mint)"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+          <div class="act-lbl">Buka File</div>
+        </div>
+        <div class="act" onclick="nav('scr-files')">
+          <div class="act-ico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-upload" aria-hidden="true"></i></div>
+          <div class="act-lbl">Tambah File</div>
+        </div>
+        <div class="act" onclick="nav('scr-2fa')">
+          <div class="act-ico" style="background:var(--rosea);color:var(--rose)"><i class="ti ti-qrcode" aria-hidden="true"></i></div>
+          <div class="act-lbl">Scan QR 2FA</div>
+        </div>
+        <div class="act" onclick="toast('Semua file 100% utuh')">
+          <div class="act-ico" style="background:var(--golda);color:var(--gold)"><i class="ti ti-shield-check" aria-hidden="true"></i></div>
+          <div class="act-lbl">Cek Kondisi</div>
+        </div>
+      </div>
+
+      <div class="sec-lbl">STATUS BRANKAS</div>
+      <div class="grid2">
+        <div class="scard" onclick="nav('scr-vault')">
+          <div class="scard-top">
+            <div class="scard-ico" style="background:var(--pa);color:var(--p)"><i class="ti ti-lock" aria-hidden="true"></i></div>
+            <div class="scard-badge" style="background:var(--pa);color:var(--p)">Terkunci</div>
+          </div>
+          <div class="scard-num" style="color:var(--p)">24</div>
+          <div class="scard-lbl">File terkunci aman</div>
+        </div>
+        <div class="scard" onclick="nav('scr-vault')">
+          <div class="scard-top">
+            <div class="scard-ico" style="background:var(--minta);color:var(--mint)"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+            <div class="scard-badge" style="background:var(--minta);color:var(--mint)">Aktif</div>
+          </div>
+          <div class="scard-num" style="color:var(--mint)">2</div>
+          <div class="scard-lbl">Sesi dibuka</div>
+        </div>
+        <div class="scard" onclick="toast('Semua file 100% utuh')">
+          <div class="scard-top">
+            <div class="scard-ico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-check" aria-hidden="true"></i></div>
+            <div class="scard-badge" style="background:var(--skya);color:var(--sky)">Aman</div>
+          </div>
+          <div class="scard-num" style="color:var(--sky)">100%</div>
+          <div class="scard-lbl">Semua file utuh</div>
+        </div>
+        <div class="scard" onclick="toast('Hardware kelas tinggi terdeteksi')">
+          <div class="scard-top">
+            <div class="scard-ico" style="background:var(--golda);color:var(--gold)"><i class="ti ti-cpu" aria-hidden="true"></i></div>
+            <div class="scard-badge" style="background:var(--golda);color:var(--gold)">Tinggi</div>
+          </div>
+          <div class="scard-num" style="color:var(--gold)">78%</div>
+          <div class="scard-lbl">Tenaga enkripsi</div>
+        </div>
+      </div>
+
+      <div class="sec-lbl" style="margin-top:18px">PERFORMA PERANGKAT</div>
+      <div class="hw-card">
+        <div class="hw-hdr">
+          <div class="hw-t">Kecepatan enkripsi hardware</div>
+          <div class="hw-chip"><i class="ti ti-bolt" aria-hidden="true"></i>Perangkat kuat</div>
+        </div>
+        <div class="hrow">
+          <div class="hico" style="background:var(--pa);color:var(--p)"><i class="ti ti-cpu" aria-hidden="true"></i></div>
+          <span class="hlbl">Prosesor</span>
+          <div class="ht"><div class="hf" style="width:78%;background:var(--p)"></div></div>
+          <span class="hp" style="color:var(--p)">78%</span>
+        </div>
+        <div class="hrow">
+          <div class="hico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-circuit-board" aria-hidden="true"></i></div>
+          <span class="hlbl">Memori</span>
+          <div class="ht"><div class="hf" style="width:55%;background:var(--sky)"></div></div>
+          <span class="hp" style="color:var(--sky)">55%</span>
+        </div>
+        <div class="hrow">
+          <div class="hico" style="background:var(--minta);color:var(--mint)"><i class="ti ti-database" aria-hidden="true"></i></div>
+          <span class="hlbl">Disk</span>
+          <div class="ht"><div class="hf" style="width:40%;background:var(--mint)"></div></div>
+          <span class="hp" style="color:var(--mint)">40%</span>
+        </div>
+      </div>
+
+      <div class="sec-lbl" style="margin-top:18px">FILE TERBARU</div>
+      <div class="flist">
+        <div class="frow" onclick="openFile('Passport_scan.pdf','Dokumen PDF','2.1 MB','pdf')">
+          <div class="fico" style="background:var(--pa);color:var(--p)"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Passport_scan.pdf</div><div class="fmeta">Dokumen · 3 hari lalu · 2.1 MB</div></div>
+          <i class="ti ti-lock flk" style="color:var(--p)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Family_photo_2024.jpg','Foto JPEG','4.8 MB','img')">
+          <div class="fico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-photo" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Family_photo_2024.jpg</div><div class="fmeta">Foto · 1 minggu lalu · 4.8 MB</div></div>
+          <i class="ti ti-lock flk" style="color:var(--sky)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Meeting_recording.mp4','Video MP4','128 MB','vid')">
+          <div class="fico" style="background:var(--rosea);color:var(--rose)"><i class="ti ti-video" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Meeting_recording.mp4</div><div class="fmeta">Video · 2 minggu lalu · 128 MB</div></div>
+          <i class="ti ti-lock flk" style="color:var(--rose)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Backup_keys.zip','Arsip ZIP','512 KB','zip')">
+          <div class="fico" style="background:var(--golda);color:var(--gold)"><i class="ti ti-file-zip" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Backup_keys.zip</div><div class="fmeta">Arsip · 1 bulan lalu · 512 KB</div></div>
+          <i class="ti ti-lock flk" style="color:var(--gold)" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  <div id="scr-vault" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Brankas</div>
+        <div class="topbar-sub">2 vault tersedia</div>
+      </div>
+      <div class="tbr"><div class="ic hi" onclick="toast('Vault baru dibuat')"><i class="ti ti-plus" aria-hidden="true"></i></div></div>
+    </div>
+    <div class="body">
+      <div class="sec-lbl">VAULT SAYA</div>
+      <div class="vault-list">
+        <div class="vi" onclick="toast('Primary Vault terkunci · Masukkan PIN')">
+          <div class="vi-ico" style="background:var(--pa);color:var(--p)"><i class="ti ti-lock" aria-hidden="true"></i></div>
+          <div class="vi-body">
+            <div class="vi-name">Primary Vault</div>
+            <div class="vi-sub">18 file · Terakhir dibuka 2 menit lalu</div>
+            <div class="vi-prog"><div class="vi-pf" style="width:62%;background:var(--p)"></div></div>
+          </div>
+          <div class="vi-badge" style="background:var(--pa);color:var(--p)">Terkunci</div>
+        </div>
+        <div class="vi" onclick="toast('Session Vault aktif · Akses diberikan')">
+          <div class="vi-ico" style="background:var(--minta);color:var(--mint)"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+          <div class="vi-body">
+            <div class="vi-name">Session Vault</div>
+            <div class="vi-sub">6 file · SHA-256 terverifikasi</div>
+            <div class="vi-prog"><div class="vi-pf" style="width:35%;background:var(--mint)"></div></div>
+          </div>
+          <div class="vi-badge" style="background:var(--minta);color:var(--mint)">Aktif</div>
+        </div>
+      </div>
+      <div class="sec-lbl" style="margin-top:20px">AKSI CEPAT</div>
+      <div class="grid2" style="margin-bottom:14px">
+        <div class="scard" onclick="nav('scr-pin')">
+          <div class="scard-ico" style="background:var(--pa);color:var(--p);margin-bottom:10px"><i class="ti ti-lock" aria-hidden="true"></i></div>
+          <div class="scard-t" style="font-size:12px;font-weight:500;color:var(--ink)">Kunci semua</div>
+          <div class="scard-lbl">Enkripsi sekarang</div>
+        </div>
+        <div class="scard" onclick="nav('scr-pin')">
+          <div class="scard-ico" style="background:var(--minta);color:var(--mint);margin-bottom:10px"><i class="ti ti-lock-open" aria-hidden="true"></i></div>
+          <div class="scard-t" style="font-size:12px;font-weight:500;color:var(--ink)">Buka vault</div>
+          <div class="scard-lbl">Masukkan PIN</div>
+        </div>
+        <div class="scard" onclick="nav('scr-2fa')">
+          <div class="scard-ico" style="background:var(--rosea);color:var(--rose);margin-bottom:10px"><i class="ti ti-qrcode" aria-hidden="true"></i></div>
+          <div class="scard-t" style="font-size:12px;font-weight:500;color:var(--ink)">Setup 2FA</div>
+          <div class="scard-lbl">Google Auth</div>
+        </div>
+        <div class="scard" onclick="toast('Semua file 100% utuh')">
+          <div class="scard-ico" style="background:var(--golda);color:var(--gold);margin-bottom:10px"><i class="ti ti-shield-check" aria-hidden="true"></i></div>
+          <div class="scard-t" style="font-size:12px;font-weight:500;color:var(--ink)">Cek integritas</div>
+          <div class="scard-lbl">SHA-256 checksum</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scr-files" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Semua File</div>
+        <div class="topbar-sub">24 file terenkripsi</div>
+      </div>
+      <div class="tbr"><div class="ic" onclick="toast('Pilih file dari perangkat Anda')"><i class="ti ti-upload" aria-hidden="true"></i></div></div>
+    </div>
+    <div class="body">
+      <div class="sec-lbl">FILE TERKUNCI</div>
+      <div class="flist">
+        <div class="frow" onclick="openFile('Passport_scan.pdf','Dokumen PDF','2.1 MB','pdf')">
+          <div class="fico" style="background:var(--pa);color:var(--p)"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Passport_scan.pdf</div><div class="fmeta">Dokumen · 2.1 MB · Primary Vault</div></div>
+          <i class="ti ti-lock flk" style="color:var(--p)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Family_photo_2024.jpg','Foto JPEG','4.8 MB','img')">
+          <div class="fico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-photo" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Family_photo_2024.jpg</div><div class="fmeta">Foto · 4.8 MB · Primary Vault</div></div>
+          <i class="ti ti-lock flk" style="color:var(--sky)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Meeting_recording.mp4','Video MP4','128 MB','vid')">
+          <div class="fico" style="background:var(--rosea);color:var(--rose)"><i class="ti ti-video" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Meeting_recording.mp4</div><div class="fmeta">Video · 128 MB · Session Vault</div></div>
+          <i class="ti ti-lock flk" style="color:var(--rose)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Backup_keys.zip','Arsip ZIP','512 KB','zip')">
+          <div class="fico" style="background:var(--golda);color:var(--gold)"><i class="ti ti-file-zip" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Backup_keys.zip</div><div class="fmeta">Arsip · 512 KB · Primary Vault</div></div>
+          <i class="ti ti-lock flk" style="color:var(--gold)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('KTP_scan.jpg','Foto JPEG','1.3 MB','img')">
+          <div class="fico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-id" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">KTP_scan.jpg</div><div class="fmeta">Identitas · 1.3 MB · Primary Vault</div></div>
+          <i class="ti ti-lock flk" style="color:var(--sky)" aria-hidden="true"></i>
+        </div>
+        <div class="frow" onclick="openFile('Akta_nikah.pdf','Dokumen PDF','3.2 MB','pdf')">
+          <div class="fico" style="background:var(--pa);color:var(--p)"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+          <div class="finfo"><div class="fname">Akta_nikah.pdf</div><div class="fmeta">Dokumen · 3.2 MB · Primary Vault</div></div>
+          <i class="ti ti-lock flk" style="color:var(--p)" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  <div id="scr-pin" class="screen">
+    <div class="pin-wrap">
+      <div class="pin-icon"><i class="ti ti-lock" aria-hidden="true"></i></div>
+      <div class="pin-title">Masukkan PIN Anda</div>
+      <div class="pin-sub">Masukkan 6 digit PIN untuk membuka brankas</div>
+      <div class="pin-dots" id="pin-dots">
+        <div class="pin-dot" id="dot-0"></div>
+        <div class="pin-dot" id="dot-1"></div>
+        <div class="pin-dot" id="dot-2"></div>
+        <div class="pin-dot" id="dot-3"></div>
+        <div class="pin-dot" id="dot-4"></div>
+        <div class="pin-dot" id="dot-5"></div>
+      </div>
+      <div class="pin-grid">
+        <div class="pin-btn" onclick="pinPress('1')"><div class="pin-num">1</div></div>
+        <div class="pin-btn" onclick="pinPress('2')"><div class="pin-num">2</div><div class="pin-abc">ABC</div></div>
+        <div class="pin-btn" onclick="pinPress('3')"><div class="pin-num">3</div><div class="pin-abc">DEF</div></div>
+        <div class="pin-btn" onclick="pinPress('4')"><div class="pin-num">4</div><div class="pin-abc">GHI</div></div>
+        <div class="pin-btn" onclick="pinPress('5')"><div class="pin-num">5</div><div class="pin-abc">JKL</div></div>
+        <div class="pin-btn" onclick="pinPress('6')"><div class="pin-num">6</div><div class="pin-abc">MNO</div></div>
+        <div class="pin-btn" onclick="pinPress('7')"><div class="pin-num">7</div><div class="pin-abc">PQRS</div></div>
+        <div class="pin-btn" onclick="pinPress('8')"><div class="pin-num">8</div><div class="pin-abc">TUV</div></div>
+        <div class="pin-btn" onclick="pinPress('9')"><div class="pin-num">9</div><div class="pin-abc">WXYZ</div></div>
+        <div class="pin-btn pin-face" onclick="toast('Face ID tidak tersedia di desktop')"><i class="ti ti-face-id" aria-hidden="true" style="font-size:22px"></i></div>
+        <div class="pin-btn" onclick="pinPress('0')"><div class="pin-num">0</div></div>
+        <div class="pin-del" onclick="pinDel()"><i class="ti ti-backspace" aria-hidden="true"></i></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scr-2fa" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Setup 2FA</div>
+        <div class="topbar-sub">Autentikasi dua langkah</div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="qr-wrap">
+        <div style="font-size:13px;color:var(--dim);text-align:center">Scan QR ini dengan Google Authenticator</div>
+        <div class="qr-box" onclick="toast('QR siap discan')">
+          <svg width="140" height="140" viewBox="0 0 140 140" style="position:absolute">
+            <rect x="8" y="8" width="36" height="36" rx="4" fill="none" stroke="#b666d2" stroke-width="3"/>
+            <rect x="14" y="14" width="24" height="24" rx="2" fill="#b666d2"/>
+            <rect x="96" y="8" width="36" height="36" rx="4" fill="none" stroke="#b666d2" stroke-width="3"/>
+            <rect x="102" y="14" width="24" height="24" rx="2" fill="#b666d2"/>
+            <rect x="8" y="96" width="36" height="36" rx="4" fill="none" stroke="#b666d2" stroke-width="3"/>
+            <rect x="14" y="102" width="24" height="24" rx="2" fill="#b666d2"/>
+            <rect x="56" y="8" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="66" y="8" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="76" y="14" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="56" y="20" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="56" y="32" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="8" y="56" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="20" y="56" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="32" y="62" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="56" y="56" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="68" y="56" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="80" y="62" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="92" y="56" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="104" y="68" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="116" y="56" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="128" y="62" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="56" y="80" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="68" y="92" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="80" y="80" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="92" y="92" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="104" y="80" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="116" y="92" width="6" height="6" rx="1" fill="#b666d2"/>
+            <rect x="128" y="80" width="6" height="6" rx="1" fill="#b666d2"/>
+          </svg>
+        </div>
+        <div style="width:100%">
+          <div class="qr-step">
+            <div class="qr-step-num">1</div>
+            <div><div class="qr-step-txt">Buka Google Authenticator di HP Anda</div><div class="qr-step-sub">Atau aplikasi authenticator lainnya</div></div>
+          </div>
+          <div class="qr-step">
+            <div class="qr-step-num">2</div>
+            <div><div class="qr-step-txt">Tekan tombol tambah (+) lalu pilih "Scan QR"</div><div class="qr-step-sub">Arahkan kamera ke kode QR di atas</div></div>
+          </div>
+          <div class="qr-step">
+            <div class="qr-step-num">3</div>
+            <div><div class="qr-step-txt">Masukkan 6 digit kode yang muncul</div><div class="qr-step-sub">Kode berganti setiap 30 detik</div></div>
+          </div>
+        </div>
+        <div style="display:flex;gap:10px;width:100%">
+          <div class="dbtn sec" style="flex:1;border-radius:18px;padding:14px" onclick="toast('Kode disalin ke clipboard')">Salin kode</div>
+          <div class="dbtn pri" style="flex:1;border-radius:18px;padding:14px" onclick="nav('scr-pin')">Verifikasi</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scr-detail" class="screen">
+    <div style="padding:14px 20px 0">
+      <div class="back-btn" onclick="nav('scr-files')"><i class="ti ti-arrow-left" aria-hidden="true"></i>Kembali</div>
+    </div>
+    <div class="body">
+      <div class="detail-hero">
+        <div class="detail-ico" id="detail-ico" style="background:var(--pa);color:var(--p)"><i class="ti ti-file-text" aria-hidden="true"></i></div>
+        <div class="detail-name" id="detail-name">Passport_scan.pdf</div>
+        <div class="detail-sub" id="detail-sub">Dokumen PDF · 2.1 MB</div>
+        <div class="detail-tags">
+          <div class="dtag" style="background:var(--minta);color:var(--mint)"><i class="ti ti-shield-check" aria-hidden="true"></i>SHA-256 OK</div>
+          <div class="dtag" style="background:var(--pa);color:var(--p)"><i class="ti ti-lock" aria-hidden="true"></i>AES-256</div>
+          <div class="dtag" style="background:var(--skya);color:var(--sky)"><i class="ti ti-database" aria-hidden="true"></i>Primary Vault</div>
+        </div>
+      </div>
+      <div class="detail-actions">
+        <div class="dbtn pri" onclick="toast('Memasukkan PIN untuk membuka file...')"><i class="ti ti-lock-open" aria-hidden="true"></i> Buka file</div>
+        <div class="dbtn sec" onclick="toast('File diekspor ke folder Download')"><i class="ti ti-download" aria-hidden="true"></i> Ekspor</div>
+        <div class="dbtn sec" onclick="toast('File dihapus dari vault')"><i class="ti ti-trash" aria-hidden="true"></i> Hapus</div>
+        <div class="dbtn sec" onclick="toast('Hash SHA-256 disalin')"><i class="ti ti-copy" aria-hidden="true"></i> Salin hash</div>
+      </div>
+      <div class="sec-lbl">INFORMASI FILE</div>
+      <div class="info-rows">
+        <div class="irow"><span class="irow-l">Nama file</span><span class="irow-r" id="irow-name">Passport_scan.pdf</span></div>
+        <div class="irow"><span class="irow-l">Tipe</span><span class="irow-r" id="irow-type">Dokumen PDF</span></div>
+        <div class="irow"><span class="irow-l">Ukuran</span><span class="irow-r" id="irow-size">2.1 MB</span></div>
+        <div class="irow"><span class="irow-l">Vault</span><span class="irow-r">Primary Vault</span></div>
+        <div class="irow"><span class="irow-l">Status</span><span class="irow-r" style="color:var(--p)">Terkunci</span></div>
+        <div class="irow"><span class="irow-l">Enkripsi</span><span class="irow-r">AES-256-GCM</span></div>
+        <div class="irow"><span class="irow-l">Hash SHA-256</span><span class="irow-r" style="font-size:10px;color:var(--mint)">a3f2...c841</span></div>
+      </div>
+    </div>
+  </div>
+
+  <div id="scr-settings" class="screen">
+    <div class="topbar">
+      <div>
+        <div class="topbar-title">Pengaturan</div>
+        <div class="topbar-sub">Sesuaikan aplikasi Anda</div>
+      </div>
+    </div>
+    <div class="body">
+      <div class="sec-lbl">KEAMANAN</div>
+      <div class="settings-list">
+        <div class="set-row" onclick="nav('scr-pin')">
+          <div class="set-ico" style="background:var(--pa);color:var(--p)"><i class="ti ti-lock" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Ubah PIN</div><div class="set-s">Ganti PIN 6 digit Anda</div></div>
+          <i class="ti ti-chevron-right set-arr" aria-hidden="true"></i>
+        </div>
+        <div class="set-row" onclick="nav('scr-2fa')">
+          <div class="set-ico" style="background:var(--rosea);color:var(--rose)"><i class="ti ti-qrcode" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Autentikasi 2FA</div><div class="set-s">Google Authenticator aktif</div></div>
+          <i class="ti ti-chevron-right set-arr" aria-hidden="true"></i>
+        </div>
+        <div class="set-row" onclick="toggleSet(this)">
+          <div class="set-ico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-face-id" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Kunci otomatis</div><div class="set-s">Kunci saat aplikasi ditutup</div></div>
+          <div class="toggle on"><div class="toggle-knob"></div></div>
+        </div>
+        <div class="set-row" onclick="toggleSet(this)">
+          <div class="set-ico" style="background:var(--minta);color:var(--mint)"><i class="ti ti-bell" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Notifikasi keamanan</div><div class="set-s">Peringatan akses tidak sah</div></div>
+          <div class="toggle on"><div class="toggle-knob"></div></div>
+        </div>
+      </div>
+      <div class="sec-lbl">PENYIMPANAN</div>
+      <div class="settings-list">
+        <div class="set-row" onclick="toast('Membuka lokasi vault_storage...')">
+          <div class="set-ico" style="background:var(--golda);color:var(--gold)"><i class="ti ti-folder" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Lokasi penyimpanan</div><div class="set-s">vault_storage/ · Lokal</div></div>
+          <i class="ti ti-chevron-right set-arr" aria-hidden="true"></i>
+        </div>
+        <div class="set-row" onclick="toast('Membersihkan cache...')">
+          <div class="set-ico" style="background:var(--peacha);color:var(--peach)"><i class="ti ti-trash" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Bersihkan cache</div><div class="set-s">Bebaskan ruang sementara</div></div>
+          <i class="ti ti-chevron-right set-arr" aria-hidden="true"></i>
+        </div>
+        <div class="set-row" onclick="toggleSet(this)">
+          <div class="set-ico" style="background:var(--skya);color:var(--sky)"><i class="ti ti-database" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Kompresi otomatis</div><div class="set-s">Hemat ruang saat enkripsi</div></div>
+          <div class="toggle"><div class="toggle-knob"></div></div>
+        </div>
+      </div>
+      <div class="sec-lbl">TENTANG</div>
+      <div class="settings-list">
+        <div class="set-row" onclick="toast('DataVault (Aegis Vault) v1.0.0')">
+          <div class="set-ico" style="background:var(--pa);color:var(--p)"><i class="ti ti-info-circle" aria-hidden="true"></i></div>
+          <div class="set-body"><div class="set-t">Versi aplikasi</div><div class="set-s">v1.0.0 · Dibuat dengan Rust + egui</div></div>
+          <i class="ti ti-chevron-right set-arr" aria-hidden="true"></i>
+        </div>
+      </div>
+      <div style="height:14px"></div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast-el">
+    <i class="ti ti-info-circle" aria-hidden="true"></i>
+    <span id="toast-msg"></span>
+  </div>
+
+  <div class="bnav">
+    <div class="ni on" id="nav-home" onclick="nav('scr-home')">
+      <i class="ti ti-home" aria-hidden="true"></i><span>Beranda</span>
+    </div>
+    <div class="ni" id="nav-vault" onclick="nav('scr-vault')">
+      <i class="ti ti-folder-lock" aria-hidden="true"></i><span>Brankas</span>
+    </div>
+    <div class="fab" onclick="nav('scr-files')" aria-label="Semua File">
+      <i class="ti ti-plus" aria-hidden="true"></i>
+    </div>
+    <div class="ni" id="nav-files" onclick="nav('scr-files')">
+      <i class="ti ti-layout-grid" aria-hidden="true"></i><span>Semua File</span>
+    </div>
+    <div class="ni" id="nav-settings" onclick="nav('scr-settings')">
+      <i class="ti ti-settings" aria-hidden="true"></i><span>Pengaturan</span>
+    </div>
+  </div>
+</div>
+</div>
+
+<script>
+const screens={home:'scr-home',vault:'scr-vault',files:'scr-files',pin:'scr-pin','2fa':'scr-2fa',detail:'scr-detail',settings:'scr-settings'};
+const navMap={'scr-home':'nav-home','scr-vault':'nav-vault','scr-files':'nav-files','scr-settings':'nav-settings'};
+let pinVal='';let toastTimer=null;
+
+function nav(id){
+  document.querySelectorAll('.screen').forEach(s=>s.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+  document.querySelectorAll('.ni').forEach(n=>n.classList.remove('on'));
+  const ni=navMap[id];if(ni)document.getElementById(ni).classList.add('on');
+}
+
+function toast(msg){
+  const el=document.getElementById('toast-el');
+  document.getElementById('toast-msg').textContent=msg;
+  el.classList.add('show');
+  if(toastTimer)clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>el.classList.remove('show'),2200);
+}
+
+function pinPress(d){
+  if(pinVal.length>=6)return;
+  pinVal+=d;
+  for(let i=0;i<6;i++){document.getElementById('dot-'+i).classList.toggle('filled',i<pinVal.length)}
+  if(pinVal.length===6){
+    setTimeout(()=>{
+      pinVal='';
+      for(let i=0;i<6;i++)document.getElementById('dot-'+i).classList.remove('filled');
+      nav('scr-home');toast('Brankas berhasil dibuka');
+    },400);
+  }
+}
+
+function pinDel(){
+  if(pinVal.length===0)return;
+  pinVal=pinVal.slice(0,-1);
+  for(let i=0;i<6;i++)document.getElementById('dot-'+i).classList.toggle('filled',i<pinVal.length);
+}
+
+const icoMap={pdf:{bg:'var(--pa)',c:'var(--p)',ic:'ti-file-text'},img:{bg:'var(--skya)',c:'var(--sky)',ic:'ti-photo'},vid:{bg:'var(--rosea)',c:'var(--rose)',ic:'ti-video'},zip:{bg:'var(--golda)',c:'var(--gold)',ic:'ti-file-zip'}};
+function openFile(name,type,size,kind){
+  const m=icoMap[kind]||icoMap.pdf;
+  const ico=document.getElementById('detail-ico');
+  ico.style.background=m.bg;ico.style.color=m.c;
+  ico.innerHTML=`<i class="ti ${m.ic}" aria-hidden="true"></i>`;
+  document.getElementById('detail-name').textContent=name;
+  document.getElementById('detail-sub').textContent=type+' · '+size;
+  document.getElementById('irow-name').textContent=name;
+  document.getElementById('irow-type').textContent=type;
+  document.getElementById('irow-size').textContent=size;
+  nav('scr-detail');
+}
+
+function toggleSet(row){
+  const t=row.querySelector('.toggle');
+  if(t){t.classList.toggle('on');toast(t.classList.contains('on')?'Fitur diaktifkan':'Fitur dinonaktifkan')}
+}
+
+const now=new Date();
+document.getElementById('clock').textContent=now.getHours()+':'+(now.getMinutes()<10?'0':'')+now.getMinutes();
+</script>

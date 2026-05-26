@@ -185,6 +185,10 @@ pub struct AppState {
     // Pelacakan aktivitas untuk Auto-Lock
     pub last_activity: std::time::Instant,
 
+    // Android safe area — tinggi status bar (top inset)
+    // Di-set setiap frame dari content_rect().top pada Android, 0.0 di platform lain
+    pub status_bar_height: f32,
+
     // P2P Sharing States
     pub share_active_record: Option<FileRecord>,
     pub share_pin: String,
@@ -261,6 +265,7 @@ impl Default for AppState {
             file_dialog: None,
             security_violation: None,
             last_activity: std::time::Instant::now(),
+            status_bar_height: 0.0,
             share_active_record: None,
             share_pin: String::new(),
             share_port: 0,
