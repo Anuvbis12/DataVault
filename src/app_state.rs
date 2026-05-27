@@ -12,6 +12,7 @@ pub enum AppScreen {
     #[default]
     Splash,
     Login,
+    LoginPin,
     SetupAccount,
     Dashboard,
     Decrypting(String), // vault_filename target
@@ -97,13 +98,17 @@ pub struct AppState {
     pub login_username:  String,
     pub login_password:  String,
     pub login_error:     Option<String>,
+    pub login_pin:       String,
 
     // Auth input — Setup Account
-    pub setup_username:         String,
+    pub setup_username:         String, // used as email
     pub setup_display_name:     String,
     pub setup_password:         String,
     pub setup_password_confirm: String,
     pub setup_error:            Option<String>,
+    pub reg_step:               u8,
+    pub setup_terms_accepted:   bool,
+    pub setup_pin:              String,
 
     // Session info
     pub display_name: String,  // Nama user yang sedang login
@@ -178,8 +183,6 @@ pub struct AppState {
     pub focused_field: FocusedField,
     pub show_keyboard: bool,
     
-    // File Picker
-    pub file_dialog: Option<egui_file_dialog::FileDialog>,
     
     // Anti-Tampering security violation details
     pub security_violation: Option<String>,
@@ -200,23 +203,35 @@ pub struct AppState {
     pub share_port: u16,
     pub share_ip: String,
     pub share_stop_signal: Option<std::sync::Arc<std::sync::atomic::AtomicBool>>,
+
+    // Context Menu & Storage Location Modal
+    pub active_context_menu: Option<String>, // ID of the file for which context menu is open
+    pub storage_pin_modal_open: bool,
+    pub storage_path_modal_open: bool,
+    pub storage_pin: String,
+    pub storage_pin_error: Option<String>,
+    pub storage_path: String,
 }
 
 impl Default for AppState {
     fn default() -> Self {
         Self {
-            screen:           AppScreen::Splash,
-            dashboard_tab:    DashboardTab::Home,
+            screen: AppScreen::Splash,
+            dashboard_tab: DashboardTab::Home,
 
-            login_username:   String::new(),
-            login_password:   String::new(),
-            login_error:      None,
+            login_username:  String::new(),
+            login_password:  String::new(),
+            login_error:     None,
+            login_pin:       String::new(),
 
             setup_username:         String::new(),
             setup_display_name:     String::new(),
             setup_password:         String::new(),
             setup_password_confirm: String::new(),
             setup_error:            None,
+            reg_step:               0,
+            setup_terms_accepted:   false,
+            setup_pin:              String::new(),
 
             display_name:     String::new(),
 
@@ -267,7 +282,7 @@ impl Default for AppState {
             request_keyboard: false,
             focused_field: FocusedField::None,
             show_keyboard: false,
-            file_dialog: None,
+
             security_violation: None,
             last_activity: std::time::Instant::now(),
             status_bar_height: 0.0,
@@ -277,6 +292,12 @@ impl Default for AppState {
             share_port: 0,
             share_ip: String::new(),
             share_stop_signal: None,
+            active_context_menu: None,
+            storage_pin_modal_open: false,
+            storage_path_modal_open: false,
+            storage_pin: String::new(),
+            storage_pin_error: None,
+            storage_path: "vault_storage/ - Lokal".to_string(),
         }
     }
 }

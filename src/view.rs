@@ -67,8 +67,9 @@ pub fn render(
         .show(ctx, |ui| {
             let screen = state.screen.clone();
             match screen {
-                AppScreen::Splash            => render_splash(ui, state, controller),
+                AppScreen::Splash            => crate::splash::render_splash(ui, state, controller),
                 AppScreen::Login             => render_login(ui, state, controller),
+                AppScreen::LoginPin          => render_login_pin(ui, state, controller),
                 AppScreen::SetupAccount      => render_setup_account(ui, state, controller),
                 AppScreen::Dashboard         => render_dashboard(ui, state, controller),
                 AppScreen::Decrypting(fname) => render_decrypt_panel(ui, state, controller, &fname.clone()),
@@ -80,20 +81,20 @@ pub fn render(
             }
         });
 
-    // Update File Dialog
-    let mut picked_path = None;
-    if let Some(dialog) = &mut state.file_dialog {
-        if let Some(path) = dialog.update(ctx).selected() {
-            picked_path = Some(path.to_path_buf());
-        }
-    }
-    if let Some(path) = picked_path {
-        controller.encrypt_file(state, path);
-    }
 
     // Overlay P2P Sharing
     if state.share_active_record.is_some() {
         render_share_modal(ctx, state, controller);
+    }
+
+    // Overlay Storage Modals
+    if state.storage_pin_modal_open || state.storage_path_modal_open {
+        render_storage_modals(ctx, state);
+    }
+
+    // Overlay Context Menu
+    if state.active_context_menu.is_some() {
+        render_context_menu(ctx, state, controller);
     }
 }
 
@@ -113,209 +114,188 @@ fn draw_background(ctx: &egui::Context) {
     painter.add(egui::Shape::Mesh(mesh));
 }
 
-// ── Screen: Splash ────────────────────────────────────────
-fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
-    let now = std::time::Instant::now();
-    let start = *state.splash_start.get_or_insert_with(|| now);
-    let elapsed = start.elapsed().as_secs_f32();
-
-    if elapsed >= 2.5 {
-        state.screen = AppScreen::Login;
-        ui.ctx().request_repaint();
-        return;
-    }
-
-    let avail = ui.available_rect_before_wrap();
-    ui.allocate_ui_at_rect(avail, |ui| {
-        ui.vertical_centered(|ui| {
-            ui.add_space(avail.height() * 0.25);
-
-            // Splash Logo (80x80) with a glow effect
-            let logo_size = Vec2::splat(80.0);
-            let (logo_rect, _) = ui.allocate_exact_size(logo_size, egui::Sense::hover());
-            
-            // Draw a subtle glow behind the logo
-            let glow_color = Color32::from_rgba_unmultiplied(99, 102, 241, 20);
-            ui.painter().circle_filled(logo_rect.center(), 60.0, glow_color);
-
-            // Draw logo box with Indigo background
-            filled_rect(ui, logo_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 28.0);
-            
-            // Draw shield character inside
-            ui.painter().text(
-                logo_rect.center(),
-                egui::Align2::CENTER_CENTER,
-                "🛡",
-                FontId::new(36.0, FontFamily::Proportional),
-                Color32::WHITE,
-            );
-
-            ui.add_space(24.0);
-
-            // Splash Name
-            ui.label(egui::RichText::new("DataVault Aegis")
-                .size(24.0)
-                .color(Color32::WHITE)
-                .strong());
-
-            ui.add_space(6.0);
-
-            // Splash Tagline
-            ui.label(egui::RichText::new("Enkripsi militer. Sederhana digunakan.")
-                .size(13.0)
-                .color(text_body()));
-
-            ui.add_space(44.0);
-
-            // Wave/Pulsing Dot Loader animation
-            ui.horizontal(|ui| {
-                // Center the dots
-                let dots_width = 3.0 * 10.0 + 2.0 * 8.0;
-                ui.add_space((ui.available_width() - dots_width) / 2.0);
-
-                for i in 0..3 {
-                    let dot_time = elapsed - (i as f32 * 0.15);
-                    // Pulsing scale factor between 0.8 and 1.4 using sine wave
-                    let wave = if dot_time > 0.0 {
-                        ((dot_time * 5.0).sin() * 0.3 + 1.1).clamp(0.8, 1.4)
-                    } else {
-                        1.0
-                    };
-                    
-                    let dot_size = Vec2::splat(8.0 * wave);
-                    let (dot_rect, _) = ui.allocate_exact_size(dot_size, egui::Sense::hover());
-                    
-                    let dot_color = if dot_time > 0.0 {
-                        let alpha = (((dot_time * 5.0).sin() * 0.5 + 0.5) * 255.0) as u8;
-                        Color32::from_rgba_unmultiplied(129, 140, 248, alpha.max(50))
-                    } else {
-                        Color32::from_rgba_unmultiplied(129, 140, 248, 50)
-                    };
-                    
-                    filled_rect(ui, dot_rect, dot_color, Stroke::NONE, dot_rect.width() / 2.0);
-                    ui.add_space(8.0);
-                }
-            });
-        });
-    });
-
-    // Request immediate repaint to animate the loader dots and handle the timeout transition
-    ui.ctx().request_repaint();
-}
-
 // ── Screen: Login ─────────────────────────────────────────
 fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     let user_set = ctrl.is_user_set();
     let avail   = ui.available_rect_before_wrap();
+    let pad = 24.0;
 
     ui.allocate_ui_at_rect(avail, |ui| {
-        ui.vertical_centered(|ui| {
-            let content_h = if user_set { 380.0 } else { 200.0 };
-            ui.add_space((avail.height() - content_h).max(0.0) / 2.0);
-
-            // Shield icon
-            let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(56.0), egui::Sense::hover());
-            filled_rect(ui, icon_rect, teal_dark(), Stroke::NONE, 14.0);
-            ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
-                              FontId::new(26.0, FontFamily::Proportional), teal_faint());
-
-            ui.add_space(14.0);
-            ui.label(egui::RichText::new("Aegis Vault").size(20.0).color(crate::theme::text_body()).strong());
-            ui.add_space(4.0);
-            ui.label(egui::RichText::new("Akses aman ke data kamu").size(13.0).color(crate::theme::text_muted()));
-
-            if !user_set {
-                ui.add_space(32.0);
-                ui.label(egui::RichText::new("Vault baru terdeteksi.").color(warn_color()).size(13.0));
-                ui.label(egui::RichText::new("Buat akun untuk memulai.").color(crate::theme::text_muted()).size(13.0));
-                ui.add_space(20.0);
-                if teal_btn(ui, "⚙  Buat Akun", 200.0).clicked() {
-                    state.screen = AppScreen::SetupAccount;
-                }
-                return;
-            }
-
-            ui.add_space(32.0);
-
-            let field_w = (avail.width() - 72.0).min(320.0);
-
-            // Username field
-            egui::Frame::none()
-                .inner_margin(egui::Margin::symmetric((avail.width() - field_w) / 2.0, 0.0))
-                .show(ui, |ui| {
-                    ui.label(egui::RichText::new("Username").size(12.0).color(crate::theme::text_muted()));
-                    ui.add_space(6.0);
-                    egui::Frame::none()
-                        .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
-                        .rounding(Rounding::same(8.0))
-                        .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new("👤").size(16.0).color(crate::theme::text_muted()));
-                                ui.add_space(8.0);
-                                let resp = ui.add(egui::TextEdit::singleline(&mut state.login_username)
-                                    .hint_text("Masukkan username")
-                                    .desired_width(field_w - 80.0)
-                                    .font(FontId::new(16.0, FontFamily::Proportional))
-                                    .interactive(true));
-                                if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginUsername; state.show_keyboard = true; }
-                            });
-                        });
-
-                    ui.add_space(14.0);
-
-                    // Password field
-                    ui.label(egui::RichText::new("Password").size(12.0).color(crate::theme::text_muted()));
-                    ui.add_space(6.0);
-                    let accent = if !state.login_password.is_empty() { teal_strong() } else { border_default() };
-                    egui::Frame::none()
-                        .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, accent))
-                        .rounding(Rounding::same(8.0))
-                        .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                        .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new("🔒").size(16.0).color(crate::theme::text_muted()));
-                                ui.add_space(8.0);
-                                let resp = ui.add(egui::TextEdit::singleline(&mut state.login_password)
-                                    .password(true)
-                                    .hint_text("Masukkan password")
-                                    .desired_width(field_w - 80.0)
-                                    .font(FontId::new(16.0, FontFamily::Proportional))
-                                    .interactive(true));
-                                if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginPassword; state.show_keyboard = true; }
-                            });
-                        });
-
-                    ui.add_space(16.0);
-
-                    // Error label
-                    if let Some(err) = &state.login_error {
-                        ui.label(egui::RichText::new(err).color(error_color()).size(13.0));
-                        ui.add_space(8.0);
-                    }
-
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.add_space(40.0);
+            
+            ui.horizontal(|ui| {
+                ui.add_space(pad);
+                ui.vertical(|ui| {
+                    // Small Logo
+                    let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
+                    
+                    // Gradient-like fill using solid colors or basic overlay
+                    filled_rect(ui, icon_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 18.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
+                                      FontId::new(24.0, FontFamily::Proportional), Color32::WHITE);
+                    
+                    ui.add_space(20.0);
+                    
+                    // Titles
+                    ui.label(egui::RichText::new("Selamat datang\nkembali 👋")
+                        .size(28.0)
+                        .color(text_primary())
+                        .strong()
+                        .line_height(Some(34.0)));
                     ui.add_space(8.0);
-
-                    if teal_btn(ui, "🔓  Masuk", ui.available_width()).clicked() {
-                        let ok = ctrl.try_login(state);
-                        if !ok { state.pin_shake_timer = 0.4; }
+                    ui.label(egui::RichText::new("Masuk untuk mengakses brankas terenkripsi Anda")
+                        .size(13.5)
+                        .color(text_muted()));
+                        
+                    if !user_set {
+                        ui.add_space(32.0);
+                        ui.label(egui::RichText::new("Vault baru terdeteksi.").color(warn_color()).size(13.0));
+                        ui.label(egui::RichText::new("Buat akun untuk memulai.").color(crate::theme::text_muted()).size(13.0));
+                        ui.add_space(20.0);
+                        let w = avail.width() - pad*2.0;
+                        let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(w, 52.0));
+                        let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+                        let btn_bg = if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { Color32::from_rgb(99, 102, 241) };
+                        filled_rect(ui, btn_rect, btn_bg, Stroke::NONE, 18.0);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Daftar sekarang", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        if btn_resp.clicked() {
+                            state.screen = AppScreen::SetupAccount;
+                        }
+                        return;
                     }
-                });
 
-            ui.add_space(20.0);
-            let link_resp = ui.add(egui::Label::new(
-                egui::RichText::new("Lupa Password? Reset Vault")
-                    .size(12.0)
-                    .color(crate::theme::text_muted())
-            ).sense(egui::Sense::click()));
-            if link_resp.hovered() {
-                ui.ctx().set_cursor_icon(egui::CursorIcon::PointingHand);
-            }
-            if link_resp.clicked() {
-                state.show_reset_confirm = true;
-            }
+                    ui.add_space(32.0);
+                    
+                    let field_w = avail.width() - pad*2.0;
+                    
+                    // Email/Username Field
+                    ui.label(egui::RichText::new("EMAIL").size(11.0).color(text_muted()).strong());
+                    ui.add_space(8.0);
+                    let (u_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
+                    filled_rect(ui, u_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
+                    ui.allocate_ui_at_rect(u_rect.shrink(14.0), |ui| {
+                        let resp = ui.add(egui::TextEdit::singleline(&mut state.login_username)
+                            .hint_text("nama@email.com")
+                            .frame(false)
+                            .desired_width(u_rect.width() - 28.0)
+                            .font(FontId::new(15.0, FontFamily::Proportional))
+                            .interactive(true));
+                        if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginUsername; state.show_keyboard = true; }
+                    });
+                    
+                    ui.add_space(16.0);
+                    
+                    // Password Field
+                    ui.label(egui::RichText::new("KATA SANDI").size(11.0).color(text_muted()).strong());
+                    ui.add_space(8.0);
+                    let (p_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
+                    let p_stroke = if state.login_error.is_some() { Stroke::new(1.0, error_color()) } else { Stroke::new(1.0, border_default()) };
+                    filled_rect(ui, p_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), p_stroke, 16.0);
+                    ui.allocate_ui_at_rect(p_rect.shrink(14.0), |ui| {
+                        let resp = ui.add(egui::TextEdit::singleline(&mut state.login_password)
+                            .password(true)
+                            .hint_text("Masukkan kata sandi")
+                            .frame(false)
+                            .desired_width(p_rect.width() - 28.0)
+                            .font(FontId::new(15.0, FontFamily::Proportional))
+                            .interactive(true));
+                        if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginPassword; state.show_keyboard = true; }
+                    });
+                    
+                    if let Some(err) = &state.login_error {
+                        ui.add_space(6.0);
+                        ui.label(egui::RichText::new(err).color(error_color()).size(12.0).strong());
+                    }
+                    
+                    ui.add_space(12.0);
+                    
+                    // Forgot Password
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                        let resp = ui.label(egui::RichText::new("Lupa kata sandi?").color(accent_purple()).size(12.0).strong());
+                        if resp.interact(egui::Sense::click()).clicked() {
+                            state.toast_message = Some("Link reset dikirim ke email Anda".to_string());
+                            state.toast_timer = 2.0;
+                        }
+                    });
+                    
+                    ui.add_space(18.0);
+                    
+                    // Tetap masuk di perangkat ini
+                    ui.horizontal(|ui| {
+                        let (cb_rect, cb_resp) = ui.allocate_exact_size(Vec2::splat(20.0), egui::Sense::click());
+                        let (cb_color, cb_border) = if state.show_reset_confirm { (accent_purple(), Stroke::NONE) } else { (Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.5, border_default())) };
+                        filled_rect(ui, cb_rect, cb_color, cb_border, 6.0);
+                        if state.show_reset_confirm {
+                            ui.painter().text(cb_rect.center(), egui::Align2::CENTER_CENTER, "✓", FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+                        }
+                        if cb_resp.clicked() {
+                            state.show_reset_confirm = !state.show_reset_confirm; // reusing state slightly or dummy
+                        }
+                        ui.add_space(10.0);
+                        ui.label(egui::RichText::new("Tetap masuk di perangkat ini").size(12.5).color(text_muted()));
+                    });
+                    
+                    ui.add_space(20.0);
+                    
+                    // Login button
+                    let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
+                    let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+                    let btn_bg = if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { Color32::from_rgb(99, 102, 241) };
+                    filled_rect(ui, btn_rect, btn_bg, Stroke::NONE, 18.0);
+                    ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Masuk", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                    if btn_resp.clicked() {
+                        let ok = ctrl.try_login(state);
+                        if ok {
+                            state.screen = AppScreen::LoginPin;
+                            state.login_pin.clear();
+                        } else {
+                            state.pin_shake_timer = 0.4;
+                        }
+                    }
+                    
+                    ui.add_space(24.0);
+                    
+                    // Divider
+                    ui.horizontal(|ui| {
+                        let w = (field_w - 40.0) / 2.0;
+                        let line_y = ui.cursor().min.y + 8.0;
+                        ui.painter().line_segment([egui::pos2(ui.cursor().min.x, line_y), egui::pos2(ui.cursor().min.x + w, line_y)], Stroke::new(1.0, border_default()));
+                        ui.add_space(w + 6.0);
+                        ui.label(egui::RichText::new("ATAU").size(11.0).color(text_muted()).strong());
+                        ui.add_space(6.0);
+                        ui.painter().line_segment([egui::pos2(ui.cursor().min.x, line_y), egui::pos2(ui.cursor().min.x + w, line_y)], Stroke::new(1.0, border_default()));
+                    });
+                    
+                    ui.add_space(24.0);
+                    
+                    // Social Button
+                    let soc_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 48.0));
+                    let soc_resp = ui.allocate_rect(soc_rect, egui::Sense::click());
+                    let soc_bg = if soc_resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                    filled_rect(ui, soc_rect, soc_bg, Stroke::new(1.0, border_default()), 16.0);
+                    ui.painter().text(soc_rect.center(), egui::Align2::CENTER_CENTER, "G   Google", FontId::new(13.0, FontFamily::Proportional), text_primary());
+                    if soc_resp.clicked() {
+                        state.toast_message = Some("Masuk dengan Google...".to_string());
+                        state.toast_timer = 2.0;
+                    }
+                    
+                    ui.add_space(24.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.add_space((field_w - 180.0)/2.0);
+                        ui.label(egui::RichText::new("Belum punya akun?").size(13.0).color(text_muted()));
+                        if ui.label(egui::RichText::new("Daftar sekarang").size(13.0).color(accent_purple()).strong()).interact(egui::Sense::click()).clicked() {
+                            state.screen = AppScreen::SetupAccount;
+                        }
+                    });
+                    
+                    ui.add_space(40.0);
+                });
+            });
         });
     });
+
 
     // Overlay Reset Confirm
     if state.show_reset_confirm {
@@ -356,163 +336,347 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     }
 }
 
-// ── Screen: Setup Account ─────────────────────────────────
-fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
-    let avail   = ui.available_rect_before_wrap();
-    let field_w = avail.width() - 72.0;
+// ── Screen: Login PIN ─────────────────────────────────────
+fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
+    let avail = ui.available_rect_before_wrap();
+    let pad = 24.0;
+    let _field_w = avail.width() - pad * 2.0;
 
-    egui::ScrollArea::vertical().show(ui, |ui| {
-        let y_padding = (avail.height() - 480.0).max(0.0) / 2.0;
-        ui.add_space(y_padding.max(32.0));
-
-        ui.horizontal(|ui| {
-            ui.add_space(36.0);
-            let (rect, _) = ui.allocate_exact_size(Vec2::splat(38.0), egui::Sense::hover());
-            filled_rect(ui, rect, bg_surface(), Stroke::new(0.5, border_default()), 10.0);
-            ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "🔑",
-                              FontId::new(18.0, FontFamily::Proportional), teal_strong());
-            ui.add_space(10.0);
-            ui.vertical(|ui| {
-                ui.label(egui::RichText::new("Buat Akun Baru").size(15.0).color(crate::theme::text_body()).strong());
-                ui.label(egui::RichText::new("Setup username & password").size(12.0).color(crate::theme::text_muted()));
+    ui.allocate_ui_at_rect(avail, |ui| {
+        ui.vertical_centered(|ui| {
+            ui.add_space(80.0);
+            
+            let avatar_size = Vec2::splat(72.0);
+            let (a_rect, _) = ui.allocate_exact_size(avatar_size, egui::Sense::hover());
+            filled_rect(ui, a_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::new(2.5, Color32::from_rgba_unmultiplied(129, 140, 248, 90)), 36.0);
+            let initial = state.display_name.chars().next().unwrap_or('A').to_uppercase().to_string();
+            ui.painter().text(a_rect.center(), egui::Align2::CENTER_CENTER, initial, FontId::new(28.0, FontFamily::Proportional), accent_purple());
+            
+            ui.add_space(14.0);
+            ui.label(egui::RichText::new("Selamat datang").size(20.0).color(text_primary()).strong());
+            ui.label(egui::RichText::new(&state.login_username).size(13.0).color(text_muted()));
+            
+            ui.add_space(24.0);
+            ui.label(egui::RichText::new("Masukkan PIN 6 digit untuk\nmembuka brankas Anda").size(13.0).color(text_muted()));
+            
+            ui.add_space(28.0);
+            ui.horizontal(|ui| {
+                let dots_width = 6.0 * 16.0 + 5.0 * 10.0;
+                ui.add_space((ui.available_width() - dots_width) / 2.0);
+                for i in 0..6 {
+                    let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(16.0), egui::Sense::hover());
+                    let is_filled = i < state.login_pin.len();
+                    let color = if is_filled { accent_purple() } else { bg_input() };
+                    let stroke = if is_filled { Stroke::NONE } else { Stroke::new(1.0, border_default()) };
+                    filled_rect(ui, dot_rect, color, stroke, 8.0);
+                    if i < 5 { ui.add_space(10.0); }
+                }
+            });
+            
+            ui.add_space(32.0);
+            let btn_size = Vec2::new(70.0, 46.0);
+            let mut btn_idx = 1;
+            for _row in 0..3 {
+                ui.horizontal(|ui| {
+                    ui.add_space((ui.available_width() - 230.0)/2.0);
+                    for _col in 0..3 {
+                        if ghost_btn(ui, &btn_idx.to_string(), btn_size.x).clicked() {
+                            if state.login_pin.len() < 6 {
+                                state.login_pin.push_str(&btn_idx.to_string());
+                            }
+                        }
+                        ui.add_space(10.0);
+                        btn_idx += 1;
+                    }
+                });
+                ui.add_space(10.0);
+            }
+            ui.horizontal(|ui| {
+                ui.add_space((ui.available_width() - 230.0)/2.0);
+                if ghost_btn(ui, "Batal", btn_size.x).clicked() {
+                    state.screen = AppScreen::Login;
+                }
+                ui.add_space(10.0);
+                if ghost_btn(ui, "0", btn_size.x).clicked() {
+                    if state.login_pin.len() < 6 {
+                        state.login_pin.push('0');
+                    }
+                }
+                ui.add_space(10.0);
+                if ghost_btn(ui, "Del", btn_size.x).clicked() {
+                    state.login_pin.pop();
+                }
+            });
+            
+            if state.login_pin.len() == 6 {
+                // Pseudo validation
+                state.screen = AppScreen::Dashboard;
+            }
+            
+            ui.add_space(24.0);
+            ui.horizontal(|ui| {
+                ui.add_space((ui.available_width() - 200.0) / 2.0);
+                ui.label(egui::RichText::new("Bukan kamu?").size(13.0).color(text_muted()));
+                if ui.label(egui::RichText::new("Ganti akun").size(13.0).color(accent_purple()).strong().italics()).interact(egui::Sense::click()).clicked() {
+                    state.screen = AppScreen::Login;
+                }
             });
         });
+    });
+}
 
-        ui.add_space(24.0);
-
-        egui::Frame::none()
-            .inner_margin(egui::Margin::symmetric(36.0, 0.0))
-            .show(ui, |ui| {
-                // Username
-                ui.label(egui::RichText::new("Username").size(12.0).color(crate::theme::text_muted()));
-                ui.add_space(6.0);
-                egui::Frame::none()
-                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
-                    .rounding(Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("👤").size(16.0).color(crate::theme::text_muted()));
-                            ui.add_space(8.0);
-                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_username)
-                                .hint_text("Min. 3 karakter")
-                                .desired_width(field_w - 80.0)
-                                .font(FontId::new(16.0, FontFamily::Proportional))
-                                .interactive(true));
-                            if resp.gained_focus() || resp.clicked() {
-                                state.focused_field = crate::app_state::FocusedField::SetupUsername;
-                                state.show_keyboard = true;
-                            }
-                        });
+// ── Screen: Setup Account ─────────────────────────────────
+fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
+    let avail = ui.available_rect_before_wrap();
+    let pad = 24.0;
+    let field_w = avail.width() - pad * 2.0;
+    
+    ui.allocate_ui_at_rect(avail, |ui| {
+        egui::ScrollArea::vertical().show(ui, |ui| {
+            ui.add_space(40.0);
+            
+            ui.horizontal(|ui| {
+                ui.add_space(pad);
+                ui.vertical(|ui| {
+                    // Small Logo
+                    let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
+                    filled_rect(ui, icon_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 18.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
+                                      FontId::new(24.0, FontFamily::Proportional), Color32::WHITE);
+                    
+                    ui.add_space(20.0);
+                    
+                    // Progress dots (reg-steps)
+                    ui.horizontal(|ui| {
+                        let step_w = (field_w - (3.0 * 6.0)) / 4.0;
+                        for i in 0..4 {
+                            let (step_rect, _) = ui.allocate_exact_size(Vec2::new(step_w, 3.0), egui::Sense::hover());
+                            let color = if i < state.reg_step {
+                                accent_purple()
+                            } else if i == state.reg_step {
+                                accent_purple_a()
+                            } else {
+                                Color32::from_rgba_unmultiplied(255, 255, 255, 20)
+                            };
+                            filled_rect(ui, step_rect, color, Stroke::NONE, 1.5);
+                            ui.add_space(6.0);
+                        }
                     });
-
-                ui.add_space(14.0);
-
-                // Nama Lengkap
-                ui.label(egui::RichText::new("Nama Lengkap").size(12.0).color(crate::theme::text_muted()));
-                ui.add_space(6.0);
-                egui::Frame::none()
-                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
-                    .rounding(Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("📝").size(16.0).color(crate::theme::text_muted()));
-                            ui.add_space(8.0);
-                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_display_name)
-                                .hint_text("Nama untuk ditampilkan")
-                                .desired_width(field_w - 80.0)
-                                .font(FontId::new(16.0, FontFamily::Proportional))
-                                .interactive(true));
-                            if resp.gained_focus() || resp.clicked() {
-                                state.focused_field = crate::app_state::FocusedField::SetupDisplayName;
-                                state.show_keyboard = true;
-                            }
-                        });
-                    });
-
-                ui.add_space(14.0);
-
-                // Password
-                ui.label(egui::RichText::new("Password").size(12.0).color(crate::theme::text_muted()));
-                ui.add_space(6.0);
-                egui::Frame::none()
-                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
-                    .rounding(Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("🔒").size(16.0).color(crate::theme::text_muted()));
-                            ui.add_space(8.0);
-                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password)
-                                .password(true).hint_text("Min. 4 karakter")
-                                .desired_width(field_w - 80.0)
-                                .font(FontId::new(16.0, FontFamily::Proportional))
-                                .interactive(true));
-                            if resp.gained_focus() || resp.clicked() {
-                                state.focused_field = crate::app_state::FocusedField::SetupPassword;
-                                state.show_keyboard = true;
-                            }
-                        });
-                    });
-
-                ui.add_space(14.0);
-
-                // Konfirmasi Password
-                ui.label(egui::RichText::new("Konfirmasi Password").size(12.0).color(crate::theme::text_muted()));
-                ui.add_space(6.0);
-                let accent = if !state.setup_password_confirm.is_empty() { teal_strong() } else { border_default() };
-                let icon_c = if !state.setup_password_confirm.is_empty() { teal_strong() } else { text_muted() };
-                egui::Frame::none()
-                    .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, accent))
-                    .rounding(Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                    .show(ui, |ui| {
-                        ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new("🔒").size(16.0).color(icon_c));
-                            ui.add_space(8.0);
-                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password_confirm)
-                                .password(true).hint_text("Ulangi Password")
-                                .desired_width(field_w - 80.0)
-                                .font(FontId::new(16.0, FontFamily::Proportional))
-                                .interactive(true));
-                            if resp.gained_focus() || resp.clicked() {
-                                state.focused_field = crate::app_state::FocusedField::SetupConfirmPassword;
-                                state.show_keyboard = true;
-                            }
-                        });
-                    });
-
-                ui.add_space(16.0);
-
-                // Info banner
-                egui::Frame::none()
-                    .fill(Color32::from_rgb(12, 31, 24))
-                    .stroke(Stroke::new(0.5, border_accent()))
-                    .rounding(Rounding::same(8.0))
-                    .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                    .show(ui, |ui| {
-                        ui.horizontal_top(|ui| {
-                            ui.label(egui::RichText::new("ℹ").size(16.0).color(teal_strong()));
-                            ui.add_space(8.0);
-                            ui.add(egui::Label::new(egui::RichText::new(
-                                "Password di-hash dengan Argon2id dan salt unik. \
-                                 Tidak ada cara memulihkan password yang hilang."
-                            ).size(12.0).color(teal_light())).wrap(true));
-                        });
-                    });
-
-                ui.add_space(24.0);
-
-                if let Some(err) = state.setup_error.clone() {
-                    ui.label(egui::RichText::new(&err).color(error_color()).size(13.0));
+                    
+                    ui.add_space(28.0);
+                    
+                    // Title
+                    ui.label(egui::RichText::new("Buat akun baru").size(28.0).color(text_primary()).strong());
                     ui.add_space(8.0);
-                }
-
-                if teal_btn(ui, "Buat Akun & masuk", ui.available_width()).clicked() {
-                    ctrl.setup_account(state);
-                }
+                    ui.label(egui::RichText::new("Lindungi file penting Anda dengan enkripsi tingkat militer").size(13.5).color(text_muted()));
+                    
+                    ui.add_space(32.0);
+                    
+                    if state.reg_step == 0 {
+                        // Step 0: Data diri
+                        ui.label(egui::RichText::new("NAMA LENGKAP").size(11.0).color(text_muted()).strong());
+                        ui.add_space(8.0);
+                        let (n_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
+                        filled_rect(ui, n_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
+                        ui.allocate_ui_at_rect(n_rect.shrink(14.0), |ui| {
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_display_name).hint_text("Nama Anda").frame(false).desired_width(n_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
+                            if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupDisplayName; state.show_keyboard = true; }
+                        });
+                        ui.add_space(16.0);
+                        
+                        ui.label(egui::RichText::new("EMAIL").size(11.0).color(text_muted()).strong());
+                        ui.add_space(8.0);
+                        let (e_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
+                        filled_rect(ui, e_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
+                        ui.allocate_ui_at_rect(e_rect.shrink(14.0), |ui| {
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_username).hint_text("nama@email.com").frame(false).desired_width(e_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
+                            if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupUsername; state.show_keyboard = true; }
+                        });
+                        ui.add_space(32.0);
+                        
+                        let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
+                        let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+                        filled_rect(ui, btn_rect, if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { accent_purple() }, Stroke::NONE, 18.0);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut →", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        if btn_resp.clicked() { state.reg_step = 1; }
+                    } else if state.reg_step == 1 {
+                        // Step 1: Kata sandi
+                        ui.label(egui::RichText::new("KATA SANDI").size(11.0).color(text_muted()).strong());
+                        ui.add_space(8.0);
+                        let (p1_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
+                        filled_rect(ui, p1_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
+                        ui.allocate_ui_at_rect(p1_rect.shrink(14.0), |ui| {
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password).password(true).hint_text("Min. 8 karakter").frame(false).desired_width(p1_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
+                            if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupPassword; state.show_keyboard = true; }
+                        });
+                        
+                        // Strength meter
+                        ui.add_space(10.0);
+                        let strength = (state.setup_password.len() as f32 / 8.0).clamp(0.0, 1.0);
+                        let (s_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 3.0), egui::Sense::hover());
+                        filled_rect(ui, s_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 15), Stroke::NONE, 1.5);
+                        let fill_rect = egui::Rect::from_min_size(s_rect.min, Vec2::new(field_w * strength, 3.0));
+                        let s_color = if strength < 0.5 { error_color() } else if strength < 1.0 { warn_color() } else { accent_mint() };
+                        filled_rect(ui, fill_rect, s_color, Stroke::NONE, 1.5);
+                        ui.add_space(16.0);
+                        
+                        ui.label(egui::RichText::new("KONFIRMASI KATA SANDI").size(11.0).color(text_muted()).strong());
+                        ui.add_space(8.0);
+                        let (p2_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
+                        filled_rect(ui, p2_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
+                        ui.allocate_ui_at_rect(p2_rect.shrink(14.0), |ui| {
+                            let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password_confirm).password(true).hint_text("Ulangi kata sandi").frame(false).desired_width(p2_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
+                            if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupConfirmPassword; state.show_keyboard = true; }
+                        });
+                        
+                        ui.add_space(32.0);
+                        let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
+                        let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+                        filled_rect(ui, btn_rect, if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { accent_purple() }, Stroke::NONE, 18.0);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut →", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        if btn_resp.clicked() { state.reg_step = 2; }
+                        
+                        ui.add_space(12.0);
+                        ui.vertical_centered(|ui| {
+                            if ui.label(egui::RichText::new("← Kembali").size(12.0).color(accent_purple())).interact(egui::Sense::click()).clicked() {
+                                state.reg_step = 0;
+                            }
+                        });
+                    } else if state.reg_step == 2 {
+                        // Step 2: Konfirmasi
+                        ui.vertical_centered(|ui| {
+                            let avatar_size = Vec2::splat(72.0);
+                            let (a_rect, _) = ui.allocate_exact_size(avatar_size, egui::Sense::hover());
+                            filled_rect(ui, a_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::new(2.5, Color32::from_rgba_unmultiplied(129, 140, 248, 90)), 36.0);
+                            let initial = state.setup_display_name.chars().next().unwrap_or('?').to_uppercase().to_string();
+                            ui.painter().text(a_rect.center(), egui::Align2::CENTER_CENTER, initial, FontId::new(28.0, FontFamily::Proportional), accent_purple());
+                            
+                            ui.add_space(14.0);
+                            ui.label(egui::RichText::new(format!("Halo, {}!", state.setup_display_name)).size(20.0).color(text_primary()).strong());
+                            ui.label(egui::RichText::new(&state.setup_username).size(13.0).color(text_muted()));
+                        });
+                        
+                        ui.add_space(30.0);
+                        
+                        ui.horizontal(|ui| {
+                            let (cb_rect, cb_resp) = ui.allocate_exact_size(Vec2::splat(20.0), egui::Sense::click());
+                            let (cb_color, cb_border) = if state.setup_terms_accepted { (accent_purple(), Stroke::NONE) } else { (Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.5, border_default())) };
+                            filled_rect(ui, cb_rect, cb_color, cb_border, 6.0);
+                            if state.setup_terms_accepted {
+                                ui.painter().text(cb_rect.center(), egui::Align2::CENTER_CENTER, "✓", FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+                            }
+                            if cb_resp.clicked() {
+                                state.setup_terms_accepted = !state.setup_terms_accepted;
+                            }
+                            ui.add_space(10.0);
+                            ui.label(egui::RichText::new("Saya menyetujui Syarat & Ketentuan dan Kebijakan Privasi").size(12.5).color(text_muted()));
+                        });
+                        
+                        ui.add_space(32.0);
+                        let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
+                        let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+                        filled_rect(ui, btn_rect, if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { accent_purple() }, Stroke::NONE, 18.0);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut →", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        if btn_resp.clicked() && state.setup_terms_accepted { state.reg_step = 3; }
+                        
+                        ui.add_space(12.0);
+                        ui.vertical_centered(|ui| {
+                            if ui.label(egui::RichText::new("← Kembali").size(12.0).color(accent_purple())).interact(egui::Sense::click()).clicked() {
+                                state.reg_step = 1;
+                            }
+                        });
+                    } else if state.reg_step == 3 {
+                        // Step 3: PIN
+                        ui.vertical_centered(|ui| {
+                            let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + field_w/2.0, ui.cursor().top() + 32.0), Vec2::splat(64.0));
+                            filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 76)), 20.0);
+                            ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡", FontId::new(28.0, FontFamily::Proportional), accent_purple());
+                            
+                            ui.add_space(80.0);
+                            ui.label(egui::RichText::new("PIN digunakan untuk membuka file terenkripsi.\nPastikan kamu ingat PIN ini.").size(11.0).color(text_muted()));
+                            
+                            ui.add_space(18.0);
+                            ui.horizontal(|ui| {
+                                let dots_width = 6.0 * 16.0 + 5.0 * 10.0;
+                                ui.add_space((ui.available_width() - dots_width) / 2.0);
+                                for i in 0..6 {
+                                    let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(16.0), egui::Sense::hover());
+                                    let is_filled = i < state.setup_pin.len();
+                                    let color = if is_filled { accent_purple() } else { bg_input() };
+                                    let stroke = if is_filled { Stroke::NONE } else { Stroke::new(1.0, border_default()) };
+                                    filled_rect(ui, dot_rect, color, stroke, 8.0);
+                                    if i < 5 { ui.add_space(10.0); }
+                                }
+                            });
+                            
+                            ui.add_space(14.0);
+                            ui.label(egui::RichText::new("Masukkan 6 digit PIN baru").size(11.0).color(text_muted()));
+                            
+                            ui.add_space(20.0);
+                            let btn_size = Vec2::new(70.0, 46.0);
+                            let mut btn_idx = 1;
+                            for _row in 0..3 {
+                                ui.horizontal(|ui| {
+                                    ui.add_space((ui.available_width() - 230.0)/2.0);
+                                    for _col in 0..3 {
+                                        if ghost_btn(ui, &btn_idx.to_string(), btn_size.x).clicked() {
+                                            if state.setup_pin.len() < 6 {
+                                                state.setup_pin.push_str(&btn_idx.to_string());
+                                            }
+                                        }
+                                        ui.add_space(10.0);
+                                        btn_idx += 1;
+                                    }
+                                });
+                                ui.add_space(10.0);
+                            }
+                            ui.horizontal(|ui| {
+                                ui.add_space((ui.available_width() - 230.0)/2.0);
+                                if ghost_btn(ui, "Lewati", btn_size.x).clicked() {
+                                    ctrl.setup_account(state);
+                                }
+                                ui.add_space(10.0);
+                                if ghost_btn(ui, "0", btn_size.x).clicked() {
+                                    if state.setup_pin.len() < 6 {
+                                        state.setup_pin.push('0');
+                                    }
+                                }
+                                ui.add_space(10.0);
+                                if ghost_btn(ui, "Del", btn_size.x).clicked() {
+                                    state.setup_pin.pop();
+                                }
+                            });
+                            
+                            if state.setup_pin.len() == 6 {
+                                ctrl.setup_account(state);
+                            }
+                            
+                            ui.add_space(14.0);
+                            if ui.label(egui::RichText::new("← Kembali").size(12.0).color(accent_purple())).interact(egui::Sense::click()).clicked() {
+                                state.reg_step = 2;
+                            }
+                        });
+                    }
+                    
+                    if let Some(err) = state.setup_error.clone() {
+                        ui.add_space(12.0);
+                        ui.label(egui::RichText::new(&err).color(error_color()).size(13.0).strong());
+                    }
+                    
+                    ui.add_space(16.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.add_space((field_w - 180.0)/2.0);
+                        ui.label(egui::RichText::new("Sudah punya akun?").size(13.0).color(text_muted()));
+                        if ui.label(egui::RichText::new("Masuk").size(13.0).color(accent_purple()).strong()).interact(egui::Sense::click()).clicked() {
+                            state.screen = AppScreen::Login;
+                        }
+                    });
+                    
+                    ui.add_space(40.0);
+                });
             });
+        });
     });
 }
 
@@ -630,11 +794,8 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             filled_rect(ui, fab_rect, fab_fill, Stroke::new(4.0, bg_base()), 28.0);
             ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(24.0, FontFamily::Proportional), bg_base());
             if fab_resp.clicked() {
-                if state.file_dialog.is_none() {
-                    state.file_dialog = Some(egui_file_dialog::FileDialog::new());
-                }
-                if let Some(dialog) = &mut state.file_dialog {
-                    dialog.select_file();
+                if let Some(path) = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file() {
+                    ctrl.encrypt_file(state, path);
                 }
             }
         } else {
@@ -800,11 +961,8 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
                 ui.painter().text(c3_ico_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(18.0, FontFamily::Proportional), accent_sky());
                 ui.painter().text(egui::pos2(c3_rect.center().x, c3_rect.bottom() - 18.0), egui::Align2::CENTER_CENTER, "Tambah File", FontId::new(11.0, FontFamily::Proportional), text_primary());
                 if c3_resp.clicked() {
-                    if state.file_dialog.is_none() {
-                        state.file_dialog = Some(egui_file_dialog::FileDialog::new());
-                    }
-                    if let Some(dialog) = &mut state.file_dialog {
-                        dialog.select_file();
+                    if let Some(path) = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file() {
+                        ctrl.encrypt_file(state, path);
                     }
                 }
                 
@@ -1046,13 +1204,16 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, t
                             *to_decrypt = Some(record.vault_filename.clone());
                         }
                     }
+                    if resp.secondary_clicked() {
+                        state.active_context_menu = Some(record.id.clone());
+                    }
                 });
             }
         });
     }
 }
 
-fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
+fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller, _to_decrypt: &mut Option<String>, _to_soft_delete: &mut Option<String>) {
     let pad = 16.0;
     let avail = ui.available_rect_before_wrap();
     ui.add_space(8.0);
@@ -1711,6 +1872,9 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                         let lock_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 22.0, rect.center().y), Vec2::splat(32.0));
                         ui.painter().text(lock_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(16.0, FontFamily::Proportional), badge.1);
                     }
+                    if resp.secondary_clicked() {
+                        state.active_context_menu = Some(record.id.clone());
+                    }
                 });
             }
         });
@@ -1835,7 +1999,12 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     // Row 2.2: Lokasi penyimpanan
     ui.horizontal(|ui| {
         ui.add_space(pad);
-        draw_row(ui, "📁", accent_mint(), accent_mint_a(), "Lokasi Penyimpanan", "vault_storage/ · Lokal di perangkat");
+        let path_text = format!("{} · Lokal di perangkat", state.storage_path);
+        if draw_row(ui, "📁", accent_mint(), accent_mint_a(), "Lokasi Penyimpanan", &path_text).clicked() {
+            state.storage_pin_modal_open = true;
+            state.storage_pin.clear();
+            state.storage_pin_error = None;
+        }
     });
     ui.add_space(8.0);
     
@@ -2558,10 +2727,7 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                 let record_clone = state.decrypt_target.clone();
                 if let Some(record) = record_clone {
                     if ui.add_sized([250.0, 40.0], egui::Button::new(egui::RichText::new("🔓 Ekstrak & Pulihkan File").size(14.0))).clicked() {
-                        #[cfg(not(target_os = "android"))]
                         let out_dir = rfd::FileDialog::new().set_title("Pilih folder tujuan").pick_folder();
-                        #[cfg(target_os = "android")]
-                        let out_dir: Option<std::path::PathBuf> = { state.set_status("Memilih folder tujuan belum didukung di Android", false); None };
                         if let Some(out_dir) = out_dir {
                             let out_name = record.original_name.clone();
                             ctrl.decrypt_file(state, &record, out_dir, &out_name);
@@ -2986,6 +3152,266 @@ fn render_security_violation(ctx: &egui::Context, details: &str) {
                         std::process::exit(0);
                     }
                 });
+            });
+        });
+}
+
+// ── Screen Overlay: Modals ─────────────────────────────────
+
+fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
+    if state.storage_pin_modal_open {
+        egui::Area::new(egui::Id::new("storage_pin_modal"))
+            .fixed_pos(egui::pos2(0.0, 0.0))
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                let rect = ctx.screen_rect();
+                filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+                
+                let modal_size = Vec2::new(320.0, 480.0);
+                let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+                
+                if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                    state.storage_pin_modal_open = false;
+                }
+                
+                filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+                
+                ui.allocate_ui_at_rect(modal_rect.shrink(20.0), |ui| {
+                    ui.vertical_centered(|ui| {
+                        let shield_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(56.0));
+                        filled_rect(ui, shield_rect, accent_purple_a(), Stroke::NONE, 16.0);
+                        ui.painter().text(shield_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(26.0, FontFamily::Proportional), accent_purple());
+                        
+                        ui.add_space(80.0);
+                        ui.label(egui::RichText::new("Verifikasi PIN").size(20.0).color(text_primary()).strong());
+                        ui.add_space(4.0);
+                        ui.label(egui::RichText::new("Masukkan PIN 6 digit Anda untuk\nmengubah lokasi penyimpanan").size(12.0).color(text_muted()));
+                        ui.add_space(24.0);
+                        
+                        ui.horizontal(|ui| {
+                            let dots_width = 6.0 * 16.0 + 5.0 * 12.0;
+                            ui.add_space((ui.available_width() - dots_width) / 2.0);
+                            for i in 0..6 {
+                                let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(16.0), egui::Sense::hover());
+                                let is_filled = i < state.storage_pin.len();
+                                let color = if is_filled { accent_purple() } else { bg_input() };
+                                let stroke = if is_filled { Stroke::NONE } else { Stroke::new(1.0, border_default()) };
+                                filled_rect(ui, dot_rect, color, stroke, 8.0);
+                                if i < 5 { ui.add_space(12.0); }
+                            }
+                        });
+                        
+                        if let Some(err) = &state.storage_pin_error {
+                            ui.add_space(12.0);
+                            ui.label(egui::RichText::new(err).color(error_color()).size(12.0));
+                        }
+                        
+                        ui.add_space(30.0);
+                        
+                        let btn_size = Vec2::new(70.0, 46.0);
+                        let mut btn_idx = 1;
+                        for _row in 0..3 {
+                            ui.horizontal(|ui| {
+                                ui.add_space((ui.available_width() - 230.0)/2.0);
+                                for _col in 0..3 {
+                                    if ghost_btn(ui, &btn_idx.to_string(), btn_size.x).clicked() {
+                                        if state.storage_pin.len() < 6 {
+                                            state.storage_pin.push_str(&btn_idx.to_string());
+                                        }
+                                    }
+                                    ui.add_space(10.0);
+                                    btn_idx += 1;
+                                }
+                            });
+                            ui.add_space(10.0);
+                        }
+                        ui.horizontal(|ui| {
+                            ui.add_space((ui.available_width() - 230.0)/2.0);
+                            if ghost_btn(ui, "Batal", btn_size.x).clicked() {
+                                state.storage_pin_modal_open = false;
+                            }
+                            ui.add_space(10.0);
+                            if ghost_btn(ui, "0", btn_size.x).clicked() {
+                                if state.storage_pin.len() < 6 {
+                                    state.storage_pin.push('0');
+                                }
+                            }
+                            ui.add_space(10.0);
+                            if ghost_btn(ui, "Del", btn_size.x).clicked() {
+                                state.storage_pin.pop();
+                            }
+                        });
+                        
+                        if state.storage_pin.len() == 6 {
+                            state.storage_pin_modal_open = false;
+                            state.storage_path_modal_open = true;
+                            state.storage_pin.clear();
+                        }
+                    });
+                });
+            });
+    }
+
+    if state.storage_path_modal_open {
+        egui::Area::new(egui::Id::new("storage_path_modal"))
+            .fixed_pos(egui::pos2(0.0, 0.0))
+            .order(egui::Order::Foreground)
+            .show(ctx, |ui| {
+                let rect = ctx.screen_rect();
+                filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+                
+                let modal_size = Vec2::new(340.0, 420.0);
+                let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+                
+                if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                    state.storage_path_modal_open = false;
+                }
+                
+                filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+                
+                ui.allocate_ui_at_rect(modal_rect.shrink(24.0), |ui| {
+                    ui.horizontal(|ui| {
+                        let icon_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::splat(44.0));
+                        filled_rect(ui, icon_rect, accent_gold_a(), Stroke::NONE, 14.0);
+                        ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "📁", FontId::new(20.0, FontFamily::Proportional), accent_gold());
+                        ui.add_space(56.0);
+                        ui.vertical(|ui| {
+                            ui.label(egui::RichText::new("Lokasi Penyimpanan").size(17.0).color(text_primary()).strong());
+                            ui.label(egui::RichText::new("Pilih atau tentukan path vault Anda").size(11.0).color(text_muted()));
+                        });
+                    });
+                    ui.add_space(24.0);
+                    
+                    let mut path_option = state.storage_path.clone();
+                    
+                    let is_local = path_option.starts_with("vault_storage");
+                    let (r1, resp1) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 64.0), egui::Sense::click());
+                    let b1 = if is_local { accent_mint() } else if resp1.hovered() { border_hover() } else { border_default() };
+                    filled_rect(ui, r1, if is_local { accent_mint_a() } else { bg_surface() }, Stroke::new(if is_local { 1.5 } else { 0.5 }, b1), 16.0);
+                    let i1 = egui::Rect::from_center_size(egui::pos2(r1.left()+28.0, r1.center().y), Vec2::splat(36.0));
+                    filled_rect(ui, i1, accent_mint_a(), Stroke::NONE, 10.0);
+                    ui.painter().text(i1.center(), egui::Align2::CENTER_CENTER, "📱", FontId::new(16.0, FontFamily::Proportional), accent_mint());
+                    ui.painter().text(egui::pos2(i1.right()+12.0, r1.center().y - 10.0), egui::Align2::LEFT_CENTER, "Lokal (Default)", FontId::new(13.0, FontFamily::Proportional), text_primary());
+                    ui.painter().text(egui::pos2(i1.right()+12.0, r1.center().y + 10.0), egui::Align2::LEFT_CENTER, "vault_storage/ · Di dalam aplikasi", FontId::new(11.0, FontFamily::Proportional), text_muted());
+                    if is_local {
+                        ui.painter().text(egui::pos2(r1.right()-20.0, r1.center().y), egui::Align2::RIGHT_CENTER, "✔️", FontId::new(14.0, FontFamily::Proportional), accent_mint());
+                    }
+                    if resp1.clicked() { path_option = "vault_storage/ - Lokal".to_string(); }
+                    
+                    ui.add_space(10.0);
+                    
+                    let is_sdcard = path_option.starts_with("/sdcard");
+                    let (r2, resp2) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 64.0), egui::Sense::click());
+                    let b2 = if is_sdcard { accent_purple() } else if resp2.hovered() { border_hover() } else { border_default() };
+                    filled_rect(ui, r2, if is_sdcard { accent_purple_a() } else { bg_surface() }, Stroke::new(if is_sdcard { 1.5 } else { 0.5 }, b2), 16.0);
+                    let i2 = egui::Rect::from_center_size(egui::pos2(r2.left()+28.0, r2.center().y), Vec2::splat(36.0));
+                    filled_rect(ui, i2, accent_purple_a(), Stroke::NONE, 10.0);
+                    ui.painter().text(i2.center(), egui::Align2::CENTER_CENTER, "💾", FontId::new(16.0, FontFamily::Proportional), accent_purple());
+                    ui.painter().text(egui::pos2(i2.right()+12.0, r2.center().y - 10.0), egui::Align2::LEFT_CENTER, "SD Card / Eksternal", FontId::new(13.0, FontFamily::Proportional), text_primary());
+                    ui.painter().text(egui::pos2(i2.right()+12.0, r2.center().y + 10.0), egui::Align2::LEFT_CENTER, "/sdcard/DataVault/ · Penyimpanan eksternal", FontId::new(11.0, FontFamily::Proportional), text_muted());
+                    if is_sdcard {
+                        ui.painter().text(egui::pos2(r2.right()-20.0, r2.center().y), egui::Align2::RIGHT_CENTER, "✔️", FontId::new(14.0, FontFamily::Proportional), accent_purple());
+                    }
+                    if resp2.clicked() { path_option = "/sdcard/DataVault/ - Eksternal".to_string(); }
+                    
+                    state.storage_path = path_option;
+                    
+                    ui.add_space(20.0);
+                    
+                    let y_space = ui.available_height() - 50.0;
+                    ui.add_space(y_space.max(0.0));
+                    
+                    ui.horizontal(|ui| {
+                        let w = ui.available_width();
+                        if ghost_btn(ui, "Batal", (w - 12.0)*0.4).clicked() {
+                            state.storage_path_modal_open = false;
+                        }
+                        ui.add_space(12.0);
+                        if teal_btn(ui, "Simpan", (w - 12.0)*0.6).clicked() {
+                            state.storage_path_modal_open = false;
+                            state.toast_message = Some(format!("Lokasi disimpan ke: {}", state.storage_path));
+                            state.toast_timer = 2.0;
+                        }
+                    });
+                });
+            });
+    }
+}
+
+fn render_context_menu(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    let active_id = if let Some(id) = &state.active_context_menu { id.clone() } else { return };
+    let record = state.file_list.iter().find(|f| f.id == active_id).cloned();
+    if record.is_none() { 
+        state.active_context_menu = None; 
+        return; 
+    }
+    let record = record.unwrap();
+
+    egui::Area::new(egui::Id::new("context_menu_area"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let screen_rect = ctx.screen_rect();
+            filled_rect(ui, screen_rect, Color32::from_black_alpha(150), Stroke::NONE, 0.0);
+            
+            let menu_h = 300.0;
+            let menu_w = 340.0;
+            let modal_rect = egui::Rect::from_center_size(screen_rect.center(), Vec2::new(menu_w, menu_h));
+            
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.active_context_menu = None;
+            }
+            
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+            
+            ui.allocate_ui_at_rect(modal_rect.shrink(20.0), |ui| {
+                ui.vertical_centered(|ui| {
+                    ui.label(egui::RichText::new(&record.original_name).size(15.0).color(text_primary()).strong());
+                    ui.label(egui::RichText::new(format_size(record.file_size as u64)).size(11.0).color(text_muted()));
+                });
+                ui.add_space(20.0);
+                
+                let draw_item = |ui: &mut egui::Ui, icon: &str, text: &str, color: Color32| -> egui::Response {
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 48.0), egui::Sense::click());
+                    let bg = if resp.hovered() { Color32::from_black_alpha(50) } else { Color32::TRANSPARENT };
+                    filled_rect(ui, r, bg, Stroke::NONE, 12.0);
+                    
+                    let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 24.0, r.center().y), Vec2::splat(28.0));
+                    ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(16.0, FontFamily::Proportional), color);
+                    ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y), egui::Align2::LEFT_CENTER, text, FontId::new(14.0, FontFamily::Proportional), color);
+                    resp
+                };
+                
+                if draw_item(ui, "🔓", "Buka / Dekripsi", accent_purple()).clicked() {
+                    let is_previewable = {
+                        let ext = crate::theme::file_ext(&record.original_name).to_lowercase();
+                        ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt"
+                    };
+                    if is_previewable {
+                        ctrl.decrypt_to_memory(state, &record.vault_filename);
+                    } else {
+                        ctrl.open_decrypt_panel(state, &record.vault_filename);
+                    }
+                    state.active_context_menu = None;
+                }
+                if draw_item(ui, "✏️", "Ganti Nama", text_primary()).clicked() {
+                    state.toast_message = Some("Fitur Ganti Nama belum tersedia".to_string());
+                    state.toast_timer = 2.0;
+                    state.active_context_menu = None;
+                }
+                if draw_item(ui, "📡", "Bagikan via P2P", accent_sky()).clicked() {
+                    ctrl.start_share(state, record.clone());
+                    state.active_context_menu = None;
+                }
+                
+                ui.add_space(10.0);
+                ui.painter().line_segment([ui.cursor().min, ui.cursor().min + Vec2::new(ui.available_width(), 0.0)], Stroke::new(0.5, border_default()));
+                ui.add_space(10.0);
+                
+                if draw_item(ui, "🗑", "Pindahkan ke Sampah", error_color()).clicked() {
+                    ctrl.soft_delete_file(state, &record.id);
+                    state.active_context_menu = None;
+                }
             });
         });
 }

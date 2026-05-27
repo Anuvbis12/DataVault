@@ -11,8 +11,8 @@ crate-type = ["lib", "cdylib", "staticlib"]
 # GUI
 eframe         = "0.27"
 egui           = "0.27"
-egui-file-dialog = "0.5.0"
-egui_extras    = { version = "0.27", features = ["image"] }
+    egui_extras    = { version = "0.27", features = ["image"] }
+rfd = "0.14"
 image          = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
 
 # Kriptografi
@@ -59,9 +59,6 @@ apk_label = "Aegis Vault"
 target_sdk_version = 33
 min_sdk_version = 24
 
-# File dialog (Desktop only)
-[target.'cfg(not(target_os = "android"))'.dependencies]
-rfd = "0.14"
 
 # Gunakan debug keystore untuk signing rilis sementara
 [package.metadata.android.application_attributes]
@@ -83,6 +80,6 @@ name = "android.permission.WRITE_EXTERNAL_STORAGE"
 [[package.metadata.android.uses_permission]]
 name = "android.permission.MANAGE_EXTERNAL_STORAGE"
 
-[patch.crates-io]
-android-activity = { path = "third_party/android-activity-0.5.2" }
-ndk = { path = "third_party/ndk-0.8.0" }
+# [patch.crates-io]
+# android-activity = { path = "third_party/android-activity-0.5.2" }
+# ndk = { path = "third_party/ndk-0.8.0" }

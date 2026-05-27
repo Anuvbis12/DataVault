@@ -8,6 +8,7 @@ pub mod file_handler;
 pub mod recycle_bin;
 pub mod theme;
 pub mod totp;
+pub mod splash;
 pub mod view;
 
 
