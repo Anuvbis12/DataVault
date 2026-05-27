@@ -250,10 +250,10 @@ Proyek ini dikembangkan dengan dedikasi oleh:
 
 | Foto | Nama Lengkap | NIM |
 | :---: | :--- | :--- |
-| <img src="https://ui-avatars.com/api/?name=Rizma+Indra+Pramudya&background=random&color=fff&rounded=true" width="40"> | **Rizma Indra Pramudya** | `25051204370` |
-| <img src="https://ui-avatars.com/api/?name=Izora+Elverda+Narulita+Putri&background=random&color=fff&rounded=true" width="40"> | **Izora Elverda Narulita Putri** | `25051204287` |
-| <img src="https://ui-avatars.com/api/?name=Putera+Al+Khalidi&background=random&color=fff&rounded=true" width="40"> | **Putera Al Khalidi** | `25051204362` |
-| <img src="https://ui-avatars.com/api/?name=Muhammad+Abdullah+Ro'in&background=random&color=fff&rounded=true" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
+| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f47b/512.gif" width="40"> | **Rizma Indra Pramudya** | `25051204370` |
+| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f98a/512.gif" width="40"> | **Izora Elverda Narulita Putri** | `25051204287` |
+| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f916/512.gif" width="40"> | **Putera Al Khalidi** | `25051204362` |
+| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f47e/512.gif" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
 
 </div>
 
