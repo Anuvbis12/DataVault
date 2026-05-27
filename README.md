@@ -250,10 +250,10 @@ Proyek ini dikembangkan dengan dedikasi oleh:
 
 | Foto | Nama Lengkap | NIM |
 | :---: | :--- | :--- |
-| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f47b/512.gif" width="40"> | **Rizma Indra Pramudya** | `25051204370` |
-| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f98a/512.gif" width="40"> | **Izora Elverda Narulita Putri** | `25051204287` |
-| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f916/512.gif" width="40"> | **Putera Al Khalidi** | `25051204362` |
-| <img src="https://fonts.gstatic.com/s/e/notoemoji/latest/1f47e/512.gif" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
+| <img src="https://api.dicebear.com/8.x/pixel-art/svg?seed=Rizma&size=80" width="40"> | **Rizma Indra Pramudya** | `25051204370` |
+| <img src="https://api.dicebear.com/8.x/pixel-art/svg?seed=Izora&size=80" width="40"> | **Izora Elverda Narulita Putri** | `25051204287` |
+| <img src="https://api.dicebear.com/8.x/pixel-art/svg?seed=Putera&size=80" width="40"> | **Putera Al Khalidi** | `25051204362` |
+| <img src="https://api.dicebear.com/8.x/pixel-art/svg?seed=Muhammad&size=80" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
 
 </div>
 
