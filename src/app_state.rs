@@ -163,7 +163,7 @@ pub struct AppState {
     pub is_light_mode: bool,
     pub preview_bytes: Option<Vec<u8>>,
     pub preview_filename: String,
-    pub transition_start: Option<std::time::Instant>,
+    pub transition_start: Option<f64>,
     pub previous_tab: DashboardTab,
     
     // Real-time device metrics
@@ -195,7 +195,7 @@ pub struct AppState {
     pub status_bar_height: f32,
 
     // Splash Screen Start
-    pub splash_start: Option<std::time::Instant>,
+    pub splash_start: Option<f64>,
 
     // P2P Sharing States
     pub share_active_record: Option<FileRecord>,

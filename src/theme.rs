@@ -77,8 +77,8 @@ pub fn teal_faint() -> Color32 {
     if is_light() { Color32::from_rgb(224, 231, 255) } else { Color32::from_rgba_unmultiplied(129, 140, 248, 25) }
 }
 
-// Accent palette helpers
-pub fn accent_purple() -> Color32 { Color32::from_rgb(168, 85, 247) } // #a855f7
+// Accent palette helpers (Re-mapped to Indigo #818cf8 for Aegis v5 Parity)
+pub fn accent_purple() -> Color32 { Color32::from_rgb(129, 140, 248) } // #818cf8
 pub fn accent_mint() -> Color32 { Color32::from_rgb(16, 185, 129) } // #10b981
 pub fn accent_sky() -> Color32 { Color32::from_rgb(6, 182, 212) } // #06b6d4
 pub fn accent_peach() -> Color32 { Color32::from_rgb(251, 146, 60) } // #fb923c
@@ -86,8 +86,8 @@ pub fn accent_gold() -> Color32 { Color32::from_rgb(251, 191, 36) } // #fbbf24
 pub fn accent_rose() -> Color32 { Color32::from_rgb(244, 63, 94) } // #f43f5e
 
 // Translucent variations
-pub fn accent_purple_a() -> Color32 { Color32::from_rgba_unmultiplied(168, 85, 247, 25) }
-pub fn accent_purple_b() -> Color32 { Color32::from_rgba_unmultiplied(168, 85, 247, 60) }
+pub fn accent_purple_a() -> Color32 { Color32::from_rgba_unmultiplied(129, 140, 248, 25) }
+pub fn accent_purple_b() -> Color32 { Color32::from_rgba_unmultiplied(129, 140, 248, 60) }
 pub fn accent_mint_a() -> Color32 { Color32::from_rgba_unmultiplied(16, 185, 129, 25) }
 pub fn accent_sky_a() -> Color32 { Color32::from_rgba_unmultiplied(6, 182, 212, 25) }
 pub fn accent_peach_a() -> Color32 { Color32::from_rgba_unmultiplied(251, 146, 60, 25) }
@@ -192,15 +192,36 @@ pub fn teal_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
     resp
 }
 
-/// Tombol ghost (outline) dengan lebar custom
+/// Tombol ghost (outline) — matches HTML .nbtn style
+/// border-radius:18px, glass bg, 1px solid border, hover shows glass2
 pub fn ghost_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
-    let desired       = Vec2::new(width, 42.0);
+    let desired       = Vec2::new(width, 54.0);
     let (rect, resp)  = ui.allocate_exact_size(desired, egui::Sense::click());
-    let border  = if resp.hovered() { teal_strong()   } else { border_default() };
-    let text_c  = if resp.hovered() { text_primary()  } else { text_muted() };
-    ui.painter().rect(rect, Rounding::same(8.0), Color32::TRANSPARENT, Stroke::new(0.5, border));
-    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
-                      FontId::new(14.0, FontFamily::Proportional), text_c);
+    let bg = if resp.is_pointer_button_down_on() {
+        Color32::from_rgba_unmultiplied(99, 102, 241, 38) // active: indigo 15%
+    } else if resp.hovered() {
+        Color32::from_rgba_unmultiplied(255, 255, 255, 10) // glass2
+    } else {
+        Color32::from_rgba_unmultiplied(255, 255, 255, 5) // glass
+    };
+    let border_c = if resp.hovered() {
+        Color32::from_rgba_unmultiplied(255, 255, 255, 23) // border2
+    } else {
+        Color32::from_rgba_unmultiplied(255, 255, 255, 13) // border
+    };
+    ui.painter().rect(rect, Rounding::same(18.0), bg, Stroke::new(1.0, border_c));
+
+    // Number labels: 24px weight 600. Text labels: 11-13px
+    let is_number = label.len() == 1 && label.chars().next().map_or(false, |c| c.is_ascii_digit());
+    if is_number {
+        ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
+                          FontId::new(24.0, FontFamily::Proportional), text_primary());
+    } else {
+        let text_c = if resp.hovered() { text_primary() } else { text_body() };
+        let font_size = if label.len() <= 4 { 13.0 } else { 11.0 };
+        ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
+                          FontId::new(font_size, FontFamily::Proportional), text_c);
+    }
     resp
 }
 
