@@ -11,6 +11,40 @@ pub mod totp;
 pub mod splash;
 pub mod view;
 
+#[cfg(target_os = "android")]
+pub static PENDING_FILE_RESULT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+
+#[cfg(target_os = "android")]
+#[allow(non_snake_case)]
+#[no_mangle]
+pub extern "C" fn Java_com_aegis_vault_MainActivity_onFileSelectedNative(
+    mut env: jni::JNIEnv,
+    _class: jni::objects::JClass,
+    uri: jni::objects::JString,
+) {
+    if let Ok(uri_str) = env.get_string(&uri) {
+        let uri_string: String = uri_str.into();
+        if let Ok(mut pending) = PENDING_FILE_RESULT.lock() {
+            *pending = Some(uri_string);
+        }
+    }
+}
+
+
+#[cfg(target_os = "android")]
+pub fn request_file_picker(app: &android_activity::AndroidApp) {
+    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _).unwrap() };
+    let mut env = vm.attach_current_thread().unwrap();
+    
+    // Get the Activity jobject from ndk_context
+    let context_ptr = ndk_context::android_context().context();
+    let activity_obj = unsafe { jni::objects::JObject::from_raw(context_ptr as jni::sys::jobject) };
+    
+    // Get the class of the Activity to avoid ClassNotFoundException on background thread
+    if let Ok(class) = env.get_object_class(&activity_obj) {
+        let _ = env.call_static_method(class, "requestFilePicker", "()V", &[]);
+    }
+}
 
 // ── Root struct MVC (harus public agar bisa dibaca main.rs) ──
 pub struct VaultMvc {
@@ -35,6 +69,24 @@ impl VaultMvc {
 
 impl eframe::App for VaultMvc {
     fn update(&mut self, ctx: &eframe::egui::Context, _frame: &mut eframe::Frame) {
+        #[cfg(target_os = "android")]
+        if let Some(app) = &self.android_app {
+            // Process file picker request
+            if self.state.request_android_file_picker {
+                self.state.request_android_file_picker = false;
+                crate::request_file_picker(app);
+            }
+
+            // Check for file picker result
+            if let Ok(mut pending) = crate::PENDING_FILE_RESULT.lock() {
+                if let Some(uri) = pending.take() {
+                    if !uri.is_empty() {
+                        self.state.android_file_picker_result = Some(uri);
+                    }
+                }
+            }
+        }
+
         // ── Android Safe Area: Baca status bar height dari content_rect ──
         // content_rect().top dikembalikan dalam PHYSICAL pixels, harus dibagi pixels_per_point
         // agar sesuai dengan sistem koordinat logical (dp) yang dipakai egui.

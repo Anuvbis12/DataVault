@@ -158,8 +158,13 @@ pub struct AppState {
     pub profile_password_error: Option<String>,
     pub profile_password_success: Option<String>,
 
+    // Android Native
+    pub request_android_file_picker: bool,
+    pub android_file_picker_result: Option<String>,
+
     // Notifications Tab
     pub audit_logs: Vec<AuditLog>,
+
     pub is_light_mode: bool,
     pub preview_bytes: Option<Vec<u8>>,
     pub preview_filename: String,
@@ -266,12 +271,16 @@ impl Default for AppState {
             profile_password_error: None,
             profile_password_success: None,
 
+            request_android_file_picker: false,
+            android_file_picker_result: None,
+
             audit_logs: Vec::new(),
             is_light_mode: false,
             preview_bytes: None,
             preview_filename: String::new(),
             transition_start: None,
             previous_tab: DashboardTab::Home,
+
             cpu_usage: 0.0,
             ram_usage: 0.0,
             io_usage: 0.0,

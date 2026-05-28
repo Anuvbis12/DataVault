@@ -64,8 +64,30 @@ pub fn render(
         }
     }
 
+    if let Some(uri) = state.android_file_picker_result.take() {
+        if !uri.is_empty() {
+            controller.encrypt_file(state, std::path::PathBuf::from(uri));
+        }
+    }
+
+    let mut top_pad = 0.0;
+    if cfg!(target_os = "android") || cfg!(target_os = "ios") {
+        let rect = ctx.screen_rect();
+        let aspect_ratio = rect.height() / rect.width();
+        if aspect_ratio > 1.9 {
+            top_pad = 48.0; // Tall phones (usually have notch/camera cutout)
+        } else {
+            top_pad = 28.0; // Standard 16:9 phones
+        }
+    }
+
     egui::CentralPanel::default()
-        .frame(egui::Frame::none())
+        .frame(egui::Frame::none().inner_margin(egui::Margin {
+            left: 0.0,
+            right: 0.0,
+            top: top_pad,
+            bottom: 0.0,
+        }))
         .show(ctx, |ui| {
             let screen = state.screen.clone();
             match screen {
@@ -736,7 +758,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                 #[cfg(not(target_os = "android"))]
                 let path = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file();
                 #[cfg(target_os = "android")]
-                let path: Option<std::path::PathBuf> = { state.set_status("Memilih file belum didukung di Android", false); None };
+                let path: Option<std::path::PathBuf> = { state.request_android_file_picker = true; None };
                 
                 if let Some(path) = path {
                     ctrl.encrypt_file(state, path);
