@@ -26,9 +26,21 @@ if (!(Test-Path "gradlew.bat")) {
 .\gradlew assembleDebug
 
 if ($LASTEXITCODE -eq 0) {
-    Write-Host "Build sukses! APK ada di: android\app\build\outputs\apk\debug\app-debug.apk" -ForegroundColor Green
+    Write-Host "Build sukses! Menginstal APK ke perangkat yang terhubung..." -ForegroundColor Green
+    
+    Set-Location -Path ".."
+    
+    # Install APK
+    adb install -r "android\app\build\outputs\apk\debug\app-debug.apk"
+    
+    if ($LASTEXITCODE -eq 0) {
+        Write-Host "Instalasi sukses! Menjalankan aplikasi di perangkat..." -ForegroundColor Green
+        # Jalankan aplikasi
+        adb shell am start -n "com.aegis.vault/com.aegis.vault.MainActivity"
+    } else {
+        Write-Host "Gagal menginstal APK. Pastikan perangkat (HP/Emulator) terhubung via kabel atau Wi-Fi." -ForegroundColor Red
+    }
 } else {
     Write-Host "Build gagal." -ForegroundColor Red
+    Set-Location -Path ".."
 }
-
-Set-Location -Path ".."
