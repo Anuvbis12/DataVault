@@ -33,6 +33,21 @@ pub fn check_security_violation() -> Option<String> {
         }
     }
 
+    // 1b. Cek keberadaan biner 'su' melalui variabel lingkungan PATH (SELinux bypass)
+    if let Ok(path_env) = std::env::var("PATH") {
+        #[cfg(target_os = "windows")]
+        let separator = ';';
+        #[cfg(not(target_os = "windows"))]
+        let separator = ':';
+
+        for dir in path_env.split(separator) {
+            let p = std::path::Path::new(dir).join("su");
+            if p.exists() {
+                return Some(format!("ROOT terdeteksi: biner 'su' ditemukan di PATH: '{}'.", p.display()));
+            }
+        }
+    }
+
     // 2. Cek keberadaan file-file virtualisasi atau driver yang khas pada Emulator
     const EMU_FILES: &[&str] = &[
         "/dev/socket/qemud",
@@ -129,14 +144,36 @@ pub fn check_security_violation() -> Option<String> {
     None
 }
 
-/// Helper untuk mengambil nilai system property via perintah 'getprop'
+#[cfg(target_os = "android")]
+extern "C" {
+    fn __system_property_get(
+        name: *const std::os::raw::c_char,
+        value: *mut std::os::raw::c_char,
+    ) -> std::os::raw::c_int;
+}
+
+/// Helper untuk mengambil nilai system property via perintah 'getprop' atau FFI native
 #[allow(unused_variables)]
 fn get_prop(prop_name: &str) -> Option<String> {
     #[cfg(target_os = "android")]
     {
-        // Menghindari eksekusi subprocess (Command::new) di Android karena 
-        // akan langsung memicu SIGKILL / SIGSYS (Security Violation) di Android 10+.
-        // Untuk saat ini kita bypass pengecekan via getprop.
+        use std::ffi::{CStr, CString};
+        use std::os::raw::c_char;
+
+        let c_name = CString::new(prop_name).ok()?;
+        let mut value_buf = vec![0u8; 128]; // PROP_VALUE_MAX is 92, 128 is safe
+        
+        unsafe {
+            let len = __system_property_get(c_name.as_ptr(), value_buf.as_mut_ptr() as *mut c_char);
+            if len > 0 {
+                if let Ok(c_str) = CStr::from_ptr(value_buf.as_ptr() as *const c_char).to_str() {
+                    let val = c_str.trim().to_string();
+                    if !val.is_empty() {
+                        return Some(val);
+                    }
+                }
+            }
+        }
         None
     }
     #[cfg(not(target_os = "android"))]

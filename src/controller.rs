@@ -848,6 +848,25 @@ impl Controller {
         state.share_ip.clear();
     }
 
+    pub fn rename_file(&self, state: &mut AppState, id: &str, new_name: &str) {
+        if new_name.trim().is_empty() {
+            state.set_status("Nama berkas tidak boleh kosong.", false);
+            return;
+        }
+        let db = self.db.lock().unwrap();
+        match db.rename_file(id, new_name.trim()) {
+            Ok(()) => {
+                drop(db);
+                self.load_files(state);
+                self.log_action("RENAME", &format!("Nama berkas dengan ID '{}' diubah menjadi '{}'.", id, new_name.trim()));
+                state.set_status("Nama berkas berhasil diubah.", true);
+            }
+            Err(e) => {
+                state.set_status(&format!("❌ Gagal mengubah nama: {}", e), false);
+            }
+        }
+    }
+
     // ── Audit Logs ────────────────────────────────────────
 
     pub fn log_action(&self, action: &str, desc: &str) {

@@ -83,10 +83,35 @@ impl VaultDb {
             );
         ")?;
         
-        // Migrasi untuk tabel lama
-        let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0", []);
-        let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN deleted_at TEXT", []);
-        let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN is_folder BOOLEAN NOT NULL DEFAULT 0", []);
+        // Migrasi untuk tabel lama dengan memeriksa keberadaan kolom terlebih dahulu
+        let mut has_is_deleted = false;
+        let mut has_deleted_at = false;
+        let mut has_is_folder = false;
+
+        if let Ok(mut stmt) = self.conn.prepare("PRAGMA table_info(file_records)") {
+            if let Ok(mut rows) = stmt.query([]) {
+                while let Ok(Some(row)) = rows.next() {
+                    if let Ok(col_name) = row.get::<_, String>(1) {
+                        match col_name.as_str() {
+                            "is_deleted" => has_is_deleted = true,
+                            "deleted_at" => has_deleted_at = true,
+                            "is_folder" => has_is_folder = true,
+                            _ => {}
+                        }
+                    }
+                }
+            }
+        }
+
+        if !has_is_deleted {
+            let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN is_deleted BOOLEAN NOT NULL DEFAULT 0", []);
+        }
+        if !has_deleted_at {
+            let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN deleted_at TEXT", []);
+        }
+        if !has_is_folder {
+            let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN is_folder BOOLEAN NOT NULL DEFAULT 0", []);
+        }
         
         Ok(())
     }
@@ -217,6 +242,14 @@ impl VaultDb {
         self.conn.execute(
             "DELETE FROM file_records WHERE id = ?1",
             params![id],
+        )?;
+        Ok(())
+    }
+
+    pub fn rename_file(&self, id: &str, new_name: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_records SET original_name = ?2 WHERE id = ?1",
+            params![id, new_name],
         )?;
         Ok(())
     }

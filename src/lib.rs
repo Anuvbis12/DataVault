@@ -277,12 +277,7 @@ pub extern "C" fn start_app_ios() {
     // Pastikan folder vault tersedia
     std::fs::create_dir_all(controller::vault_dir()).ok();
 
-    let mut options = eframe::NativeOptions::default();
-        let app_clone = app.clone();
-        options.event_loop_builder = Some(Box::new(move |builder| {
-            use winit::platform::android::EventLoopBuilderExtAndroid;
-            builder.with_android_app(app_clone);
-        }));
+    let options = eframe::NativeOptions::default();
 
     eframe::run_native(
         "Aegis Vault",

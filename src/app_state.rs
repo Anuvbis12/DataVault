@@ -216,6 +216,11 @@ pub struct AppState {
     pub storage_pin: String,
     pub storage_pin_error: Option<String>,
     pub storage_path: String,
+
+    // Rename Modal States
+    pub rename_modal_open: bool,
+    pub rename_target_id: String,
+    pub rename_new_name: String,
 }
 
 impl Default for AppState {
@@ -307,6 +312,10 @@ impl Default for AppState {
             storage_pin: String::new(),
             storage_pin_error: None,
             storage_path: "vault_storage/ - Lokal".to_string(),
+
+            rename_modal_open: false,
+            rename_target_id: String::new(),
+            rename_new_name: String::new(),
         }
     }
 }

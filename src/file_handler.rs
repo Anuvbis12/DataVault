@@ -338,7 +338,7 @@ impl FileUnlockApp {
                     &["1","2","3"],
                     &["4","5","6"],
                     &["7","8","9"],
-                    &["⌫","0","hapus"],
+                    &["del","0","hapus"],
                 ];
                 for row in keys {
                     ui.horizontal(|ui| {
@@ -346,7 +346,7 @@ impl FileUnlockApp {
                             let resp = numpad_btn(ui, key);
                             if resp.clicked() {
                                 match *key {
-                                    "⌫" => {
+                                    "del" => {
                                         self.pin_digits.pop();
                                         self.pin_error = None;
                                     }

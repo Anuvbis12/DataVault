@@ -120,6 +120,11 @@ pub fn render(
     if state.active_context_menu.is_some() {
         render_context_menu(ctx, state, controller);
     }
+
+    // Overlay Rename Modal
+    if state.rename_modal_open {
+        render_rename_modal(ctx, state, controller);
+    }
 }
 
 // ── Background gradien ────────────────────────────────────
@@ -406,8 +411,8 @@ fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller)
                     let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
                     let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 13);
                     ui.painter().rect(rect, Rounding::same(18.0), bg, Stroke::new(1.0, border_c));
-                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "⌫",
-                        FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(115, 121, 150));
+                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "Hapus",
+                        FontId::new(14.0, FontFamily::Proportional), Color32::from_rgb(115, 121, 150));
                     if resp.clicked() { state.login_pin.pop(); }
                 }
             });
@@ -505,7 +510,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
                         let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
                         filled_rect(ui, btn_rect, if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { Color32::from_rgb(129, 140, 248) }, Stroke::NONE, 18.0);
-                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut →", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut >", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
                         if btn_resp.clicked() { state.reg_step = 1; }
                     } else if state.reg_step == 1 {
                         // Step 1: Kata sandi
@@ -541,12 +546,12 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
                         let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
                         filled_rect(ui, btn_rect, if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { Color32::from_rgb(129, 140, 248) }, Stroke::NONE, 18.0);
-                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut →", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut >", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
                         if btn_resp.clicked() { state.reg_step = 2; }
                         
                         ui.add_space(12.0);
                         ui.vertical_centered(|ui| {
-                            if ui.label(egui::RichText::new("← Kembali").size(12.0).color(Color32::from_rgb(129, 140, 248))).interact(egui::Sense::click()).clicked() {
+                            if ui.label(egui::RichText::new("< Kembali").size(12.0).color(Color32::from_rgb(129, 140, 248))).interact(egui::Sense::click()).clicked() {
                                 state.reg_step = 0;
                             }
                         });
@@ -584,12 +589,12 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         let btn_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(field_w, 52.0));
                         let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
                         filled_rect(ui, btn_rect, if btn_resp.hovered() { Color32::from_rgb(79, 70, 229) } else { Color32::from_rgb(129, 140, 248) }, Stroke::NONE, 18.0);
-                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut →", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                        ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "Lanjut >", FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
                         if btn_resp.clicked() && state.setup_terms_accepted { state.reg_step = 3; }
                         
                         ui.add_space(12.0);
                         ui.vertical_centered(|ui| {
-                            if ui.label(egui::RichText::new("← Kembali").size(12.0).color(Color32::from_rgb(129, 140, 248))).interact(egui::Sense::click()).clicked() {
+                            if ui.label(egui::RichText::new("< Kembali").size(12.0).color(Color32::from_rgb(129, 140, 248))).interact(egui::Sense::click()).clicked() {
                                 state.reg_step = 1;
                             }
                         });
@@ -669,8 +674,8 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                                     let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
                                     let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 13);
                                     ui.painter().rect(rect, Rounding::same(18.0), bg, Stroke::new(1.0, border_c));
-                                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "⌫",
-                                        FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(115, 121, 150));
+                                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "Hapus",
+                                        FontId::new(14.0, FontFamily::Proportional), Color32::from_rgb(115, 121, 150));
                                     if resp.clicked() { state.setup_pin.pop(); }
                                 }
                             });
@@ -680,7 +685,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                             }
                             
                             ui.add_space(14.0);
-                            if ui.label(egui::RichText::new("← Kembali").size(12.0).color(Color32::from_rgb(129, 140, 248))).interact(egui::Sense::click()).clicked() {
+                            if ui.label(egui::RichText::new("< Kembali").size(12.0).color(Color32::from_rgb(129, 140, 248))).interact(egui::Sense::click()).clicked() {
                                 state.reg_step = 2;
                             }
                         });
@@ -2077,7 +2082,7 @@ fn render_decrypt_panel(
                 let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
                 let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
                 filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
-                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
                                   FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
                 ui.add_space(10.0);
@@ -2232,7 +2237,7 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
                 filled_rect(ui, back_rect, Color32::TRANSPARENT,
                             Stroke::new(0.5, border_default()), 7.0);
-                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
                                   FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
                 ui.add_space(10.0);
@@ -2416,7 +2421,7 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
     let back_rect = egui::Rect::from_min_size(topbar_rect.min + Vec2::new(18.0, 12.0), Vec2::splat(28.0));
     let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
     filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
-    ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+    ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
                       FontId::new(15.0, FontFamily::Proportional), text_muted());
     if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
 
@@ -2556,7 +2561,7 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                 let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
                 let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
                 filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
-                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
                                   FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { 
                     state.screen = AppScreen::Dashboard; 
@@ -2663,7 +2668,7 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     let back_rect = egui::Rect::from_min_size(topbar_rect.min + Vec2::new(18.0, 12.0), Vec2::splat(28.0));
     let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
     filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
-    ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "←",
+    ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
                       FontId::new(15.0, FontFamily::Proportional), text_muted());
     if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
 
@@ -2927,10 +2932,10 @@ fn render_virtual_keyboard(ctx: &egui::Context, state: &mut AppState) {
                         let label = key.to_string();
                         let w = if *key == "DEL" || *key == "SFT" { btn_width_base * 1.5 + spacing * 0.5 } else { btn_width_base };
                         
-                        let display_label = match label.as_str() {
-                            "SFT" => "⇧",
-                            "DEL" => "⌫",
-                            _ => label.as_str(),
+                        let (display_label, font_size) = match label.as_str() {
+                            "SFT" => ("Shift", 13.0),
+                            "DEL" => ("Del", 13.0),
+                            _ => (label.as_str(), 18.0),
                         };
                         
                         let bg_color = if label == "SFT" || label == "DEL" {
@@ -2939,7 +2944,7 @@ fn render_virtual_keyboard(ctx: &egui::Context, state: &mut AppState) {
                             crate::theme::bg_card()
                         };
 
-                        let btn = egui::Button::new(egui::RichText::new(display_label).size(18.0).color(Color32::WHITE))
+                        let btn = egui::Button::new(egui::RichText::new(display_label).size(font_size).color(Color32::WHITE))
                             .min_size(egui::vec2(w, btn_height))
                             .fill(bg_color)
                             .rounding(6.0);
@@ -3167,8 +3172,8 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                                 let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
                                 let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 13);
                                 ui.painter().rect(rect, Rounding::same(18.0), bg, Stroke::new(1.0, border_c));
-                                ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "⌫",
-                                    FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(115, 121, 150));
+                                ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "Hapus",
+                                    FontId::new(14.0, FontFamily::Proportional), Color32::from_rgb(115, 121, 150));
                                 if resp.clicked() { state.storage_pin.pop(); }
                             }
                         });
@@ -3326,8 +3331,9 @@ fn render_context_menu(ctx: &egui::Context, state: &mut AppState, ctrl: &Control
                     state.active_context_menu = None;
                 }
                 if draw_item(ui, "✏️", "Ganti Nama", text_primary()).clicked() {
-                    state.toast_message = Some("Fitur Ganti Nama belum tersedia".to_string());
-                    state.toast_timer = 2.0;
+                    state.rename_target_id = record.id.clone();
+                    state.rename_new_name = record.original_name.clone();
+                    state.rename_modal_open = true;
                     state.active_context_menu = None;
                 }
                 if draw_item(ui, "📡", "Bagikan via P2P", accent_sky()).clicked() {
@@ -3453,6 +3459,63 @@ fn render_share_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controll
                         }
                         
                         ui.add_space(8.0);
+                    });
+                });
+            });
+        });
+}
+
+fn render_rename_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    egui::Area::new(egui::Id::new("rename_file_modal"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+            
+            let modal_size = Vec2::new(320.0, 220.0);
+            let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+            
+            // Tutup jika klik di luar modal
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.rename_modal_open = false;
+            }
+            
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+            
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
+                ui.vertical_centered(|ui| {
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(44.0));
+                    filled_rect(ui, icon_rect, accent_purple_a(), Stroke::NONE, 14.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "✏️", FontId::new(20.0, FontFamily::Proportional), accent_purple());
+                    
+                    ui.add_space(60.0);
+                    ui.label(egui::RichText::new("Ganti Nama Berkas").size(17.0).color(text_primary()).strong());
+                    ui.add_space(12.0);
+                    
+                    // Input teks
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        let text_edit = egui::TextEdit::singleline(&mut state.rename_new_name)
+                            .desired_width(ui.available_width() - 20.0)
+                            .margin(egui::Margin::symmetric(10.0, 8.0));
+                        ui.add(text_edit);
+                    });
+                    
+                    ui.add_space(20.0);
+                    
+                    ui.horizontal(|ui| {
+                        let w = ui.available_width();
+                        if ghost_btn(ui, "Batal", (w - 12.0) * 0.4).clicked() {
+                            state.rename_modal_open = false;
+                        }
+                        ui.add_space(12.0);
+                        if teal_btn(ui, "Simpan", (w - 12.0) * 0.6).clicked() {
+                            let id = state.rename_target_id.clone();
+                            let name = state.rename_new_name.clone();
+                            ctrl.rename_file(state, &id, &name);
+                            state.rename_modal_open = false;
+                        }
                     });
                 });
             });
