@@ -1826,7 +1826,7 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controlle
 }
 
 fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
-    let pad = 16.0;
+    let pad = 24.0;
     let avail = ui.available_rect_before_wrap();
     
     ui.add_space(8.0);
@@ -1976,67 +1976,134 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
 }
 
 fn render_tab_profile(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
-    ui.add_space(30.0);
-    ui.vertical_centered(|ui| {
-        ui.label(egui::RichText::new("Profil & Pengaturan").size(22.0).color(text_primary()).strong());
+    let avail = ui.available_rect_before_wrap();
+    let pad = 24.0;
+    let total_w = avail.width() - pad * 2.0;
+
+    ui.add_space(20.0);
+
+    // Header: Back Button & Title
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
+        let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
+        filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
+        ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
+                          FontId::new(15.0, FontFamily::Proportional), text_muted());
+        if back_resp.clicked() { 
+            state.dashboard_tab = DashboardTab::Settings; 
+            state.profile_old_password.clear();
+            state.profile_new_password.clear();
+            state.profile_confirm_password.clear();
+            state.profile_password_error = None;
+            state.profile_password_success = None;
+        }
+        ui.add_space(10.0);
+        ui.label(egui::RichText::new("Pengaturan Akun").size(15.0).color(crate::theme::text_body()).strong());
     });
-    
-    ui.add_space(30.0);
-    let pad = 20.0;
-    
+
+    ui.add_space(24.0);
+
+    ui.vertical_centered(|ui| {
+        // Large Avatar
+        let avatar_size = Vec2::splat(80.0);
+        let (a_rect, _) = ui.allocate_exact_size(avatar_size, egui::Sense::hover());
+        filled_rect(ui, a_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 25),
+                    Stroke::new(2.5, Color32::from_rgba_unmultiplied(129, 140, 248, 80)), 40.0);
+        let initial = state.display_name.chars().next().unwrap_or('A').to_uppercase().to_string();
+        ui.painter().text(a_rect.center(), egui::Align2::CENTER_CENTER, &initial,
+            FontId::new(32.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
+
+        ui.add_space(12.0);
+        ui.label(egui::RichText::new(&state.display_name).size(18.0).color(text_primary()).strong());
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new(&state.login_username).size(12.5).color(text_muted()));
+    });
+
+    ui.add_space(28.0);
+
+    // Form Container
     ui.horizontal(|ui| {
         ui.add_space(pad);
         ui.vertical(|ui| {
-            // Pengaturan Tampilan
-            ui.label(egui::RichText::new("Tampilan").color(teal_strong()).strong());
-            ui.add_space(8.0);
-            
-            let mut is_light = state.is_light_mode;
-            if ui.checkbox(&mut is_light, "☀ Mode Terang (Light Mode)").changed() {
-                state.is_light_mode = is_light;
-                crate::theme::set_light_mode(is_light);
-            }
-            ui.add_space(30.0);
+            card_frame().show(ui, |ui| {
+                ui.set_width(total_w);
+                
+                ui.label(egui::RichText::new("UBAH KATA SANDI MASTER").size(11.0).color(text_primary()).strong());
+                ui.add_space(14.0);
 
-            // Backup Database Section
-            ui.label(egui::RichText::new("Data").color(teal_strong()).strong());
-            ui.add_space(8.0);
-            if teal_btn(ui, "💾  Backup Database", 200.0).clicked() {
-                ctrl.backup_database(state);
-            }
-            ui.add_space(4.0);
-            ui.label(egui::RichText::new("Simpan cadangan .db di tempat aman.").size(12.0).color(crate::theme::text_muted()));
-            
-            ui.add_space(30.0);
-            
-            // Ubah Password Section
-            ui.label(egui::RichText::new("Ubah Password").color(teal_strong()).strong());
-            ui.add_space(10.0);
-            
-            ui.label(egui::RichText::new("Password Lama").size(12.0).color(crate::theme::text_muted()));
-            ui.add(egui::TextEdit::singleline(&mut state.profile_old_password).password(true).desired_width(200.0));
-            ui.add_space(8.0);
-            
-            ui.label(egui::RichText::new("Password Baru (min. 4 karakter)").size(12.0).color(crate::theme::text_muted()));
-            ui.add(egui::TextEdit::singleline(&mut state.profile_new_password).password(true).desired_width(200.0));
-            ui.add_space(8.0);
-            
-            ui.label(egui::RichText::new("Konfirmasi Password Baru").size(12.0).color(crate::theme::text_muted()));
-            ui.add(egui::TextEdit::singleline(&mut state.profile_confirm_password).password(true).desired_width(200.0));
-            ui.add_space(12.0);
-            
-            if teal_btn(ui, "🔑  Ubah Password", 200.0).clicked() {
-                ctrl.change_password(state);
-            }
-            
-            if let Some(err) = &state.profile_password_error {
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new(err).color(error_color()).size(13.0));
-            }
-            if let Some(msg) = &state.profile_password_success {
-                ui.add_space(8.0);
-                ui.label(egui::RichText::new(msg).color(teal_light()).size(13.0));
-            }
+                // Password Lama
+                ui.label(egui::RichText::new("KATA SANDI LAMA").size(10.0).color(text_muted()).strong());
+                ui.add_space(6.0);
+                let (p1_rect, _) = ui.allocate_exact_size(Vec2::new(total_w - 40.0, 44.0), egui::Sense::hover());
+                filled_rect(ui, p1_rect, bg_input(), Stroke::new(0.5, border_default()), 12.0);
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(p1_rect.shrink(12.0)), |ui| {
+                    ui.add(egui::TextEdit::singleline(&mut state.profile_old_password)
+                        .password(true)
+                        .hint_text("Masukkan kata sandi lama")
+                        .frame(false)
+                        .desired_width(p1_rect.width() - 24.0)
+                        .font(FontId::new(13.5, FontFamily::Proportional)));
+                });
+                ui.add_space(12.0);
+
+                // Password Baru
+                ui.label(egui::RichText::new("KATA SANDI BARU").size(10.0).color(text_muted()).strong());
+                ui.add_space(6.0);
+                let (p2_rect, _) = ui.allocate_exact_size(Vec2::new(total_w - 40.0, 44.0), egui::Sense::hover());
+                filled_rect(ui, p2_rect, bg_input(), Stroke::new(0.5, border_default()), 12.0);
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(p2_rect.shrink(12.0)), |ui| {
+                    ui.add(egui::TextEdit::singleline(&mut state.profile_new_password)
+                        .password(true)
+                        .hint_text("Minimal 4 karakter")
+                        .frame(false)
+                        .desired_width(p2_rect.width() - 24.0)
+                        .font(FontId::new(13.5, FontFamily::Proportional)));
+                });
+                ui.add_space(12.0);
+
+                // Konfirmasi Password Baru
+                ui.label(egui::RichText::new("KONFIRMASI KATA SANDI BARU").size(10.0).color(text_muted()).strong());
+                ui.add_space(6.0);
+                let (p3_rect, _) = ui.allocate_exact_size(Vec2::new(total_w - 40.0, 44.0), egui::Sense::hover());
+                filled_rect(ui, p3_rect, bg_input(), Stroke::new(0.5, border_default()), 12.0);
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(p3_rect.shrink(12.0)), |ui| {
+                    ui.add(egui::TextEdit::singleline(&mut state.profile_confirm_password)
+                        .password(true)
+                        .hint_text("Ulangi kata sandi baru")
+                        .frame(false)
+                        .desired_width(p3_rect.width() - 24.0)
+                        .font(FontId::new(13.5, FontFamily::Proportional)));
+                });
+
+                if let Some(err) = &state.profile_password_error {
+                    ui.add_space(12.0);
+                    ui.label(egui::RichText::new(err).color(error_color()).size(11.5).strong());
+                }
+                if let Some(msg) = &state.profile_password_success {
+                    ui.add_space(12.0);
+                    ui.label(egui::RichText::new(msg).color(success_color()).size(11.5).strong());
+                }
+
+                ui.add_space(20.0);
+
+                // Buttons
+                ui.horizontal(|ui| {
+                    let w_btn = (total_w - 40.0 - 12.0) / 2.0;
+                    if ghost_btn(ui, "Batal", w_btn).clicked() {
+                        state.dashboard_tab = DashboardTab::Settings;
+                        state.profile_old_password.clear();
+                        state.profile_new_password.clear();
+                        state.profile_confirm_password.clear();
+                        state.profile_password_error = None;
+                        state.profile_password_success = None;
+                    }
+                    ui.add_space(12.0);
+                    if teal_btn(ui, "Ubah Sandi", w_btn).clicked() {
+                        ctrl.change_password(state);
+                    }
+                });
+            });
         });
     });
 }
