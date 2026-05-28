@@ -131,19 +131,29 @@ pub fn check_security_violation() -> Option<String> {
 
 /// Helper untuk mengambil nilai system property via perintah 'getprop'
 fn get_prop(prop_name: &str) -> Option<String> {
-    use std::process::Command;
-    let output = Command::new("getprop")
-        .arg(prop_name)
-        .output()
-        .ok()?;
-    
-    if output.status.success() {
-        let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
-        if !val.is_empty() {
-            return Some(val);
-        }
+    #[cfg(target_os = "android")]
+    {
+        // Menghindari eksekusi subprocess (Command::new) di Android karena 
+        // akan langsung memicu SIGKILL / SIGSYS (Security Violation) di Android 10+.
+        // Untuk saat ini kita bypass pengecekan via getprop.
+        None
     }
-    None
+    #[cfg(not(target_os = "android"))]
+    {
+        use std::process::Command;
+        let output = Command::new("getprop")
+            .arg(prop_name)
+            .output()
+            .ok()?;
+        
+        if output.status.success() {
+            let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
+            if !val.is_empty() {
+                return Some(val);
+            }
+        }
+        None
+    }
 }
 
 /// Helper untuk mock pengujian di lingkungan non-Android (Windows / Linux / macOS)

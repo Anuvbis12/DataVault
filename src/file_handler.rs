@@ -5,6 +5,7 @@
 use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Vertex};
 #[cfg(not(target_os = "android"))]
+#[cfg(not(target_os = "android"))]
 use rfd::FileDialog;
 use std::path::PathBuf;
 use zeroize::Zeroize;

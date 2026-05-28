@@ -144,6 +144,7 @@ fn android_main(app: android_activity::AndroidApp) {
     );
     log::info!("Aegis Vault Android is starting...");
 
+    let app_for_panic = app.clone();
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
         let data_path = app.internal_data_path().unwrap_or_else(|| std::path::PathBuf::from("/data/data/rust.aegis_vault/files"));
         std::fs::create_dir_all(&data_path).expect("Gagal membuat direktori internal_data_path");
@@ -156,35 +157,63 @@ fn android_main(app: android_activity::AndroidApp) {
         std::fs::create_dir_all(&vault_p).expect("Gagal membuat VAULT_DIR");
 
         let mut options = eframe::NativeOptions::default();
-        let app_clone = app.clone();
+        #[cfg(target_os = "android")]
+        {
+            options.renderer = eframe::Renderer::Glow;
+        }
+        
+        let app_clone = app_for_panic.clone();
         options.event_loop_builder = Some(Box::new(move |builder| {
             use winit::platform::android::EventLoopBuilderExtAndroid;
             builder.with_android_app(app_clone);
         }));
 
+        let app_clone2 = app_for_panic.clone();
         eframe::run_native(
             "Aegis Vault",
             options,
             Box::new(move |cc| {
                 crate::theme::apply(&cc.egui_ctx);
                 
-                // Tangkap error SQLite ke file teks
-                let db_res = crate::db::VaultDb::open(crate::controller::db_path());
-                if let Err(e) = &db_res {
-                    log::error!("SQLite Error: {:?}", e);
-                    panic!("SQLite Error: {:?}", e);
-                }
-                let db = db_res.unwrap();
+                // Tangkap error SQLite dan jangan panic (menghindari JNI abort).
+                // Jika error, gunakan database memory sementara untuk menampilkan error di UI.
+                let db_path_override = crate::controller::db_path();
+                let db_res = crate::db::VaultDb::open(db_path_override);
+                let (db, err_msg) = match db_res {
+                    Ok(d) => (d, None),
+                    Err(e) => {
+                        let msg = format!("SQLite Error on path {:?}: {:?}", db_path_override, e);
+                        log::error!("{}", msg);
+                        (crate::db::VaultDb::open(std::path::Path::new(":memory:")).unwrap(), Some(msg))
+                    }
+                };
                 
                 let mut mvc = VaultMvc::new(db);
-                mvc.android_app = Some(app);
+                if let Some(msg) = err_msg {
+                    mvc.state.set_status(&msg, true);
+                }
+                mvc.android_app = Some(app_clone2);
                 Box::new(mvc)
             }),
         ).unwrap();
     }));
 
     if let Err(e) = res {
-        log::error!("CAUGHT PANIC IN ANDROID MAIN: {:?}", e);
+        let msg = if let Some(s) = e.downcast_ref::<&str>() {
+            s.to_string()
+        } else if let Some(s) = e.downcast_ref::<String>() {
+            s.clone()
+        } else {
+            "Unknown panic".to_string()
+        };
+        log::error!("CAUGHT PANIC IN ANDROID MAIN: {}", msg);
+        
+        if let Some(ext_path) = app_for_panic.external_data_path() {
+            let _ = std::fs::create_dir_all(&ext_path);
+            let log_file = ext_path.join("CRASH_LOG.txt");
+            let _ = std::fs::write(&log_file, format!("Aegis Vault Crash:\n{}", msg));
+            log::error!("WROTE CRASH LOG TO: {:?}", log_file);
+        }
         std::thread::sleep(std::time::Duration::from_secs(3));
     }
 }

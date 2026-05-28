@@ -5,6 +5,7 @@
 use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Vertex};
 #[cfg(not(target_os = "android"))]
+#[cfg(not(target_os = "android"))]
 use rfd::FileDialog;
 
 use crate::app_state::{AppScreen, AppState, DashboardTab, SortOption};
@@ -731,7 +732,12 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             ui.painter().text(lock_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(18.0, FontFamily::Proportional), text_muted());
             
             if add_resp.clicked() {
-                if let Some(path) = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file() {
+                #[cfg(not(target_os = "android"))]
+                let path = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file();
+                #[cfg(target_os = "android")]
+                let path: Option<std::path::PathBuf> = { state.set_status("Memilih file belum didukung di Android", false); None };
+                
+                if let Some(path) = path {
                     ctrl.encrypt_file(state, path);
                 }
             }
@@ -837,7 +843,12 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "📄", FontId::new(26.0, FontFamily::Proportional), Color32::WHITE);
             
             if fab_resp.clicked() {
-                if let Some(path) = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file() {
+                #[cfg(not(target_os = "android"))]
+                let path = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file();
+                #[cfg(target_os = "android")]
+                let path: Option<std::path::PathBuf> = { state.set_status("Memilih file belum didukung di Android", false); None };
+                
+                if let Some(path) = path {
                     ctrl.encrypt_file(state, path);
                 }
             }
@@ -2600,7 +2611,11 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                 let record_clone = state.decrypt_target.clone();
                 if let Some(record) = record_clone {
                     if ui.add_sized([250.0, 40.0], egui::Button::new(egui::RichText::new("🔓 Ekstrak & Pulihkan File").size(14.0))).clicked() {
+                        #[cfg(not(target_os = "android"))]
                         let out_dir = rfd::FileDialog::new().set_title("Pilih folder tujuan").pick_folder();
+                        #[cfg(target_os = "android")]
+                        let out_dir: Option<std::path::PathBuf> = { state.set_status("Memilih folder belum didukung di Android", false); None };
+                        
                         if let Some(out_dir) = out_dir {
                             let out_name = record.original_name.clone();
                             ctrl.decrypt_file(state, &record, out_dir, &out_name);

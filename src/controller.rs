@@ -40,13 +40,20 @@ pub struct Controller {
 
 impl Controller {
     pub fn new(db: VaultDb) -> Self {
-        let mut sys = System::new_all();
-        sys.refresh_cpu_usage();
-        sys.refresh_memory();
+        #[allow(unused_mut)]
+        let mut sys = System::new();
+        #[cfg(not(target_os = "android"))]
+        {
+            sys.refresh_cpu_usage();
+            sys.refresh_memory();
+        }
         Self { 
             db: Arc::new(Mutex::new(db)),
             sys: Mutex::new(sys),
+            #[cfg(not(target_os = "android"))]
             disks: Mutex::new(Disks::new_with_refreshed_list()),
+            #[cfg(target_os = "android")]
+            disks: Mutex::new(Disks::new()),
             last_sys_refresh: Mutex::new(std::time::Instant::now()),
         }
     }
@@ -984,9 +991,13 @@ impl Controller {
         }
         *last_refresh = std::time::Instant::now();
         
-        let mut sys = self.sys.lock().unwrap();
-        sys.refresh_cpu_usage();
-        sys.refresh_memory();
+        #[cfg(not(target_os = "android"))]
+        {
+            let mut sys = self.sys.lock().unwrap();
+            sys.refresh_cpu_usage();
+            sys.refresh_memory();
+        }
+        let sys = self.sys.lock().unwrap();
         
         let mut cpu_avg = 0.0;
         let cpus = sys.cpus();
@@ -1006,8 +1017,12 @@ impl Controller {
         let noise = (rand::thread_rng().gen::<f32>() * 0.1) - 0.05;
         state.io_usage = (state.cpu_usage * 0.4 + 0.05 + noise).clamp(0.01, 1.0);
         
-        let mut disks = self.disks.lock().unwrap();
-        disks.refresh_list();
+        #[cfg(not(target_os = "android"))]
+        {
+            let mut disks = self.disks.lock().unwrap();
+            disks.refresh_list();
+        }
+        let disks = self.disks.lock().unwrap();
         let mut total_disk = 0;
         let mut free_disk = 0;
         for disk in disks.list() {
