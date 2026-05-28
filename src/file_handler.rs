@@ -140,7 +140,7 @@ impl FileUnlockApp {
             .set_title("Pilih folder tujuan")
             .pick_folder();
         #[cfg(target_os = "android")]
-        let out_dir: Option<PathBuf> = { self.status = Some(("Memilih folder tujuan belum didukung di Android.".into(), false)); None };
+        let out_dir: Option<PathBuf> = crate::controller::external_dir().map(|p| p.to_path_buf());
         let out_dir = match out_dir {
             Some(d) => d,
             None    => {

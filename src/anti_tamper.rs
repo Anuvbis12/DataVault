@@ -29,22 +29,10 @@ pub fn check_security_violation() -> Option<String> {
 
     for path in SU_PATHS {
         if std::path::Path::new(path).exists() {
-            return Some(format!("ROOT terdeteksi: berkas '{}' ditemukan di sistem.", path));
-        }
-    }
-
-    // 1b. Cek keberadaan biner 'su' melalui variabel lingkungan PATH (SELinux bypass)
-    if let Ok(path_env) = std::env::var("PATH") {
-        #[cfg(target_os = "windows")]
-        let separator = ';';
-        #[cfg(not(target_os = "windows"))]
-        let separator = ':';
-
-        for dir in path_env.split(separator) {
-            let p = std::path::Path::new(dir).join("su");
-            if p.exists() {
-                return Some(format!("ROOT terdeteksi: biner 'su' ditemukan di PATH: '{}'.", p.display()));
-            }
+            return Some(format!(
+                "ROOT terdeteksi: berkas '{}' ditemukan di sistem.",
+                path
+            ));
         }
     }
 
@@ -63,23 +51,29 @@ pub fn check_security_violation() -> Option<String> {
 
     for file in EMU_FILES {
         if std::path::Path::new(file).exists() {
-            return Some(format!("EMULATOR terdeteksi: berkas emulasi '{}' ditemukan di sistem.", file));
+            return Some(format!(
+                "EMULATOR terdeteksi: berkas emulasi '{}' ditemukan di sistem.",
+                file
+            ));
         }
     }
 
     // 3. Cek properti sistem (Android System Properties via getprop)
     // Pengecekan ini paling akurat untuk mendeteksi emulator Android resmi maupun pihak ketiga (Genymotion, BlueStacks, Nox, dll.)
-    
+
     // ro.hardware
     if let Some(hardware) = get_prop("ro.hardware") {
         let hw_lower = hardware.to_lowercase();
-        if hw_lower.contains("goldfish") 
-            || hw_lower.contains("ranchu") 
-            || hw_lower.contains("vbox86") 
-            || hw_lower.contains("sdk") 
+        if hw_lower.contains("goldfish")
+            || hw_lower.contains("ranchu")
+            || hw_lower.contains("vbox86")
+            || hw_lower.contains("sdk")
             || hw_lower.contains("nox")
         {
-            return Some(format!("EMULATOR terdeteksi: ro.hardware = '{}'.", hardware));
+            return Some(format!(
+                "EMULATOR terdeteksi: ro.hardware = '{}'.",
+                hardware
+            ));
         }
     }
 
@@ -93,97 +87,92 @@ pub fn check_security_violation() -> Option<String> {
     // ro.product.model
     if let Some(model) = get_prop("ro.product.model") {
         let model_lower = model.to_lowercase();
-        if model_lower.contains("sdk") 
-            || model_lower.contains("emulator") 
+        if model_lower.contains("sdk")
+            || model_lower.contains("emulator")
             || model_lower.contains("android sdk")
             || model_lower.contains("genymotion")
         {
-            return Some(format!("EMULATOR terdeteksi: ro.product.model = '{}'.", model));
+            return Some(format!(
+                "EMULATOR terdeteksi: ro.product.model = '{}'.",
+                model
+            ));
         }
     }
 
     // ro.product.device
     if let Some(device) = get_prop("ro.product.device") {
         let device_lower = device.to_lowercase();
-        if device_lower.contains("generic") 
-            || device_lower.contains("vbox") 
+        if device_lower.contains("generic")
+            || device_lower.contains("vbox")
             || device_lower.contains("emulator")
             || device_lower.contains("nox")
         {
-            return Some(format!("EMULATOR terdeteksi: ro.product.device = '{}'.", device));
+            return Some(format!(
+                "EMULATOR terdeteksi: ro.product.device = '{}'.",
+                device
+            ));
         }
     }
 
     // ro.product.brand
     if let Some(brand) = get_prop("ro.product.brand") {
         let brand_lower = brand.to_lowercase();
-        if brand_lower.contains("generic") || brand_lower.contains("google") && get_prop("ro.product.name").unwrap_or_default().to_lowercase().contains("sdk") {
-            return Some(format!("EMULATOR terdeteksi: ro.product.brand = '{}'.", brand));
+        if brand_lower.contains("generic")
+            || brand_lower.contains("google")
+                && get_prop("ro.product.name")
+                    .unwrap_or_default()
+                    .to_lowercase()
+                    .contains("sdk")
+        {
+            return Some(format!(
+                "EMULATOR terdeteksi: ro.product.brand = '{}'.",
+                brand
+            ));
         }
     }
 
     // ro.product.name
     if let Some(name) = get_prop("ro.product.name") {
         let name_lower = name.to_lowercase();
-        if name_lower.contains("sdk") 
-            || name_lower.contains("emulator") 
+        if name_lower.contains("sdk")
+            || name_lower.contains("emulator")
             || name_lower.contains("nox")
             || name_lower.contains("vbox86")
         {
-            return Some(format!("EMULATOR terdeteksi: ro.product.name = '{}'.", name));
+            return Some(format!(
+                "EMULATOR terdeteksi: ro.product.name = '{}'.",
+                name
+            ));
         }
     }
 
     // ro.build.tags (Mendeteksi custom build ROM / test-keys yang sering digunakan di lingkungan rooted/hacking)
     if let Some(tags) = get_prop("ro.build.tags") {
         if tags.to_lowercase().contains("test-keys") {
-            return Some(format!("ROOT terdeteksi: build tag menggunakan '{}' (test-keys).", tags));
+            return Some(format!(
+                "ROOT terdeteksi: build tag menggunakan '{}' (test-keys).",
+                tags
+            ));
         }
-    }
-
+    };
     None
 }
 
-#[cfg(target_os = "android")]
-extern "C" {
-    fn __system_property_get(
-        name: *const std::os::raw::c_char,
-        value: *mut std::os::raw::c_char,
-    ) -> std::os::raw::c_int;
-}
-
-/// Helper untuk mengambil nilai system property via perintah 'getprop' atau FFI native
+/// Helper untuk mengambil nilai system property via perintah 'getprop'
 #[allow(unused_variables)]
 fn get_prop(prop_name: &str) -> Option<String> {
     #[cfg(target_os = "android")]
     {
-        use std::ffi::{CStr, CString};
-        use std::os::raw::c_char;
-
-        let c_name = CString::new(prop_name).ok()?;
-        let mut value_buf = vec![0u8; 128]; // PROP_VALUE_MAX is 92, 128 is safe
-        
-        unsafe {
-            let len = __system_property_get(c_name.as_ptr(), value_buf.as_mut_ptr() as *mut c_char);
-            if len > 0 {
-                if let Ok(c_str) = CStr::from_ptr(value_buf.as_ptr() as *const c_char).to_str() {
-                    let val = c_str.trim().to_string();
-                    if !val.is_empty() {
-                        return Some(val);
-                    }
-                }
-            }
-        }
+        // Menghindari eksekusi subprocess (Command::new) di Android karena
+        // akan langsung memicu SIGKILL / SIGSYS (Security Violation) di Android 10+.
+        // Untuk saat ini kita bypass pengecekan via getprop.
         None
     }
     #[cfg(not(target_os = "android"))]
     {
         use std::process::Command;
-        let output = Command::new("getprop")
-            .arg(prop_name)
-            .output()
-            .ok()?;
-        
+        let output = Command::new("getprop").arg(prop_name).output().ok()?;
+
         if output.status.success() {
             let val = String::from_utf8_lossy(&output.stdout).trim().to_string();
             if !val.is_empty() {

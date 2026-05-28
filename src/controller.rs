@@ -21,6 +21,7 @@ use crate::db::{FileRecord, VaultDb};
 
 pub static VAULT_DIR_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 pub static DB_PATH_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
+pub static EXTERNAL_DIR_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 
 pub fn vault_dir() -> &'static Path {
     VAULT_DIR_OVERRIDE.get_or_init(|| PathBuf::from("vault_storage"))
@@ -28,6 +29,10 @@ pub fn vault_dir() -> &'static Path {
 
 pub fn db_path() -> &'static Path {
     DB_PATH_OVERRIDE.get_or_init(|| vault_dir().join("vault.db"))
+}
+
+pub fn external_dir() -> Option<&'static Path> {
+    EXTERNAL_DIR_OVERRIDE.get().map(|p| p.as_path())
 }
 
 // ── Controller ────────────────────────────────────────────
@@ -885,15 +890,22 @@ impl Controller {
         #[cfg(not(target_os = "android"))]
         let dest = rfd::FileDialog::new().set_file_name("vault_backup.db").save_file();
         #[cfg(target_os = "android")]
-        let dest: Option<PathBuf> = { state.set_status("Backup via dialog belum didukung di Android", false); None };
+        let dest: Option<PathBuf> = crate::controller::external_dir().map(|p| p.join("vault_backup.db"));
 
         if let Some(dest) = dest {
-            if let Err(e) = std::fs::copy(crate::controller::db_path(), dest) {
+            if let Err(e) = std::fs::copy(crate::controller::db_path(), &dest) {
                 state.set_status(&format!("❌ Gagal backup: {}", e), false);
             } else {
+                #[cfg(target_os = "android")]
+                state.set_status(&format!("✅ Backup database berhasil disimpan ke: {}", dest.display()), true);
+                #[cfg(not(target_os = "android"))]
                 state.set_status("✅ Backup database berhasil.", true);
+                
                 self.log_action("BACKUP", "Database dicadangkan oleh pengguna.");
             }
+        } else {
+            #[cfg(target_os = "android")]
+            state.set_status("❌ Gagal backup: Penyimpanan eksternal tidak tersedia.", false);
         }
     }
 

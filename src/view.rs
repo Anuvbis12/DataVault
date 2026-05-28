@@ -2237,7 +2237,7 @@ fn render_decrypt_panel(
                         .set_title("Pilih folder tujuan")
                         .pick_folder();
                     #[cfg(target_os = "android")]
-                    let out_dir: Option<std::path::PathBuf> = { state.set_status("Memilih folder tujuan belum didukung di Android", false); None };
+                    let out_dir: Option<std::path::PathBuf> = crate::controller::external_dir().map(|p| p.to_path_buf());
                     if let Some(out_dir) = out_dir
                     {
                         let rec = record.clone();

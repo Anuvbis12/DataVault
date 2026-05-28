@@ -204,6 +204,22 @@ fn android_main(app: android_activity::AndroidApp) {
         let data_path = app.internal_data_path().unwrap_or_else(|| std::path::PathBuf::from("/data/data/rust.aegis_vault/files"));
         std::fs::create_dir_all(&data_path).expect("Gagal membuat direktori internal_data_path");
 
+        // Set TMPDIR to prevent SELinux permission errors when writing to /data/local/tmp
+        let cache_path = data_path.join("cache");
+        let _ = std::fs::create_dir_all(&cache_path);
+        std::env::set_var("TMPDIR", &cache_path);
+
+        // Set EXTERNAL_DIR_OVERRIDE for Android backup and decryption path fallbacks
+        if let Some(ext_path) = app.external_data_path() {
+            let decrypted_p = ext_path.join("Decrypted");
+            let _ = std::fs::create_dir_all(&decrypted_p);
+            let _ = crate::controller::EXTERNAL_DIR_OVERRIDE.set(decrypted_p);
+        } else {
+            let decrypted_p = data_path.join("Decrypted");
+            let _ = std::fs::create_dir_all(&decrypted_p);
+            let _ = crate::controller::EXTERNAL_DIR_OVERRIDE.set(decrypted_p);
+        }
+
         // Set absolute paths based on Android internal storage
         let vault_p = data_path.join("vault_storage");
         let _ = crate::controller::VAULT_DIR_OVERRIDE.set(vault_p.clone());
