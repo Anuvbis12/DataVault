@@ -107,15 +107,14 @@ class MainActivity : GameActivity() {
         }
     }
 
+    fun requestFilePicker() {
+        runOnUiThread {
+            openFilePicker()
+        }
+    }
+
     companion object {
         private var instance: MainActivity? = null
-
-        @JvmStatic
-        fun requestFilePicker() {
-            instance?.runOnUiThread {
-                instance?.openFilePicker()
-            }
-        }
         
         init {
             System.loadLibrary("aegis_vault")

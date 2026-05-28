@@ -40,9 +40,12 @@ pub fn request_file_picker(app: &android_activity::AndroidApp) {
     let context_ptr = ndk_context::android_context().context();
     let activity_obj = unsafe { jni::objects::JObject::from_raw(context_ptr as jni::sys::jobject) };
     
-    // Get the class of the Activity to avoid ClassNotFoundException on background thread
-    if let Ok(class) = env.get_object_class(&activity_obj) {
-        let _ = env.call_static_method(class, "requestFilePicker", "()V", &[]);
+    // Panggil 'requestFilePicker' sebagai metode instansi langsung pada objek aktivitas
+    let res = env.call_method(&activity_obj, "requestFilePicker", "()V", &[]);
+    if let Err(e) = res {
+        log::error!("Gagal memanggil requestFilePicker: {:?}", e);
+        // Penting: Bersihkan eksepsi tertunda agar tidak memicu crash abort JVM!
+        let _ = env.exception_clear();
     }
 }
 

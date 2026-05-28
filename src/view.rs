@@ -713,6 +713,36 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
     });
 }
 
+fn get_indonesian_date() -> String {
+    use chrono::{Datelike, Local};
+    let now = Local::now();
+    let day_name = match now.weekday() {
+        chrono::Weekday::Sun => "Minggu",
+        chrono::Weekday::Mon => "Senin",
+        chrono::Weekday::Tue => "Selasa",
+        chrono::Weekday::Wed => "Rabu",
+        chrono::Weekday::Thu => "Kamis",
+        chrono::Weekday::Fri => "Jumat",
+        chrono::Weekday::Sat => "Sabtu",
+    };
+    let month_name = match now.month() {
+        1 => "Januari",
+        2 => "Februari",
+        3 => "Maret",
+        4 => "April",
+        5 => "Mei",
+        6 => "Juni",
+        7 => "Juli",
+        8 => "Agustus",
+        9 => "September",
+        10 => "Oktober",
+        11 => "November",
+        12 => "Desember",
+        _ => "Desember",
+    };
+    format!("{}, {} {} {}", day_name, now.day(), month_name, now.year())
+}
+
 // ── Screen: Dashboard ─────────────────────────────────────
 fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     ctrl.refresh_device_metrics(state);
@@ -726,7 +756,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     
     // Header Texts & Actions
     let (title, sub) = match state.dashboard_tab {
-        DashboardTab::Home => ("Brankas Saya", "Selasa, 27 Mei 2025".to_string()),
+        DashboardTab::Home => ("Brankas Saya", get_indonesian_date()),
         DashboardTab::Vault => ("Brankas", format!("5 folder · {} file", state.file_list.len())),
         DashboardTab::Kuat => ("Kenapa HP Kuat?", "Variabel teknis, bahasa manusia".to_string()),
         _ => ("Semua File", format!("{} file terenkripsi", state.file_list.len())),
@@ -739,21 +769,21 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     // Top Right Actions
     match state.dashboard_tab {
         DashboardTab::Home => {
-            let grid_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 36.0, topbar_rect.center().y + 4.0), Vec2::splat(40.0));
+            let grid_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 44.0, topbar_rect.center().y + 4.0), Vec2::splat(40.0));
             let grid_resp = ui.allocate_rect(grid_rect, egui::Sense::click());
             let grid_bg = if grid_resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
             filled_rect(ui, grid_rect, grid_bg, Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 13)), 12.0);
-            ui.painter().text(grid_rect.center(), egui::Align2::CENTER_CENTER, "⊞", FontId::new(20.0, FontFamily::Proportional), text_muted());
+            ui.painter().text(grid_rect.center(), egui::Align2::CENTER_CENTER, "⚙", FontId::new(20.0, FontFamily::Proportional), text_muted());
             if grid_resp.clicked() { state.dashboard_tab = DashboardTab::Settings; }
         },
         DashboardTab::Vault => {
-            let add_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 36.0, topbar_rect.center().y + 4.0), Vec2::splat(40.0));
+            let add_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 44.0, topbar_rect.center().y + 4.0), Vec2::splat(40.0));
             let add_resp = ui.allocate_rect(add_rect, egui::Sense::click());
             let add_bg = if add_resp.hovered() { Color32::from_rgba_unmultiplied(129, 140, 248, 20) } else { Color32::from_rgba_unmultiplied(129, 140, 248, 10) };
             filled_rect(ui, add_rect, add_bg, Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 40)), 12.0);
             ui.painter().text(add_rect.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(18.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
             
-            let lock_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 86.0, topbar_rect.center().y + 4.0), Vec2::splat(40.0));
+            let lock_rect = egui::Rect::from_center_size(egui::pos2(avail.right() - 94.0, topbar_rect.center().y + 4.0), Vec2::splat(40.0));
             let lock_resp = ui.allocate_rect(lock_rect, egui::Sense::click());
             let lock_bg = if lock_resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
             filled_rect(ui, lock_rect, lock_bg, Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 13)), 12.0);
@@ -863,18 +893,18 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
             let fab_resp = ui.allocate_rect(fab_rect, egui::Sense::click());
             
             let mut glow_rect = fab_rect;
-            glow_rect = glow_rect.expand(4.0);
-            filled_rect(ui, glow_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 30), Stroke::NONE, 34.0);
+            glow_rect = glow_rect.expand(6.0);
+            filled_rect(ui, glow_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 20), Stroke::NONE, 36.0);
             
             let fab_fill = if fab_resp.hovered() { Color32::from_rgb(99, 102, 241) } else { Color32::from_rgb(129, 140, 248) };
             filled_rect(ui, fab_rect, fab_fill, Stroke::NONE, 30.0);
-            ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "📄", FontId::new(26.0, FontFamily::Proportional), Color32::WHITE);
+            ui.painter().text(fab_rect.center(), egui::Align2::CENTER_CENTER, "+", FontId::new(32.0, FontFamily::Proportional), Color32::WHITE);
             
             if fab_resp.clicked() {
                 #[cfg(not(target_os = "android"))]
                 let path = rfd::FileDialog::new().set_title("Pilih file untuk dienkripsi").pick_file();
                 #[cfg(target_os = "android")]
-                let path: Option<std::path::PathBuf> = { state.set_status("Memilih file belum didukung di Android", false); None };
+                let path: Option<std::path::PathBuf> = { state.request_android_file_picker = true; None };
                 
                 if let Some(path) = path {
                     ctrl.encrypt_file(state, path);
@@ -919,12 +949,12 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
 
 fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
     let avail = ui.available_rect_before_wrap();
-    let pad = 16.0;
+    let pad = 24.0;
     
     // ── 1. BigCard Hero ────────────────────────────────────────
     ui.add_space(8.0);
     let card_w = avail.width() - pad * 2.0;
-    let card_h = 200.0;
+    let card_h = 160.0;
     let (card_rect, _) = ui.allocate_exact_size(Vec2::new(card_w, card_h), egui::Sense::hover());
     
     // Background gradient (simulated using circles and base dark color)
@@ -946,28 +976,28 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     }
     clip_painter.add(egui::Shape::mesh(mesh));
     
-    // Shield Icon (top left)
-    let shield_bg_rect = egui::Rect::from_min_size(egui::pos2(card_rect.left() + 20.0, card_rect.top() + 20.0), Vec2::splat(52.0));
-    filled_rect(ui, shield_bg_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 16.0);
-    ui.painter().text(shield_bg_rect.center(), egui::Align2::CENTER_CENTER, "🛡", FontId::new(26.0, FontFamily::Proportional), Color32::WHITE);
+    // Shield Icon (left column, vertically centered)
+    let shield_bg_rect = egui::Rect::from_center_size(egui::pos2(card_rect.left() + 52.0, card_rect.center().y), Vec2::splat(56.0));
+    filled_rect(ui, shield_bg_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 18.0);
+    ui.painter().text(shield_bg_rect.center(), egui::Align2::CENTER_CENTER, "🛡", FontId::new(28.0, FontFamily::Proportional), Color32::WHITE);
     
     // AMAN badge (top right)
-    let badge_rect = egui::Rect::from_min_size(egui::pos2(card_rect.right() - 86.0, card_rect.top() + 30.0), Vec2::new(66.0, 26.0));
+    let badge_rect = egui::Rect::from_min_size(egui::pos2(card_rect.right() - 90.0, card_rect.top() + 24.0), Vec2::new(66.0, 26.0));
     filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(16, 185, 129, 15), Stroke::new(1.0, Color32::from_rgba_unmultiplied(16, 185, 129, 40)), 13.0);
     ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "• AMAN", FontId::new(10.0, FontFamily::Proportional), accent_mint());
     
-    // Text Content
+    // Text Content (right column, beautifully aligned)
     let total_files = state.file_list.len();
-    let num_rect = ui.painter().text(egui::pos2(card_rect.left() + 20.0, card_rect.top() + 90.0), egui::Align2::LEFT_TOP, format!("{}", total_files), FontId::new(42.0, FontFamily::Proportional), Color32::WHITE);
-    ui.painter().text(egui::pos2(num_rect.right() + 8.0, num_rect.bottom() - 16.0), egui::Align2::LEFT_TOP, "file", FontId::new(15.0, FontFamily::Proportional), text_muted());
+    let num_rect = ui.painter().text(egui::pos2(card_rect.left() + 104.0, card_rect.top() + 24.0), egui::Align2::LEFT_TOP, format!("{}", total_files), FontId::new(36.0, FontFamily::Proportional), Color32::WHITE);
+    ui.painter().text(egui::pos2(num_rect.right() + 6.0, num_rect.bottom() - 14.0), egui::Align2::LEFT_TOP, "file", FontId::new(14.0, FontFamily::Proportional), text_muted());
     
-    ui.painter().text(egui::pos2(card_rect.left() + 20.0, card_rect.top() + 140.0), egui::Align2::LEFT_TOP, format!("File terlindungi - {}", format_size(state.total_vault_size())), FontId::new(12.0, FontFamily::Proportional), text_muted());
+    ui.painter().text(egui::pos2(card_rect.left() + 104.0, card_rect.top() + 74.0), egui::Align2::LEFT_TOP, format!("Terlindungi: {}", format_size(state.total_vault_size())), FontId::new(11.5, FontFamily::Proportional), text_muted());
     
-    // Bottom pill
-    let pill_rect = egui::Rect::from_min_size(egui::pos2(card_rect.left() + 20.0, card_rect.bottom() - 36.0), Vec2::new(180.0, 24.0));
+    // Bottom pill (right column, beautifully aligned)
+    let pill_rect = egui::Rect::from_min_size(egui::pos2(card_rect.left() + 104.0, card_rect.top() + 106.0), Vec2::new(160.0, 24.0));
     filled_rect(ui, pill_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 15), Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 40)), 12.0);
     let is_2fa = if state.totp_enabled { "2FA Aktif" } else { "2FA Mati" };
-    ui.painter().text(pill_rect.center(), egui::Align2::CENTER_CENTER, format!("🔒 AES-256-GCM • {}", is_2fa), FontId::new(10.0, FontFamily::Proportional), Color32::from_rgb(165, 180, 252));
+    ui.painter().text(pill_rect.center(), egui::Align2::CENTER_CENTER, format!("🔒 AES-256 • {}", is_2fa), FontId::new(9.5, FontFamily::Proportional), Color32::from_rgb(165, 180, 252));
     
     // ── 2. Quick Action Chips (AKSI CEPAT) ──────────────────────
     ui.add_space(24.0);
@@ -982,6 +1012,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     let card_w3 = (total_w - gap * 2.0) / 3.0;
     
     ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
         ui.add_space(pad);
         
         // Chip 1: Kunci
@@ -1031,6 +1062,7 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     let card_h2 = 110.0;
     
     ui.horizontal(|ui| {
+        ui.spacing_mut().item_spacing.x = 0.0;
         ui.add_space(pad);
         
         // Card 1: Terkunci (File aman)
@@ -3084,7 +3116,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                 let rect = ctx.screen_rect();
                 filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
                 
-                let modal_size = Vec2::new(320.0, 480.0);
+                let modal_size = Vec2::new(340.0, 520.0);
                 let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
                 
                 if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
@@ -3095,15 +3127,15 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                 
                 ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
                     ui.vertical_centered(|ui| {
-                        let shield_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(56.0));
+                        let shield_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 36.0), Vec2::splat(56.0));
                         filled_rect(ui, shield_rect, accent_purple_a(), Stroke::NONE, 16.0);
                         ui.painter().text(shield_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(26.0, FontFamily::Proportional), accent_purple());
                         
-                        ui.add_space(80.0);
+                        ui.add_space(60.0);
                         ui.label(egui::RichText::new("Verifikasi PIN").size(20.0).color(text_primary()).strong());
                         ui.add_space(4.0);
                         ui.label(egui::RichText::new("Masukkan PIN 6 digit Anda untuk\nmengubah lokasi penyimpanan").size(12.0).color(text_muted()));
-                        ui.add_space(24.0);
+                        ui.add_space(20.0);
                         
                         ui.horizontal(|ui| {
                             let dot_size = 14.0;
@@ -3128,7 +3160,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                             ui.label(egui::RichText::new(err).color(error_color()).size(12.0));
                         }
                         
-                        ui.add_space(20.0);
+                        ui.add_space(16.0);
                         let btn_w = 80.0;
                         let gap = 12.0;
                         let numpad_w = 3.0 * btn_w + 2.0 * gap;
