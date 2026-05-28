@@ -130,6 +130,7 @@ pub fn check_security_violation() -> Option<String> {
 }
 
 /// Helper untuk mengambil nilai system property via perintah 'getprop'
+#[allow(unused_variables)]
 fn get_prop(prop_name: &str) -> Option<String> {
     #[cfg(target_os = "android")]
     {

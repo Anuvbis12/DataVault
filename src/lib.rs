@@ -193,7 +193,7 @@ fn android_main(app: android_activity::AndroidApp) {
                     mvc.state.set_status(&msg, true);
                 }
                 mvc.android_app = Some(app_clone2);
-                Box::new(mvc)
+                Ok(Box::new(mvc))
             }),
         ).unwrap();
     }));
@@ -225,7 +225,13 @@ pub extern "C" fn start_app_ios() {
     // Pastikan folder vault tersedia
     std::fs::create_dir_all(controller::vault_dir()).ok();
 
-    let options = eframe::NativeOptions::default();
+    let mut options = eframe::NativeOptions::default();
+        let app_clone = app.clone();
+        options.event_loop_builder = Some(Box::new(move |builder| {
+            use winit::platform::android::EventLoopBuilderExtAndroid;
+            builder.with_android_app(app_clone);
+        }));
+
     eframe::run_native(
         "Aegis Vault",
         options,

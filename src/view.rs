@@ -28,9 +28,10 @@ pub fn render(
     draw_background(ctx);
 
     // Overlay Virtual Keyboard (Secure Keyboard)
-    if state.show_keyboard {
-        render_virtual_keyboard(ctx, state);
-    }
+    // (Disabled because native Android keyboard works properly)
+    // if state.show_keyboard {
+    //     render_virtual_keyboard(ctx, state);
+    // }
 
     if state.pin_shake_timer > 0.0 {
         state.pin_shake_timer -= ctx.input(|i| i.stable_dt);
@@ -122,7 +123,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     let avail = ui.available_rect_before_wrap();
     let pad = 24.0;
 
-    ui.allocate_ui_at_rect(avail, |ui| {
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.add_space(32.0);
             ui.horizontal(|ui| {
@@ -167,7 +168,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                     ui.add_space(8.0);
                     let (u_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
                     filled_rect(ui, u_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 23)), 16.0);
-                    ui.allocate_ui_at_rect(u_rect.shrink(14.0), |ui| {
+                    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(u_rect.shrink(14.0)), |ui| {
                         let resp = ui.add(egui::TextEdit::singleline(&mut state.login_username).hint_text("nama@email.com").frame(false).desired_width(u_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
                         if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginUsername; state.show_keyboard = true; }
                     });
@@ -180,7 +181,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                     let (p_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
                     let p_border = if state.login_error.is_some() { Stroke::new(1.0, error_color()) } else { Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 23)) };
                     filled_rect(ui, p_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), p_border, 16.0);
-                    ui.allocate_ui_at_rect(p_rect.shrink(14.0), |ui| {
+                    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(p_rect.shrink(14.0)), |ui| {
                         let resp = ui.add(egui::TextEdit::singleline(&mut state.login_password).password(true).hint_text("Masukkan kata sandi").frame(false).desired_width(p_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
                         if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::LoginPassword; state.show_keyboard = true; }
                     });
@@ -271,7 +272,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
 fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
     let avail = ui.available_rect_before_wrap();
 
-    ui.allocate_ui_at_rect(avail, |ui| {
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
         ui.vertical_centered(|ui| {
             // HTML: .auth-wrap style="padding-top:40px"
             ui.add_space(40.0);
@@ -416,7 +417,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
     let pad = 24.0;
     let field_w = avail.width() - pad * 2.0;
     
-    ui.allocate_ui_at_rect(avail, |ui| {
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
         egui::ScrollArea::vertical().show(ui, |ui| {
             ui.add_space(40.0);
             
@@ -463,7 +464,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         ui.add_space(8.0);
                         let (n_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
                         filled_rect(ui, n_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
-                        ui.allocate_ui_at_rect(n_rect.shrink(14.0), |ui| {
+                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(n_rect.shrink(14.0)), |ui| {
                             let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_display_name).hint_text("Nama Anda").frame(false).desired_width(n_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
                             if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupDisplayName; state.show_keyboard = true; }
                         });
@@ -473,7 +474,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         ui.add_space(8.0);
                         let (e_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
                         filled_rect(ui, e_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
-                        ui.allocate_ui_at_rect(e_rect.shrink(14.0), |ui| {
+                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(e_rect.shrink(14.0)), |ui| {
                             let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_username).hint_text("nama@email.com").frame(false).desired_width(e_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
                             if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupUsername; state.show_keyboard = true; }
                         });
@@ -490,7 +491,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         ui.add_space(8.0);
                         let (p1_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
                         filled_rect(ui, p1_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
-                        ui.allocate_ui_at_rect(p1_rect.shrink(14.0), |ui| {
+                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(p1_rect.shrink(14.0)), |ui| {
                             let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password).password(true).hint_text("Min. 8 karakter").frame(false).desired_width(p1_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
                             if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupPassword; state.show_keyboard = true; }
                         });
@@ -509,7 +510,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                         ui.add_space(8.0);
                         let (p2_rect, _) = ui.allocate_exact_size(Vec2::new(field_w, 48.0), egui::Sense::hover());
                         filled_rect(ui, p2_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 10), Stroke::new(1.0, border_default()), 16.0);
-                        ui.allocate_ui_at_rect(p2_rect.shrink(14.0), |ui| {
+                        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(p2_rect.shrink(14.0)), |ui| {
                             let resp = ui.add(egui::TextEdit::singleline(&mut state.setup_password_confirm).password(true).hint_text("Ulangi kata sandi").frame(false).desired_width(p2_rect.width() - 28.0).font(FontId::new(15.0, FontFamily::Proportional)).interactive(true));
                             if resp.gained_focus() || resp.clicked() { state.focused_field = crate::app_state::FocusedField::SetupConfirmPassword; state.show_keyboard = true; }
                         });
@@ -794,9 +795,9 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     }
 
     // Render Content Area first so Bottom Navigation draws ON TOP of it (fixing FAB overlap)
-    ui.allocate_ui_at_rect(content_rect, |ui| {
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(content_rect), |ui| {
         ui.set_opacity(opacity);
-        egui::ScrollArea::vertical().id_source("dashboard_scroll").show(ui, |ui| {
+        egui::ScrollArea::vertical().id_salt("dashboard_scroll").show(ui, |ui| {
 
              ui.add_space(20.0);
              match state.dashboard_tab {
@@ -1324,7 +1325,7 @@ fn var_card(
                 ui.separator();
                 ui.add_space(10.0);
                 
-                ui.add(egui::Label::new(egui::RichText::new(explanation).size(11.5).color(text_body())).wrap(true));
+                ui.add(egui::Label::new(egui::RichText::new(explanation).size(11.5).color(text_body())).wrap());
                 
                 ui.add_space(8.0);
                 
@@ -1334,7 +1335,7 @@ fn var_card(
                     .inner_margin(egui::Margin::symmetric(12.0, 8.0));
                 
                 analogy_frame.show(ui, |ui| {
-                    ui.add(egui::Label::new(egui::RichText::new(format!("💡 {}", analogy)).size(10.5).color(teal_strong())).wrap(true));
+                    ui.add(egui::Label::new(egui::RichText::new(format!("💡 {}", analogy)).size(10.5).color(teal_strong())).wrap());
                 });
             });
         });
@@ -1630,7 +1631,7 @@ fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controlle
         let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 10);
         filled_rect(ui, rect, bg_card(), Stroke::new(1.0, border_c), 14.0);
         
-        ui.allocate_ui_at_rect(rect, |ui| {
+        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(rect), |ui| {
             ui.horizontal(|ui| {
                 ui.add_space(16.0);
                 ui.label(egui::RichText::new("🔍").size(16.0).color(text_muted()));
@@ -2139,7 +2140,7 @@ fn render_decrypt_panel(
                         ui.add(egui::Label::new(egui::RichText::new(
                             "Hash SHA-256 divalidasi sebelum dekripsi. \
                              File asli dihapus permanen dari vault setelah dipulihkan."
-                        ).size(12.0).color(Color32::from_rgb(186, 117, 23))).wrap(true));
+                        ).size(12.0).color(Color32::from_rgb(186, 117, 23))).wrap());
                     });
                 });
 
@@ -2232,7 +2233,7 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                             ui.add_space(6.0);
                             ui.add(egui::Label::new(egui::RichText::new(
                                 "Scan QR code ini dengan Google Authenticator,\nAuthy, atau aplikasi TOTP lainnya."
-                            ).size(12.0).color(teal_light())).wrap(true));
+                            ).size(12.0).color(teal_light())).wrap());
                         });
                     });
 
@@ -2315,7 +2316,7 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
 fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     let avail = ui.available_rect_before_wrap();
 
-    ui.allocate_ui_at_rect(avail, |ui| {
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
         ui.vertical_centered(|ui| {
             ui.add_space(60.0);
 
@@ -2426,7 +2427,7 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
     let mut to_restore: Option<String> = None;
 
     egui::ScrollArea::vertical()
-        .id_source("trash_scroll")
+        .id_salt("trash_scroll")
         .show_viewport(ui, |ui, _vp| {
             ui.set_clip_rect(scroll_rect);
             if state.deleted_list.is_empty() {
@@ -2684,7 +2685,7 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     let mut secure_idx: Option<usize> = None;
 
     egui::ScrollArea::vertical()
-        .id_source("system_trash_scroll")
+        .id_salt("system_trash_scroll")
         .show_viewport(ui, |ui, _vp| {
             ui.set_clip_rect(scroll_rect);
             if state.system_trash_items.is_empty() {
@@ -2841,6 +2842,7 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
 }
 
 // ── VIRTUAL SECURE KEYBOARD ──────────────────────────────────
+#[allow(dead_code)]
 fn render_virtual_keyboard(ctx: &egui::Context, state: &mut AppState) {
     let mut close_keyboard = false;
     egui::TopBottomPanel::bottom("virtual_keyboard")
@@ -2980,7 +2982,7 @@ fn render_security_violation(ctx: &egui::Context, details: &str) {
         .show(ctx, |ui| {
             let avail = ui.available_rect_before_wrap();
             
-            ui.allocate_ui_at_rect(avail, |ui| {
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
                 ui.vertical_centered(|ui| {
                     ui.add_space((avail.height() - 440.0).max(0.0) / 2.0);
                     
@@ -3064,7 +3066,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                 
                 filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
                 
-                ui.allocate_ui_at_rect(modal_rect.shrink(20.0), |ui| {
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
                     ui.vertical_centered(|ui| {
                         let shield_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(56.0));
                         filled_rect(ui, shield_rect, accent_purple_a(), Stroke::NONE, 16.0);
@@ -3176,7 +3178,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                 
                 filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
                 
-                ui.allocate_ui_at_rect(modal_rect.shrink(24.0), |ui| {
+                ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(24.0)), |ui| {
                     ui.horizontal(|ui| {
                         let icon_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::splat(44.0));
                         filled_rect(ui, icon_rect, accent_gold_a(), Stroke::NONE, 14.0);
@@ -3271,7 +3273,7 @@ fn render_context_menu(ctx: &egui::Context, state: &mut AppState, ctrl: &Control
             
             filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
             
-            ui.allocate_ui_at_rect(modal_rect.shrink(20.0), |ui| {
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
                 ui.vertical_centered(|ui| {
                     ui.label(egui::RichText::new(&record.original_name).size(15.0).color(text_primary()).strong());
                     ui.label(egui::RichText::new(format_size(record.file_size as u64)).size(11.0).color(text_muted()));
@@ -3345,7 +3347,7 @@ fn render_share_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controll
             let dialog_size = egui::vec2(380.0, 520.0);
             let dialog_rect = egui::Rect::from_center_size(rect.center(), dialog_size);
 
-            ui.allocate_ui_at_rect(dialog_rect, |ui| {
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(dialog_rect), |ui| {
                 theme::card_frame().show(ui, |ui| {
                     ui.vertical_centered(|ui| {
                         ui.add_space(8.0);

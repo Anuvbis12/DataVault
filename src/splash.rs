@@ -34,7 +34,7 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
     let avail = ui.available_rect_before_wrap();
 
     // Remove the hard-edged circle glow, it doesn't look like a gradient in egui
-    ui.allocate_ui_at_rect(avail, |ui| {
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
         ui.vertical_centered(|ui| {
             // Center vertically
             ui.add_space(avail.height() * 0.35);

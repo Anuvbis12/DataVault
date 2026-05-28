@@ -31,7 +31,7 @@ pub fn run_file_unlock(vlt_path: &str) -> Result<(), eframe::Error> {
         options,
         Box::new(move |cc| {
             crate::theme::apply(&cc.egui_ctx);
-            Box::new(FileUnlockApp::new(vault_file))
+            Ok(Box::new(FileUnlockApp::new(vault_file)))
         }),
     )
 }
@@ -209,7 +209,7 @@ impl FileUnlockApp {
     fn render_unlock(&mut self, ui: &mut egui::Ui) {
         let avail = ui.available_rect_before_wrap();
 
-        ui.allocate_ui_at_rect(avail, |ui| {
+        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(32.0);
 
@@ -394,7 +394,7 @@ impl FileUnlockApp {
     /// Layar sukses setelah file berhasil dipulihkan
     fn render_success(&self, ui: &mut egui::Ui) {
         let avail = ui.available_rect_before_wrap();
-        ui.allocate_ui_at_rect(avail, |ui| {
+        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(avail.height() * 0.25);
 
@@ -424,7 +424,7 @@ impl FileUnlockApp {
     /// Layar error jika DB/file tidak ditemukan
     fn render_error(&self, ui: &mut egui::Ui) {
         let avail = ui.available_rect_before_wrap();
-        ui.allocate_ui_at_rect(avail, |ui| {
+        ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
             ui.vertical_centered(|ui| {
                 ui.add_space(avail.height() * 0.20);
 
@@ -467,7 +467,7 @@ impl FileUnlockApp {
                                     egui::RichText::new(msg)
                                         .size(13.0)
                                         .color(Color32::from_rgb(186, 117, 23)),
-                                ).wrap(true),
+                                ).wrap(),
                             );
                         });
                     });

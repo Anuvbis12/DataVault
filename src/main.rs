@@ -30,7 +30,7 @@ fn main() -> Result<(), eframe::Error> {
             aegis_vault::theme::apply(&cc.egui_ctx);
             let db = VaultDb::open(aegis_vault::controller::db_path())
                 .expect("Gagal membuka database");
-            Box::new(VaultMvc::new(db))
+            Ok(Box::new(VaultMvc::new(db)))
         }),
     )
 }

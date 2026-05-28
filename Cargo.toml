@@ -9,10 +9,11 @@ crate-type = ["lib", "cdylib", "staticlib"]
 
 [dependencies]
 # GUI
-eframe         = "0.27"
-egui           = "0.27"
-    egui_extras    = { version = "0.27", features = ["image"] }
-image          = { version = "0.24", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+eframe         = "0.29.1"
+egui           = "0.29.1"
+    egui_extras    = { version = "0.29.1", features = ["image"] }
+image          = { version = "0.25", default-features = false, features = ["jpeg", "png", "webp", "gif"] }
+
 
 # Kriptografi
 aes            = "0.8"
@@ -43,9 +44,9 @@ chrono = "0.4"
 rfd = "0.14"
 
 [target.'cfg(target_os = "android")'.dependencies]
-eframe         = { version = "0.27", features = ["default", "android-native-activity"] }
-android-activity = "0.5"
-winit = { version = "0.29", features = ["android-native-activity"] }
+eframe         = { version = "0.29.1", features = ["default", "android-native-activity"] }
+android-activity = "0.6.0"
+winit = { version = "0.30", features = ["android-native-activity"] }
 android_logger = "0.13"
 log = "0.4"
 
