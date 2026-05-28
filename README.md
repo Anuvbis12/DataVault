@@ -66,7 +66,12 @@
 | ✅ **Validasi Integritas** | Hash **SHA-256** memastikan data Anda tidak pernah rusak atau dimodifikasi oleh pihak ketiga. |
 | 🗄️ **Database Lokal Terpusat**| Manajemen metadata pintar menggunakan **SQLite**, memastikan sinkronisasi data yang cepat dan aman. |
 | 🗑️ **Recycle Bin Aman** | Sistem pemulihan file cerdas dengan recycle bin internal yang terenkripsi. |
-| 🎨 **Desain Modern** | Antarmuka pengguna *glassmorphism* yang elegan, responsif, dan memanjakan mata. |
+| 🚨 **Anti-Tampering & Deteksi Root** | Mencegah aplikasi berjalan di lingkungan yang tidak aman seperti Emulator atau perangkat Android yang telah di-root. |
+| ⚡ **Panic Button & Auto-Lock** | Mengunci brankas secara otomatis saat tidak ada aktivitas atau melalui tombol pintas darurat (ESC). |
+| 👁️ **In-App Media Preview** | Melihat dokumen dan media secara aman langsung di dalam brankas tanpa perlu mengekstraknya ke luar. |
+| 📊 **Real-time System Monitoring**| Pantau penggunaan metrik perangkat (CPU, RAM, Disk, I/O) secara langsung dari dashboard. |
+| 📝 **Audit Logs** | Mencatat setiap aktivitas krusial seperti proses login, enkripsi, dan dekripsi untuk transparansi keamanan. |
+| 🎨 **Desain Modern** | Antarmuka pengguna *glassmorphism* yang elegan, responsif, dan memanjakan mata dengan **egui**. |
 
 <div align="right">
   <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>

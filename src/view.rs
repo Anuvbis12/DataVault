@@ -1,6 +1,6 @@
 // view.rs — View layer
 // Seluruh fungsi render egui. View hanya membaca AppState
-// dan memanggil Controller untuk aksi. Tidak ada logika bisnis di sini.
+// memanggil Controller untuk aksi. Tidak ada logika bisnis di sini.
 
 use eframe::egui;
 use egui::epaint::{Color32, FontId, FontFamily, Mesh, Rounding, Stroke, Vec2, Vertex};
