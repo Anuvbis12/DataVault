@@ -40,10 +40,10 @@ pub fn request_file_picker(app: &android_activity::AndroidApp) {
     let context_ptr = ndk_context::android_context().context();
     let activity_obj = unsafe { jni::objects::JObject::from_raw(context_ptr as jni::sys::jobject) };
     
-    // Panggil 'requestFilePicker' sebagai metode instansi langsung pada objek aktivitas
-    let res = env.call_method(&activity_obj, "requestFilePicker", "()V", &[]);
+    // Panggil 'openFilePicker' sebagai metode instansi langsung pada objek aktivitas
+    let res = env.call_method(&activity_obj, "openFilePicker", "()V", &[]);
     if let Err(e) = res {
-        log::error!("Gagal memanggil requestFilePicker: {:?}", e);
+        log::error!("Gagal memanggil openFilePicker: {:?}", e);
         // Penting: Bersihkan eksepsi tertunda agar tidak memicu crash abort JVM!
         let _ = env.exception_clear();
     }

@@ -1,21 +1,18 @@
 package com.aegis.vault
 
 import android.app.Activity
+import android.app.NativeActivity
 import android.content.Intent
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
-import android.provider.MediaStore
 import android.provider.DocumentsContract
-import android.util.Log
-import androidx.activity.result.contract.ActivityResultContracts
-import com.google.androidgamesdk.GameActivity
 import java.io.File
 import java.io.FileOutputStream
 
-class MainActivity : GameActivity() {
+class MainActivity : NativeActivity() {
 
-    private external fun onFileSelectedNative(uri: String)
+    private external fun onFileSelectedNative(path: String)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -23,31 +20,30 @@ class MainActivity : GameActivity() {
     }
 
     fun openFilePicker() {
-        val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
-            addCategory(Intent.CATEGORY_OPENABLE)
-            type = "*/*"
+        runOnUiThread {
+            val intent = Intent(Intent.ACTION_OPEN_DOCUMENT).apply {
+                addCategory(Intent.CATEGORY_OPENABLE)
+                type = "*/*"
+            }
+            @Suppress("DEPRECATION")
+            startActivityForResult(intent, REQUEST_FILE_PICKER)
         }
-        startActivityForResult(intent, 1001)
     }
 
+    @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1001) {
+        if (requestCode == REQUEST_FILE_PICKER) {
             if (resultCode == Activity.RESULT_OK && data != null) {
                 val uri: Uri? = data.data
                 if (uri != null) {
-                    val realPath = getRealPathFromURI(uri)
-                    if (realPath != null) {
-                        onFileSelectedNative(realPath)
-                    } else {
-                        // Fallback: copy to cache if unable to resolve
-                        val cacheFile = copyToCache(uri)
-                        if (cacheFile != null) {
-                            onFileSelectedNative(cacheFile)
-                        } else {
-                            onFileSelectedNative("")
-                        }
-                    }
+                    // Berikan URI persisten agar bisa dibaca nanti
+                    contentResolver.takePersistableUriPermission(
+                        uri,
+                        Intent.FLAG_GRANT_READ_URI_PERMISSION
+                    )
+                    val realPath = getRealPathFromURI(uri) ?: copyToCache(uri) ?: ""
+                    onFileSelectedNative(realPath)
                     return
                 }
             }
@@ -61,31 +57,27 @@ class MainActivity : GameActivity() {
                 val docId = DocumentsContract.getDocumentId(uri)
                 val split = docId.split(":")
                 val type = split[0]
-                if ("primary".equals(type, ignoreCase = true)) {
+                if ("primary".equals(type, ignoreCase = true) && split.size > 1) {
                     return android.os.Environment.getExternalStorageDirectory().toString() + "/" + split[1]
                 }
             }
         }
-        // Basic fallback
-        var path: String? = null
         try {
-            val cursor: Cursor? = contentResolver.query(uri, null, null, null, null)
+            val cursor: Cursor? = contentResolver.query(uri, arrayOf("_data"), null, null, null)
             cursor?.use {
                 if (it.moveToFirst()) {
                     val idx = it.getColumnIndex("_data")
-                    if (idx != -1) {
-                        path = it.getString(idx)
-                    }
+                    if (idx != -1) return it.getString(idx)
                 }
             }
         } catch (e: Exception) {
             e.printStackTrace()
         }
-        return path
+        return null
     }
 
     private fun copyToCache(uri: Uri): String? {
-        try {
+        return try {
             val inputStream = contentResolver.openInputStream(uri) ?: return null
             val cursor = contentResolver.query(uri, null, null, null, null)
             var name = "temp_file"
@@ -96,26 +88,26 @@ class MainActivity : GameActivity() {
                 }
             }
             val file = File(cacheDir, name)
-            val outputStream = FileOutputStream(file)
-            inputStream.copyTo(outputStream)
+            FileOutputStream(file).use { out -> inputStream.copyTo(out) }
             inputStream.close()
-            outputStream.close()
-            return file.absolutePath
+            file.absolutePath
         } catch (e: Exception) {
             e.printStackTrace()
-            return null
-        }
-    }
-
-    fun requestFilePicker() {
-        runOnUiThread {
-            openFilePicker()
+            null
         }
     }
 
     companion object {
+        private const val REQUEST_FILE_PICKER = 1001
+
+        @Volatile
         private var instance: MainActivity? = null
-        
+
+        @JvmStatic
+        fun requestFilePicker() {
+            instance?.openFilePicker()
+        }
+
         init {
             System.loadLibrary("aegis_vault")
         }
