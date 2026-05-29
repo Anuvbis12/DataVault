@@ -452,15 +452,19 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
             ui.horizontal(|ui| {
                 ui.add_space(pad);
                 ui.vertical(|ui| {
-                    // Small Logo (circular)
-                    let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
-                    draw_app_logo(ui, state, icon_rect.center(), 52.0);
+                    // Small Logo (circular) - Centered
+                    ui.vertical_centered(|ui| {
+                        let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
+                        draw_app_logo(ui, state, icon_rect.center(), 52.0);
+                    });
                     
                     ui.add_space(20.0);
                     
-                    // Progress dots (reg-steps)
+                    // Progress dots (reg-steps) - Centered
                     ui.horizontal(|ui| {
                         let step_w = (field_w - (3.0 * 6.0)) / 4.0;
+                        let total_w = 4.0 * step_w + 3.0 * 6.0;
+                        ui.add_space((ui.available_width() - total_w) / 2.0);
                         for i in 0..4 {
                             let (step_rect, _) = ui.allocate_exact_size(Vec2::new(step_w, 3.0), egui::Sense::hover());
                             let color = if i < state.reg_step {
@@ -471,16 +475,18 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                                 Color32::from_rgba_unmultiplied(255, 255, 255, 20)
                             };
                             filled_rect(ui, step_rect, color, Stroke::NONE, 1.5);
-                            ui.add_space(6.0);
+                            if i < 3 { ui.add_space(6.0); }
                         }
                     });
                     
                     ui.add_space(28.0);
                     
-                    // Title
-                    ui.label(egui::RichText::new("Buat akun baru").size(28.0).color(text_primary()).strong());
-                    ui.add_space(8.0);
-                    ui.label(egui::RichText::new("Lindungi file penting Anda dengan enkripsi tingkat militer").size(13.5).color(text_muted()));
+                    // Title and Subtitle - Centered
+                    ui.vertical_centered(|ui| {
+                        ui.label(egui::RichText::new("Buat akun baru").size(28.0).color(text_primary()).strong());
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new("Lindungi file penting Anda dengan enkripsi tingkat militer").size(13.5).color(text_muted()));
+                    });
                     
                     ui.add_space(32.0);
                     
@@ -598,13 +604,14 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                             }
                         });
                     } else if state.reg_step == 3 {
-                        // Step 3: PIN
+                        // Step 3: PIN - Centered and neatly spaced
                         ui.vertical_centered(|ui| {
-                            let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + field_w/2.0, ui.cursor().top() + 32.0), Vec2::splat(64.0));
+                            ui.add_space(12.0);
+                            let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(64.0), egui::Sense::hover());
                             filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 76)), 20.0);
                             ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(28.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
                             
-                            ui.add_space(80.0);
+                            ui.add_space(18.0);
                             ui.label(egui::RichText::new("PIN digunakan untuk membuka file terenkripsi.\nPastikan kamu ingat PIN ini.").size(11.0).color(text_muted()));
                             
                             ui.add_space(18.0);
@@ -977,8 +984,8 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     }
     clip_painter.add(egui::Shape::mesh(mesh));
     
-    // Shield Icon (left column, vertically centered)
-    let shield_bg_rect = egui::Rect::from_center_size(egui::pos2(card_rect.left() + 52.0, card_rect.center().y), Vec2::splat(56.0));
+    // Shield Icon (left column, vertically centered) - Shifted right for a centered and balanced feel
+    let shield_bg_rect = egui::Rect::from_center_size(egui::pos2(card_rect.left() + 72.0, card_rect.center().y), Vec2::splat(56.0));
     filled_rect(ui, shield_bg_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 18.0);
     ui.painter().text(shield_bg_rect.center(), egui::Align2::CENTER_CENTER, "🛡", FontId::new(28.0, FontFamily::Proportional), Color32::WHITE);
     
@@ -987,15 +994,15 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(16, 185, 129, 15), Stroke::new(1.0, Color32::from_rgba_unmultiplied(16, 185, 129, 40)), 13.0);
     ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, "• AMAN", FontId::new(10.0, FontFamily::Proportional), accent_mint());
     
-    // Text Content (right column, beautifully aligned)
+    // Text Content (right column, beautifully aligned) - Shifted right for balance
     let total_files = state.file_list.len();
-    let num_rect = ui.painter().text(egui::pos2(card_rect.left() + 104.0, card_rect.top() + 24.0), egui::Align2::LEFT_TOP, format!("{}", total_files), FontId::new(36.0, FontFamily::Proportional), Color32::WHITE);
+    let num_rect = ui.painter().text(egui::pos2(card_rect.left() + 140.0, card_rect.top() + 24.0), egui::Align2::LEFT_TOP, format!("{}", total_files), FontId::new(36.0, FontFamily::Proportional), Color32::WHITE);
     ui.painter().text(egui::pos2(num_rect.right() + 6.0, num_rect.bottom() - 14.0), egui::Align2::LEFT_TOP, "file", FontId::new(14.0, FontFamily::Proportional), text_muted());
     
-    ui.painter().text(egui::pos2(card_rect.left() + 104.0, card_rect.top() + 74.0), egui::Align2::LEFT_TOP, format!("Terlindungi: {}", format_size(state.total_vault_size())), FontId::new(11.5, FontFamily::Proportional), text_muted());
+    ui.painter().text(egui::pos2(card_rect.left() + 140.0, card_rect.top() + 74.0), egui::Align2::LEFT_TOP, format!("Terlindungi: {}", format_size(state.total_vault_size())), FontId::new(11.5, FontFamily::Proportional), text_muted());
     
-    // Bottom pill (right column, beautifully aligned)
-    let pill_rect = egui::Rect::from_min_size(egui::pos2(card_rect.left() + 104.0, card_rect.top() + 106.0), Vec2::new(160.0, 24.0));
+    // Bottom pill (right column, beautifully aligned) - Shifted right
+    let pill_rect = egui::Rect::from_min_size(egui::pos2(card_rect.left() + 140.0, card_rect.top() + 106.0), Vec2::new(160.0, 24.0));
     filled_rect(ui, pill_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 15), Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 40)), 12.0);
     let is_2fa = if state.totp_enabled { "2FA Aktif" } else { "2FA Mati" };
     ui.painter().text(pill_rect.center(), egui::Align2::CENTER_CENTER, format!("🔒 AES-256 • {}", is_2fa), FontId::new(9.5, FontFamily::Proportional), Color32::from_rgb(165, 180, 252));
@@ -1255,7 +1262,7 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
     let card_h2 = 72.0;
     
     let folders = [
-        ("Identitas", "🪪", Color32::from_rgb(129, 140, 248), "6 file"),
+        ("Identitas", "👤", Color32::from_rgb(129, 140, 248), "6 file"),
         ("Dokumen Kerja", "💼", Color32::from_rgb(16, 185, 129), "12 file"),
         ("Foto Keluarga", "🖼", Color32::from_rgb(244, 63, 94), "4 file"),
         ("Keuangan", "📄", Color32::from_rgb(251, 191, 36), "2 file"),
@@ -3923,11 +3930,11 @@ fn render_custom_file_picker(
                 ui.vertical(|ui| {
                     // Title row
                     ui.horizontal(|ui| {
-                        // BACK BUTTON (Tombol Kembali)
+                        // BACK BUTTON (Tombol Kembali) - Perfectly aligned vertically
                         if let Some(parent) = state.custom_file_picker_current_dir.parent() {
                             let (rect, resp) = ui.allocate_exact_size(Vec2::splat(24.0), egui::Sense::click());
                             let back_color = if resp.hovered() { Color32::WHITE } else { text_muted() };
-                            ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "⬅", FontId::new(16.0, FontFamily::Proportional), back_color);
+                            ui.painter().text(egui::pos2(rect.center().x, rect.center().y + 1.0), egui::Align2::CENTER_CENTER, "⬅", FontId::new(16.0, FontFamily::Proportional), back_color);
                             if resp.clicked() {
                                 let parent_path = parent.to_path_buf();
                                 ctrl.navigate_custom_file_picker(state, parent_path);
@@ -3938,7 +3945,7 @@ fn render_custom_file_picker(
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             let (rect, resp) = ui.allocate_exact_size(Vec2::splat(24.0), egui::Sense::click());
                             let close_color = if resp.hovered() { Color32::from_rgb(239, 68, 68) } else { text_muted() };
-                            ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "❌", FontId::new(14.0, FontFamily::Proportional), close_color);
+                            ui.painter().text(egui::pos2(rect.center().x, rect.center().y + 1.0), egui::Align2::CENTER_CENTER, "❌", FontId::new(14.0, FontFamily::Proportional), close_color);
                             if resp.clicked() {
                                 state.custom_file_picker_open = false;
                             }
@@ -4066,19 +4073,50 @@ fn render_custom_file_picker(
                             }
                         });
 
-                    // Tips Banner (Aesthetic note at the bottom of the modal)
-                    ui.add_space(6.0);
+                    // Tips Banner with dynamic Settings trigger link (Akses Penyimpanan Penuh)
+                    ui.add_space(8.0);
                     egui::Frame::none()
-                        .fill(Color32::from_rgba_unmultiplied(255, 255, 255, 3))
-                        .stroke(Stroke::new(0.5, border_default()))
-                        .rounding(Rounding::same(8.0))
-                        .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+                        .fill(Color32::from_rgba_unmultiplied(129, 140, 248, 12)) // Indigo transparent tinted background
+                        .stroke(Stroke::new(0.5, Color32::from_rgba_unmultiplied(129, 140, 248, 50)))
+                        .rounding(Rounding::same(12.0))
+                        .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                         .show(ui, |ui| {
-                            ui.horizontal(|ui| {
-                                ui.label(egui::RichText::new("💡").size(14.0));
-                                ui.add(egui::Label::new(egui::RichText::new(
-                                    "Tips: File biasanya berada di folder 'Download' atau 'Documents'.\nJika file tidak muncul, silakan aktifkan izin 'Akses Semua File' di pengaturan HP."
-                                ).size(10.0).color(text_muted())).wrap());
+                            ui.vertical(|ui| {
+                                ui.horizontal(|ui| {
+                                    ui.label(egui::RichText::new("💡").size(14.0));
+                                    ui.label(
+                                        egui::RichText::new("Tips: Agar semua file (.pdf, .mp3, dll) terdeteksi, aktifkan izin akses penyimpanan penuh.")
+                                            .size(10.0)
+                                            .color(text_body())
+                                    );
+                                });
+                                ui.add_space(8.0);
+                                
+                                // Large beautiful touch-friendly button (height: 44px)
+                                let btn_w = ui.available_width();
+                                let desired_size = Vec2::new(btn_w, 44.0);
+                                let (rect, resp) = ui.allocate_exact_size(desired_size, egui::Sense::click());
+                                
+                                let bg_c = if resp.is_pointer_button_down_on() {
+                                    Color32::from_rgb(79, 70, 229) // Indigo active
+                                } else if resp.hovered() {
+                                    Color32::from_rgb(129, 140, 248) // Indigo hover
+                                } else {
+                                    Color32::from_rgb(99, 102, 241) // Indigo primary
+                                };
+                                
+                                filled_rect(ui, rect, bg_c, Stroke::NONE, 10.0);
+                                ui.painter().text(
+                                    rect.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    "🔑  Aktifkan Izin Akses Semua File",
+                                    FontId::new(12.0, FontFamily::Proportional),
+                                    Color32::WHITE
+                                );
+                                
+                                if resp.clicked() {
+                                    state.request_storage_permission = true;
+                                }
                             });
                         });
 

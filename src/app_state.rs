@@ -162,6 +162,7 @@ pub struct AppState {
     // Android Native
     pub request_android_file_picker: bool,
     pub android_file_picker_result: Option<String>,
+    pub request_storage_permission: bool,
 
     // Custom File Picker Pure Rust
     pub custom_file_picker_open: bool,
@@ -289,6 +290,7 @@ impl Default for AppState {
 
             request_android_file_picker: false,
             android_file_picker_result: None,
+            request_storage_permission: false,
 
             custom_file_picker_open: false,
             custom_file_picker_current_dir: std::path::PathBuf::new(),

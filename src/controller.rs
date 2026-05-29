@@ -1078,6 +1078,7 @@ impl Controller {
         state.custom_file_picker_open = true;
         state.custom_file_picker_search.clear();
         state.custom_file_picker_error = None;
+        state.request_storage_permission = true; // Trigger dynamic permission request!
 
         let mut start_dir = std::path::PathBuf::from("/storage/emulated/0");
         if !start_dir.exists() {

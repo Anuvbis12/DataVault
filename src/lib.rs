@@ -49,6 +49,147 @@ pub fn request_file_picker(app: &android_activity::AndroidApp) {
     }
 }
 
+#[cfg(target_os = "android")]
+pub fn check_and_request_storage_permission(app: &android_activity::AndroidApp) {
+    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _).unwrap() };
+    let mut env = vm.attach_current_thread().unwrap();
+    
+    // Clear any pending exceptions before proceeding
+    let _ = env.exception_clear();
+    
+    // 1. Periksa apakah Environment.isExternalStorageManager() mengembalikan true
+    if let Ok(env_class) = env.find_class("android/os/Environment") {
+        if let Ok(is_manager) = env.call_static_method(&env_class, "isExternalStorageManager", "()Z", &[]) {
+            if let Ok(true_or_false) = is_manager.z() {
+                if true_or_false {
+                    log::info!("Izin MANAGE_EXTERNAL_STORAGE sudah aktif!");
+                    return; // Sudah diizinkan!
+                }
+            }
+        }
+    }
+    let _ = env.exception_clear();
+    
+    log::info!("Meminta izin MANAGE_EXTERNAL_STORAGE...");
+    
+    // 2. Luncurkan Intent untuk meminta izin
+    let context_ptr = ndk_context::android_context().context();
+    let activity_obj = unsafe { jni::objects::JObject::from_raw(context_ptr as jni::sys::jobject) };
+    
+    let mut success = false;
+    let mut pkg_spec_string = None;
+    let mut pkg_jstr = jni::objects::JString::default();
+    
+    if let Ok(pkg_name_val) = env.call_method(&activity_obj, "getPackageName", "()Ljava/lang/String;", &[]) {
+        if let Ok(pkg_str_obj) = pkg_name_val.l() {
+            pkg_jstr = pkg_str_obj.into();
+            if let Ok(pkg_str) = env.get_string(&pkg_jstr) {
+                pkg_spec_string = Some(format!("package:{}", pkg_str.to_string_lossy()));
+            }
+        }
+    }
+    let _ = env.exception_clear();
+    
+    // Coba Metode 1: Halaman Izin Akses Semua File khusus untuk aplikasi ini
+    if let Some(uri_spec) = pkg_spec_string {
+        if let Ok(j_uri_spec) = env.new_string(&uri_spec) {
+            if let Ok(uri_class) = env.find_class("android/net/Uri") {
+                let parse_args = &[jni::objects::JValue::Object(&j_uri_spec)];
+                if let Ok(uri_parse_val) = env.call_static_method(
+                    &uri_class,
+                    "parse",
+                    "(Ljava/lang/String;)Landroid/net/Uri;",
+                    parse_args
+                ) {
+                    if let Ok(uri_obj) = uri_parse_val.l() {
+                        if let Ok(intent_class) = env.find_class("android/content/Intent") {
+                            if let Ok(action_str) = env.new_string("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION") {
+                                let intent_args = &[
+                                    jni::objects::JValue::Object(&action_str),
+                                    jni::objects::JValue::Object(&uri_obj)
+                                ];
+                                if let Ok(intent_obj) = env.new_object(
+                                    &intent_class,
+                                    "(Ljava/lang/String;Landroid/net/Uri;)V",
+                                    intent_args
+                                ) {
+                                    let start_args = &[jni::objects::JValue::Object(&intent_obj)];
+                                    if env.call_method(
+                                        &activity_obj,
+                                        "startActivity",
+                                        "(Landroid/content/Intent;)V",
+                                        start_args
+                                    ).is_ok() {
+                                        log::info!("Berhasil memicu intent MANAGE_APP_ALL_FILES_ACCESS_PERMISSION spesifik paket!");
+                                        success = true;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback 1: Jika gagal, luncurkan layar kelola semua file secara umum
+    if !success {
+        let _ = env.exception_clear();
+        log::warn!("Intent spesifik gagal. Mencoba Fallback 1 (MANAGE_ALL_FILES_ACCESS_PERMISSION)...");
+        if let Ok(intent_class) = env.find_class("android/content/Intent") {
+            if let Ok(action_str) = env.new_string("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION") {
+                let intent_args = &[jni::objects::JValue::Object(&action_str)];
+                if let Ok(intent_obj) = env.new_object(
+                    &intent_class,
+                    "(Ljava/lang/String;)V",
+                    intent_args
+                ) {
+                    let start_args = &[jni::objects::JValue::Object(&intent_obj)];
+                    if env.call_method(
+                        &activity_obj,
+                        "startActivity",
+                        "(Landroid/content/Intent;)V",
+                        start_args
+                    ).is_ok() {
+                        log::info!("Berhasil memicu intent MANAGE_ALL_FILES_ACCESS_PERMISSION!");
+                        success = true;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Fallback 2: Jika masih gagal, luncurkan Pengaturan Umum Sistem Android
+    if !success {
+        let _ = env.exception_clear();
+        log::warn!("Fallback 1 gagal. Mencoba Fallback 2 (SETTINGS)...");
+        if let Ok(intent_class) = env.find_class("android/content/Intent") {
+            if let Ok(action_str) = env.new_string("android.settings.SETTINGS") {
+                let intent_args = &[jni::objects::JValue::Object(&action_str)];
+                if let Ok(intent_obj) = env.new_object(
+                    &intent_class,
+                    "(Ljava/lang/String;)V",
+                    intent_args
+                ) {
+                    let start_args = &[jni::objects::JValue::Object(&intent_obj)];
+                    if env.call_method(
+                        &activity_obj,
+                        "startActivity",
+                        "(Landroid/content/Intent;)V",
+                        start_args
+                    ).is_ok() {
+                        log::info!("Berhasil memicu intent SETTINGS!");
+                    } else {
+                        log::error!("Semua alur pemanggilan Intent perizinan gagal dipicu.");
+                    }
+                }
+            }
+        }
+    }
+    
+    let _ = env.exception_clear();
+}
+
 // ── Root struct MVC (harus public agar bisa dibaca main.rs) ──
 pub struct VaultMvc {
     pub state:      app_state::AppState,
@@ -78,6 +219,11 @@ impl eframe::App for VaultMvc {
             if self.state.request_android_file_picker {
                 self.state.request_android_file_picker = false;
                 crate::request_file_picker(app);
+            }
+
+            if self.state.request_storage_permission {
+                self.state.request_storage_permission = false;
+                crate::check_and_request_storage_permission(app);
             }
 
             // Check for file picker result
