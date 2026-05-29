@@ -3997,7 +3997,7 @@ fn render_custom_file_picker(
                     ui.add_space(10.0);
 
                     // Main files area
-                    let scroll_h = ui.available_height() - 110.0; // Extra offset to give room for tips banner
+                    let scroll_h = (modal_h - 310.0).max(100.0);
                     egui::ScrollArea::vertical()
                         .id_salt("custom_file_picker_scroll")
                         .max_height(scroll_h)
@@ -4082,14 +4082,12 @@ fn render_custom_file_picker(
                         .inner_margin(egui::Margin::symmetric(14.0, 10.0))
                         .show(ui, |ui| {
                             ui.vertical(|ui| {
-                                ui.horizontal(|ui| {
-                                    ui.label(egui::RichText::new("💡").size(14.0));
-                                    ui.label(
-                                        egui::RichText::new("Tips: Agar semua file (.pdf, .mp3, dll) terdeteksi, aktifkan izin akses penyimpanan penuh.")
-                                            .size(10.0)
-                                            .color(text_body())
-                                    );
-                                });
+                                ui.add(egui::Label::new(
+                                    egui::RichText::new("💡 Tips: Agar semua file (.pdf, .mp3, dll) terdeteksi, aktifkan izin akses penyimpanan penuh.")
+                                        .size(10.0)
+                                        .color(text_body())
+                                ).wrap());
+                                
                                 ui.add_space(8.0);
                                 
                                 // Large beautiful touch-friendly button (height: 44px)

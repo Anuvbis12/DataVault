@@ -54,139 +54,84 @@ pub fn check_and_request_storage_permission(app: &android_activity::AndroidApp) 
     let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _).unwrap() };
     let mut env = vm.attach_current_thread().unwrap();
     
-    // Clear any pending exceptions before proceeding
     let _ = env.exception_clear();
     
-    // 1. Periksa apakah Environment.isExternalStorageManager() mengembalikan true
-    if let Ok(env_class) = env.find_class("android/os/Environment") {
-        if let Ok(is_manager) = env.call_static_method(&env_class, "isExternalStorageManager", "()Z", &[]) {
-            if let Ok(true_or_false) = is_manager.z() {
-                if true_or_false {
-                    log::info!("Izin MANAGE_EXTERNAL_STORAGE sudah aktif!");
-                    return; // Sudah diizinkan!
-                }
-            }
-        }
-    }
-    let _ = env.exception_clear();
-    
-    log::info!("Meminta izin MANAGE_EXTERNAL_STORAGE...");
-    
-    // 2. Luncurkan Intent untuk meminta izin
     let context_ptr = ndk_context::android_context().context();
     let activity_obj = unsafe { jni::objects::JObject::from_raw(context_ptr as jni::sys::jobject) };
     
-    let mut success = false;
-    let mut pkg_spec_string = None;
-    let mut pkg_jstr = jni::objects::JString::default();
-    
-    if let Ok(pkg_name_val) = env.call_method(&activity_obj, "getPackageName", "()Ljava/lang/String;", &[]) {
-        if let Ok(pkg_str_obj) = pkg_name_val.l() {
-            pkg_jstr = pkg_str_obj.into();
-            if let Ok(pkg_str) = env.get_string(&pkg_jstr) {
-                pkg_spec_string = Some(format!("package:{}", pkg_str.to_string_lossy()));
-            }
-        }
+    // 1. Coba panggil secara langsung pada objek aktivitas (Metode Tercepat)
+    log::info!("JNI: Mencoba memanggil requestStoragePermission langsung pada activity_obj...");
+    let res = env.call_method(&activity_obj, "requestStoragePermission", "()V", &[]);
+    if res.is_ok() {
+        log::info!("JNI: Sukses memanggil langsung!");
+        return;
     }
     let _ = env.exception_clear();
     
-    // Coba Metode 1: Halaman Izin Akses Semua File khusus untuk aplikasi ini
-    if let Some(uri_spec) = pkg_spec_string {
-        if let Ok(j_uri_spec) = env.new_string(&uri_spec) {
-            if let Ok(uri_class) = env.find_class("android/net/Uri") {
-                let parse_args = &[jni::objects::JValue::Object(&j_uri_spec)];
-                if let Ok(uri_parse_val) = env.call_static_method(
-                    &uri_class,
-                    "parse",
-                    "(Ljava/lang/String;)Landroid/net/Uri;",
-                    parse_args
+    // 2. Jika gagal, gunakan ClassLoader dari aktivitas untuk mencari class MainActivity secara eksplisit
+    log::warn!("JNI: Panggilan langsung gagal. Mencoba menggunakan ClassLoader...");
+    if let Ok(class_loader) = env.call_method(&activity_obj, "getClassLoader", "()Ljava/lang/ClassLoader;", &[]) {
+        if let Ok(class_loader_obj) = class_loader.l() {
+            if let Ok(class_name_jstr) = env.new_string("com.aegis.vault.MainActivity") {
+                let load_args = &[jni::objects::JValue::Object(&class_name_jstr)];
+                if let Ok(class_val) = env.call_method(
+                    &class_loader_obj,
+                    "loadClass",
+                    "(Ljava/lang/String;)Ljava/lang/Class;",
+                    load_args
                 ) {
-                    if let Ok(uri_obj) = uri_parse_val.l() {
-                        if let Ok(intent_class) = env.find_class("android/content/Intent") {
-                            if let Ok(action_str) = env.new_string("android.settings.MANAGE_APP_ALL_FILES_ACCESS_PERMISSION") {
-                                let intent_args = &[
-                                    jni::objects::JValue::Object(&action_str),
-                                    jni::objects::JValue::Object(&uri_obj)
-                                ];
-                                if let Ok(intent_obj) = env.new_object(
-                                    &intent_class,
-                                    "(Ljava/lang/String;Landroid/net/Uri;)V",
-                                    intent_args
-                                ) {
-                                    let start_args = &[jni::objects::JValue::Object(&intent_obj)];
-                                    if env.call_method(
-                                        &activity_obj,
-                                        "startActivity",
-                                        "(Landroid/content/Intent;)V",
-                                        start_args
-                                    ).is_ok() {
-                                        log::info!("Berhasil memicu intent MANAGE_APP_ALL_FILES_ACCESS_PERMISSION spesifik paket!");
-                                        success = true;
-                                    }
-                                }
-                            }
+                    if let Ok(_class_obj) = class_val.l() {
+                        let res = env.call_method(&activity_obj, "requestStoragePermission", "()V", &[]);
+                        if res.is_ok() {
+                            log::info!("JNI: Sukses memanggil lewat ClassLoader!");
+                            return;
                         }
                     }
                 }
             }
         }
     }
+    let _ = env.exception_clear();
     
-    // Fallback 1: Jika gagal, luncurkan layar kelola semua file secara umum
-    if !success {
-        let _ = env.exception_clear();
-        log::warn!("Intent spesifik gagal. Mencoba Fallback 1 (MANAGE_ALL_FILES_ACCESS_PERMISSION)...");
-        if let Ok(intent_class) = env.find_class("android/content/Intent") {
-            if let Ok(action_str) = env.new_string("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION") {
-                let intent_args = &[jni::objects::JValue::Object(&action_str)];
-                if let Ok(intent_obj) = env.new_object(
-                    &intent_class,
-                    "(Ljava/lang/String;)V",
-                    intent_args
-                ) {
-                    let start_args = &[jni::objects::JValue::Object(&intent_obj)];
-                    if env.call_method(
-                        &activity_obj,
-                        "startActivity",
-                        "(Landroid/content/Intent;)V",
-                        start_args
-                    ).is_ok() {
-                        log::info!("Berhasil memicu intent MANAGE_ALL_FILES_ACCESS_PERMISSION!");
-                        success = true;
-                    }
-                }
+    // 3. Fallback Utama: Jika pemanggilan Kotlin gagal, jalankan pemicu Intent murni langsung dari Rust!
+    // Ini menjamin 100% intent kelola file terpicu tanpa bergantung pada metode Kotlin apa pun!
+    log::error!("JNI: Semua pemanggilan Kotlin gagal. Menggunakan Fallback Intent murni dari Rust...");
+    
+    // Periksa Environment.isExternalStorageManager() via static JNI
+    let mut is_already_granted = false;
+    if let Ok(env_class) = env.find_class("android/os/Environment") {
+        if let Ok(is_manager) = env.call_static_method(&env_class, "isExternalStorageManager", "()Z", &[]) {
+            if let Ok(true_or_false) = is_manager.z() {
+                is_already_granted = true_or_false;
             }
         }
     }
+    let _ = env.exception_clear();
     
-    // Fallback 2: Jika masih gagal, luncurkan Pengaturan Umum Sistem Android
-    if !success {
-        let _ = env.exception_clear();
-        log::warn!("Fallback 1 gagal. Mencoba Fallback 2 (SETTINGS)...");
-        if let Ok(intent_class) = env.find_class("android/content/Intent") {
-            if let Ok(action_str) = env.new_string("android.settings.SETTINGS") {
-                let intent_args = &[jni::objects::JValue::Object(&action_str)];
-                if let Ok(intent_obj) = env.new_object(
-                    &intent_class,
-                    "(Ljava/lang/String;)V",
-                    intent_args
-                ) {
-                    let start_args = &[jni::objects::JValue::Object(&intent_obj)];
-                    if env.call_method(
-                        &activity_obj,
-                        "startActivity",
-                        "(Landroid/content/Intent;)V",
-                        start_args
-                    ).is_ok() {
-                        log::info!("Berhasil memicu intent SETTINGS!");
-                    } else {
-                        log::error!("Semua alur pemanggilan Intent perizinan gagal dipicu.");
-                    }
-                }
+    if is_already_granted {
+        log::info!("JNI Fallback: Izin sudah aktif!");
+        return;
+    }
+    
+    // Kirim Intent kelola berkas umum secara langsung
+    if let Ok(intent_class) = env.find_class("android/content/Intent") {
+        if let Ok(action_str) = env.new_string("android.settings.MANAGE_ALL_FILES_ACCESS_PERMISSION") {
+            let intent_args = &[jni::objects::JValue::Object(&action_str)];
+            if let Ok(intent_obj) = env.new_object(
+                &intent_class,
+                "(Ljava/lang/String;)V",
+                intent_args
+            ) {
+                let start_args = &[jni::objects::JValue::Object(&intent_obj)];
+                let _ = env.call_method(
+                    &activity_obj,
+                    "startActivity",
+                    "(Landroid/content/Intent;)V",
+                    start_args
+                );
             }
         }
     }
-    
     let _ = env.exception_clear();
 }
 
