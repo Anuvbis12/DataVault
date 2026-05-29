@@ -25,7 +25,15 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
     // Force continuous repaint so the animation doesn't freeze on mobile
     ui.ctx().request_repaint();
 
-    if elapsed >= 2.5 {
+    let mut delay = 2.5;
+    #[cfg(target_os = "android")]
+    {
+        // Di Android, kurangi durasi splash screen menjadi sangat singkat (0.1 detik)
+        // agar aplikasi terasa sangat enteng dan langsung masuk ke layar utama.
+        delay = 0.1;
+    }
+
+    if elapsed >= delay {
         state.screen = AppScreen::Login;
         ui.ctx().request_repaint();
         return;
@@ -62,7 +70,7 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
             // Logo background + circular image
             {
                 let logo_bytes: &[u8] = include_bytes!("../assets/logo.jpg");
-                if let Some(texture) = crate::view::load_image_texture(ui, "splash_logo", logo_bytes) {
+                if let Some(texture) = crate::view::load_image_texture(ui, state, "splash_logo", logo_bytes) {
                     let radius = 40.0 * pop_scale;
                     // Glow ring
                     let glow_ring_rect = logo_rect.expand(16.0 * pop_scale);

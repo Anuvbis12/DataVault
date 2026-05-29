@@ -218,6 +218,9 @@ pub struct AppState {
     pub storage_pin_error: Option<String>,
     pub storage_path: String,
 
+    // Cache texture agar tidak decode JPEG setiap frame
+    pub texture_cache: std::collections::HashMap<String, eframe::egui::TextureHandle>,
+
     // Rename Modal States
     pub rename_modal_open: bool,
     pub rename_target_id: String,
@@ -263,7 +266,7 @@ impl Default for AppState {
             totp_secret:      None,
             totp_secret_b32:  String::new(),
             totp_qr:          None,
-            totp_code:        String::new(),
+            totp_code:       String::new(),
             totp_error:       None,
             totp_setup_time:  None,
             show_reset_confirm: false,
@@ -313,6 +316,7 @@ impl Default for AppState {
             storage_pin: String::new(),
             storage_pin_error: None,
             storage_path: "vault_storage/ - Lokal".to_string(),
+            texture_cache: std::collections::HashMap::new(),
 
             rename_modal_open: false,
             rename_target_id: String::new(),

@@ -160,7 +160,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
 
                     // Logo 52x52 circular
                     let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
-                    draw_app_logo(ui, icon_rect.center(), 52.0);
+                    draw_app_logo(ui, state, icon_rect.center(), 52.0);
 
                     ui.add_space(20.0);
 
@@ -336,10 +336,8 @@ fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller)
                 ui.add_space(((ui.available_width() - total) / 2.0).max(0.0));
                 for i in 0..6 {
                     let is_filled = i < state.login_pin.len();
-                    // Smooth scaling animation for filled dots
-                    // We can use i.time to bounce it slightly, but simple scaling is enough if we had a state, but since we don't, we'll just scale it based on state, but wait, without state tracking per dot, we just use static base_size, BUT the user complained about "stuck" so we MUST call request_repaint if we animate. Since it's stateless, we'll just use a sine wave on the filled dots to give them a "breathing" effect so they don't look stuck!
-                    let breathing = if is_filled { 1.25 + (ui.input(|i| i.time) * 4.0).sin() as f32 * 0.05 } else { 1.0 };
-                    ui.ctx().request_repaint(); // ensure it breathes
+                    // We removed the continuous sine wave breathing to save CPU/Battery on Android
+                    let breathing = if is_filled { 1.25 } else { 1.0 };
 
                     let base_size = dot_size * breathing;
                     let (dot_rect, _) = ui.allocate_exact_size(Vec2::splat(dot_size), egui::Sense::hover());
@@ -451,7 +449,7 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                 ui.vertical(|ui| {
                     // Small Logo (circular)
                     let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
-                    draw_app_logo(ui, icon_rect.center(), 52.0);
+                    draw_app_logo(ui, state, icon_rect.center(), 52.0);
                     
                     ui.add_space(20.0);
                     
@@ -1983,14 +1981,19 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
 }
 
 // ── Helper: load image bytes into egui texture ────────────
-pub fn load_image_texture(ui: &egui::Ui, name: &str, bytes: &[u8]) -> Option<egui::TextureHandle> {
+pub fn load_image_texture(ui: &egui::Ui, state: &mut AppState, name: &str, bytes: &[u8]) -> Option<egui::TextureHandle> {
+    if let Some(tex) = state.texture_cache.get(name) {
+        return Some(tex.clone());
+    }
     match image::load_from_memory(bytes) {
         Ok(img) => {
             let size = [img.width() as _, img.height() as _];
             let image_buffer = img.to_rgba8();
             let pixels = image_buffer.as_flat_samples();
             let color_image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
-            Some(ui.ctx().load_texture(name, color_image, Default::default()))
+            let tex = ui.ctx().load_texture(name, color_image, Default::default());
+            state.texture_cache.insert(name.to_string(), tex.clone());
+            Some(tex)
         }
         Err(_) => None,
     }
@@ -2052,9 +2055,9 @@ pub fn draw_circular_image_with_border(
 }
 
 // ── Helper: draw the app logo at a given rect (circular) ──
-fn draw_app_logo(ui: &egui::Ui, center: egui::Pos2, size: f32) {
+fn draw_app_logo(ui: &egui::Ui, state: &mut AppState, center: egui::Pos2, size: f32) {
     let logo_bytes: &[u8] = include_bytes!("../assets/logo.jpg");
-    if let Some(texture) = load_image_texture(ui, "app_logo_global", logo_bytes) {
+    if let Some(texture) = load_image_texture(ui, state, "app_logo_global", logo_bytes) {
         let radius = size / 2.0;
         draw_circular_image_with_border(
             ui, &texture, center, radius,
@@ -2090,7 +2093,7 @@ fn render_tab_about_us(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controll
     // ── App Logo (circular) ──
     {
         let logo_bytes = include_bytes!("../assets/logo.jpg");
-        if let Some(texture) = load_image_texture(ui, "about_logo", logo_bytes) {
+        if let Some(texture) = load_image_texture(ui, state, "about_logo", logo_bytes) {
             ui.vertical_centered(|ui| {
                 let logo_size = 120.0;
                 let (logo_rect, _) = ui.allocate_exact_size(Vec2::splat(logo_size), egui::Sense::hover());
@@ -2207,7 +2210,7 @@ fn render_tab_about_us(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controll
             let accent = colors[idx % colors.len()];
 
             // Try to load the member photo
-            if let Some(texture) = load_image_texture(ui, member.tex_id, member.photo_bytes) {
+            if let Some(texture) = load_image_texture(ui, state, member.tex_id, member.photo_bytes) {
                 // Photo loaded - render circular
                 draw_circular_image_with_border(
                     ui, &texture, photo_center, photo_size / 2.0,
@@ -2744,7 +2747,7 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
             let timer_color = if secs <= 5 { error_color() } else if secs <= 10 { warn_color() } else { teal_light() };
             ui.label(egui::RichText::new(format!("Kode berubah dalam {} detik", secs))
                 .size(11.0).color(timer_color));
-            ui.ctx().request_repaint();
+            ui.ctx().request_repaint_after(std::time::Duration::from_secs(1));
 
             ui.add_space(20.0);
 
