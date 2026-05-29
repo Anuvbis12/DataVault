@@ -56,10 +56,16 @@ pub fn code_at(secret: &[u8], timestamp: u64) -> String {
 
 /// Verifikasi kode. Toleransi ±1 time step (untuk clock skew).
 pub fn verify(secret: &[u8], code: &str) -> bool {
+    // Bersihkan spasi atau karakter non-angka (seperti 123 456 dari Google Auth)
+    let cleaned: String = code.chars().filter(|c| c.is_ascii_digit()).collect();
+    if cleaned.len() != 6 {
+        return false;
+    }
     let now = unix_now();
-    for d in [-1i64, 0, 1] {
+    // Gunakan toleransi ±4 langkah waktu (±120 detik) untuk mentolerir perbedaan jam HP yang tidak sinkron
+    for d in [-4i64, -3, -2, -1, 0, 1, 2, 3, 4] {
         let t = (now as i64 + d * PERIOD as i64) as u64;
-        if code_at(secret, t) == code {
+        if code_at(secret, t) == cleaned {
             return true;
         }
     }

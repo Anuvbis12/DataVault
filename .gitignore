@@ -12,3 +12,10 @@ android/app/src/main/jniLibs/
 android/app/build/
 android/.gradle/
 android/local.properties
+
+# APKs and generated binaries
+*.apk
+app-debug.apk
+/android/app/build/
+/android/.gradle/
+/android/local.properties

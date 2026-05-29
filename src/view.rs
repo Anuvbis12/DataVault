@@ -2606,12 +2606,6 @@ fn render_decrypt_panel(
 
 // ── Screen: TOTP Setup (QR code + verifikasi awal) ────────
 fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
-    if let Some(st) = state.totp_setup_time {
-        if st.elapsed().as_secs() >= 30 {
-            ctrl.begin_totp_setup(state);
-            return;
-        }
-    }
     let avail = ui.available_rect_before_wrap();
 
     egui::Frame::none()
@@ -2655,11 +2649,6 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 // QR Code
                 if let Some(matrix) = &state.totp_qr {
                     crate::totp::draw_qr(ui, matrix, 200.0);
-                    if let Some(st) = state.totp_setup_time {
-                        let left = 30u64.saturating_sub(st.elapsed().as_secs());
-                        ui.add_space(4.0);
-                        ui.label(egui::RichText::new(format!("⏳ QR berganti dalam {} detik", left)).size(11.0).color(warn_color()));
-                    }
                 } else {
                     ui.label(egui::RichText::new("Gagal generate QR code").color(error_color()));
                 }
@@ -2685,12 +2674,6 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                             .size(12.0).color(teal_faint())
                             .text_style(egui::TextStyle::Monospace));
                     });
-                    
-                if let Some(st) = state.totp_setup_time {
-                    let left = 30u64.saturating_sub(st.elapsed().as_secs());
-                    ui.add_space(4.0);
-                    ui.label(egui::RichText::new(format!("⏳ Kunci berganti dalam {} detik", left)).size(11.0).color(warn_color()));
-                }
 
                 ui.add_space(20.0);
 
@@ -3915,32 +3898,42 @@ fn render_custom_file_picker(
     ctrl: &Controller,
 ) {
     let screen_rect = ctx.screen_rect();
-    let painter = ctx.layer_painter(egui::LayerId::new(
-        egui::Order::Tooltip,
-        egui::Id::new("custom_file_picker_dimmer"),
-    ));
-    // Draw dark background dimmer
-    painter.rect_filled(screen_rect, 0.0, Color32::from_rgba_unmultiplied(6, 6, 5, 220));
 
     // Now draw the file picker frame in the center
     let modal_w = (screen_rect.width() - 40.0).clamp(320.0, 420.0);
-    let modal_h = (screen_rect.height() - 80.0).clamp(400.0, 560.0);
+    let modal_h = (screen_rect.height() - 80.0).clamp(420.0, 580.0); // Slightly larger height for tips
     let modal_rect = egui::Rect::from_center_size(screen_rect.center(), Vec2::new(modal_w, modal_h));
 
+    // Area starts from screen_rect.min (0,0) to easily render background dimmer correctly
     let area = egui::Area::new(egui::Id::new("custom_file_picker_area"))
         .order(egui::Order::Tooltip)
-        .fixed_pos(modal_rect.min);
+        .fixed_pos(screen_rect.min);
 
     area.show(ctx, |ui| {
+        // 1. Draw dark background dimmer behind the modal
+        ui.painter().rect_filled(screen_rect, 0.0, Color32::from_rgba_unmultiplied(0, 0, 0, 185));
+
+        // 2. Draw the actual modal card
         ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect), |ui| {
-            // Draw panel background with border
-            filled_rect(ui, modal_rect, Color32::from_rgb(18, 18, 17), Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 10)), 20.0);
+            // Premium surface color (dark gray, not pitch black) with solid translucent border
+            filled_rect(ui, modal_rect, Color32::from_rgb(26, 26, 25), Stroke::new(1.0, Color32::from_rgba_unmultiplied(255, 255, 255, 15)), 20.0);
 
             // Content area padding
-            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(16.0)), |ui| {
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(18.0)), |ui| {
                 ui.vertical(|ui| {
                     // Title row
                     ui.horizontal(|ui| {
+                        // BACK BUTTON (Tombol Kembali)
+                        if let Some(parent) = state.custom_file_picker_current_dir.parent() {
+                            let (rect, resp) = ui.allocate_exact_size(Vec2::splat(24.0), egui::Sense::click());
+                            let back_color = if resp.hovered() { Color32::WHITE } else { text_muted() };
+                            ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "⬅", FontId::new(16.0, FontFamily::Proportional), back_color);
+                            if resp.clicked() {
+                                let parent_path = parent.to_path_buf();
+                                ctrl.navigate_custom_file_picker(state, parent_path);
+                            }
+                            ui.add_space(6.0);
+                        }
                         ui.label(egui::RichText::new("📁 Pilih File").size(18.0).color(Color32::WHITE).strong());
                         ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                             let (rect, resp) = ui.allocate_exact_size(Vec2::splat(24.0), egui::Sense::click());
@@ -3997,7 +3990,7 @@ fn render_custom_file_picker(
                     ui.add_space(10.0);
 
                     // Main files area
-                    let scroll_h = ui.available_height() - 50.0;
+                    let scroll_h = ui.available_height() - 110.0; // Extra offset to give room for tips banner
                     egui::ScrollArea::vertical()
                         .id_salt("custom_file_picker_scroll")
                         .max_height(scroll_h)
@@ -4073,8 +4066,24 @@ fn render_custom_file_picker(
                             }
                         });
 
+                    // Tips Banner (Aesthetic note at the bottom of the modal)
+                    ui.add_space(6.0);
+                    egui::Frame::none()
+                        .fill(Color32::from_rgba_unmultiplied(255, 255, 255, 3))
+                        .stroke(Stroke::new(0.5, border_default()))
+                        .rounding(Rounding::same(8.0))
+                        .inner_margin(egui::Margin::symmetric(12.0, 8.0))
+                        .show(ui, |ui| {
+                            ui.horizontal(|ui| {
+                                ui.label(egui::RichText::new("💡").size(14.0));
+                                ui.add(egui::Label::new(egui::RichText::new(
+                                    "Tips: File biasanya berada di folder 'Download' atau 'Documents'.\nJika file tidak muncul, silakan aktifkan izin 'Akses Semua File' di pengaturan HP."
+                                ).size(10.0).color(text_muted())).wrap());
+                            });
+                        });
+
                     // Bottom row buttons
-                    ui.add_space(10.0);
+                    ui.add_space(8.0);
                     ui.horizontal(|ui| {
                         let w = ui.available_width();
                         if ghost_btn(ui, "Batal", w).clicked() {

@@ -1,7 +1,9 @@
 Write-Host "Membangun Aegis Vault untuk Android..." -ForegroundColor Cyan
 
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
+
 Write-Host "Kompilasi Rust libaegis_vault.so dengan cargo-ndk..." -ForegroundColor Cyan
-cargo ndk -t arm64-v8a -o ./android/app/src/main/jniLibs build --lib
+cargo ndk -t arm64-v8a -o ./android/app/src/main/jniLibs build --release --lib
 
 if ($LASTEXITCODE -ne 0) {
     Write-Host "Kompilasi Rust Gagal!" -ForegroundColor Red
