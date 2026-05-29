@@ -158,11 +158,9 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
                 ui.vertical(|ui| {
                     let field_w = avail.width() - pad * 2.0;
 
-                    // Logo 52x52 rounding 18
+                    // Logo 52x52 circular
                     let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
-                    filled_rect(ui, icon_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 18.0);
-                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
-                                      FontId::new(24.0, FontFamily::Proportional), Color32::WHITE);
+                    draw_app_logo(ui, icon_rect.center(), 52.0);
 
                     ui.add_space(20.0);
 
@@ -451,11 +449,9 @@ fn render_setup_account(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
             ui.horizontal(|ui| {
                 ui.add_space(pad);
                 ui.vertical(|ui| {
-                    // Small Logo
+                    // Small Logo (circular)
                     let (icon_rect, _) = ui.allocate_exact_size(Vec2::splat(52.0), egui::Sense::hover());
-                    filled_rect(ui, icon_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 18.0);
-                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
-                                      FontId::new(24.0, FontFamily::Proportional), Color32::WHITE);
+                    draw_app_logo(ui, icon_rect.center(), 52.0);
                     
                     ui.add_space(20.0);
                     
@@ -759,6 +755,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
         DashboardTab::Home => ("Brankas Saya", get_indonesian_date()),
         DashboardTab::Vault => ("Brankas", format!("5 folder · {} file", state.file_list.len())),
         DashboardTab::Kuat => ("Kenapa HP Kuat?", "Variabel teknis, bahasa manusia".to_string()),
+        DashboardTab::AboutUs => ("Tentang Kami", "Aegis Vault · Tim Pengembang".to_string()),
         _ => ("Semua File", format!("{} file terenkripsi", state.file_list.len())),
     };
     
@@ -865,6 +862,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                  DashboardTab::Settings => render_tab_settings(ui, state, ctrl),
                  DashboardTab::Profile => render_tab_profile(ui, state, ctrl),
                  DashboardTab::Notifications => render_tab_notifications(ui, state, ctrl),
+                 DashboardTab::AboutUs => render_tab_about_us(ui, state, ctrl),
              }
              ui.add_space(40.0);
         });
@@ -1972,6 +1970,287 @@ fn render_tab_settings(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     ui.horizontal(|ui| {
         ui.add_space(pad);
         draw_row(ui, "ℹ", accent_purple(), accent_purple_a(), "Versi Aplikasi", "v1.0.0 · Dibuat dengan Rust + egui");
+    });
+    ui.add_space(8.0);
+    
+    // Row 3.2: Tentang Kami
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        if draw_row(ui, "👥", Color32::from_rgb(52, 211, 153), Color32::from_rgba_unmultiplied(52, 211, 153, 20), "Tentang Kami", "Informasi pengembang & versi aplikasi").clicked() {
+            state.dashboard_tab = DashboardTab::AboutUs;
+        }
+    });
+}
+
+// ── Helper: load image bytes into egui texture ────────────
+pub fn load_image_texture(ui: &egui::Ui, name: &str, bytes: &[u8]) -> Option<egui::TextureHandle> {
+    match image::load_from_memory(bytes) {
+        Ok(img) => {
+            let size = [img.width() as _, img.height() as _];
+            let image_buffer = img.to_rgba8();
+            let pixels = image_buffer.as_flat_samples();
+            let color_image = egui::ColorImage::from_rgba_unmultiplied(size, pixels.as_slice());
+            Some(ui.ctx().load_texture(name, color_image, Default::default()))
+        }
+        Err(_) => None,
+    }
+}
+
+// ── Helper: draw a texture clipped to a circle using a mesh ──
+fn draw_circular_image(ui: &egui::Ui, texture: &egui::TextureHandle, center: egui::Pos2, radius: f32) {
+    let segments = 64; // smoothness of the circle
+    let mut mesh = Mesh::with_texture(texture.id());
+
+    // Center vertex
+    mesh.vertices.push(Vertex {
+        pos: center,
+        uv: egui::pos2(0.5, 0.5),
+        color: Color32::WHITE,
+    });
+
+    // Edge vertices around the circle
+    for i in 0..=segments {
+        let angle = std::f32::consts::TAU * (i as f32) / (segments as f32);
+        let dx = angle.cos();
+        let dy = angle.sin();
+        mesh.vertices.push(Vertex {
+            pos: egui::pos2(center.x + radius * dx, center.y + radius * dy),
+            uv: egui::pos2(0.5 + 0.5 * dx, 0.5 + 0.5 * dy),
+            color: Color32::WHITE,
+        });
+    }
+
+    // Triangle fan from center
+    for i in 1..=segments as u32 {
+        mesh.indices.push(0);
+        mesh.indices.push(i);
+        mesh.indices.push(i + 1);
+    }
+
+    ui.painter().add(egui::Shape::Mesh(mesh));
+}
+
+// ── Helper: draw circular image with glow border ──
+pub fn draw_circular_image_with_border(
+    ui: &egui::Ui, texture: &egui::TextureHandle,
+    center: egui::Pos2, radius: f32,
+    border_width: f32, border_color: Color32,
+    glow: bool,
+) {
+    // Glow effect
+    if glow {
+        ui.painter().circle_filled(center, radius + border_width + 3.0,
+            Color32::from_rgba_unmultiplied(border_color.r(), border_color.g(), border_color.b(), 40));
+    }
+    // Dark ring behind image to cut out background
+    ui.painter().circle_filled(center, radius + border_width,  border_color);
+    ui.painter().circle_filled(center, radius, Color32::from_rgb(11, 12, 22));
+    // Draw the circular image
+    draw_circular_image(ui, texture, center, radius);
+    // Border stroke on top
+    ui.painter().circle_stroke(center, radius, Stroke::new(border_width, border_color));
+}
+
+// ── Helper: draw the app logo at a given rect (circular) ──
+fn draw_app_logo(ui: &egui::Ui, center: egui::Pos2, size: f32) {
+    let logo_bytes: &[u8] = include_bytes!("../assets/logo.jpg");
+    if let Some(texture) = load_image_texture(ui, "app_logo_global", logo_bytes) {
+        let radius = size / 2.0;
+        draw_circular_image_with_border(
+            ui, &texture, center, radius,
+            2.0, Color32::from_rgb(129, 140, 248), false,
+        );
+    } else {
+        // Fallback to old emoji (using painter directly since we only have &Ui)
+        let rect = egui::Rect::from_center_size(center, Vec2::splat(size));
+        ui.painter().rect(rect, Rounding::same(size * 0.35), Color32::from_rgb(99, 102, 241), Stroke::NONE);
+        ui.painter().text(center, egui::Align2::CENTER_CENTER, "🛡",
+            FontId::new(size * 0.46, FontFamily::Proportional), Color32::WHITE);
+    }
+}
+
+// ── Screen: Tentang Kami (About Us) ───────────────────────
+fn render_tab_about_us(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
+    let pad = 24.0;
+    let avail = ui.available_rect_before_wrap();
+    let card_w = avail.width() - pad * 2.0;
+
+    // ── Back Button ──
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let (back_rect, back_resp) = ui.allocate_exact_size(Vec2::new(100.0, 36.0), egui::Sense::click());
+        let back_bg = if back_resp.hovered() { Color32::from_rgba_unmultiplied(129, 140, 248, 30) } else { Color32::TRANSPARENT };
+        filled_rect(ui, back_rect, back_bg, Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 60)), 12.0);
+        ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "◀ Kembali",
+            FontId::new(12.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
+        if back_resp.clicked() { state.dashboard_tab = DashboardTab::Settings; }
+    });
+    ui.add_space(16.0);
+
+    // ── App Logo (circular) ──
+    {
+        let logo_bytes = include_bytes!("../assets/logo.jpg");
+        if let Some(texture) = load_image_texture(ui, "about_logo", logo_bytes) {
+            ui.vertical_centered(|ui| {
+                let logo_size = 120.0;
+                let (logo_rect, _) = ui.allocate_exact_size(Vec2::splat(logo_size), egui::Sense::hover());
+                draw_circular_image_with_border(
+                    ui, &texture, logo_rect.center(), logo_size / 2.0,
+                    3.0, Color32::from_rgb(129, 140, 248), true,
+                );
+            });
+        }
+    }
+
+    ui.add_space(12.0);
+
+    // ── App Name & Version ──
+    ui.vertical_centered(|ui| {
+        ui.label(egui::RichText::new("Aegis Vault").size(28.0).color(text_primary()).strong());
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new("Versi 1.0.0").size(13.0).color(Color32::from_rgb(129, 140, 248)).strong());
+        ui.add_space(8.0);
+    });
+
+    // ── App Description Card ──
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let desc_h = 80.0;
+        let (desc_rect, _) = ui.allocate_exact_size(Vec2::new(card_w, desc_h), egui::Sense::hover());
+        filled_rect(ui, desc_rect, bg_card(), Stroke::new(0.5, border_default()), 18.0);
+
+        // Icon
+        let icon_rect = egui::Rect::from_center_size(
+            egui::pos2(desc_rect.left() + 30.0, desc_rect.center().y), Vec2::splat(36.0));
+        filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 20), Stroke::NONE, 12.0);
+        ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🛡",
+            FontId::new(18.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
+
+        // Description text
+        let text_x = icon_rect.right() + 14.0;
+        let _text_w = desc_rect.right() - text_x - 12.0;
+        ui.painter().text(egui::pos2(text_x, desc_rect.top() + 16.0), egui::Align2::LEFT_TOP,
+            "Aplikasi penyimpanan file terenkripsi",
+            FontId::new(12.0, FontFamily::Proportional), text_primary());
+        // Wrap text manually for the sub description
+        let sub_text = "dengan keamanan tingkat militer.\nDibuat menggunakan Rust + egui.";
+        ui.painter().text(egui::pos2(text_x, desc_rect.top() + 34.0), egui::Align2::LEFT_TOP,
+            sub_text,
+            FontId::new(10.5, FontFamily::Proportional), text_muted());
+    });
+
+    ui.add_space(20.0);
+
+    // ── Section: Tim Pengembang ──
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        ui.label(egui::RichText::new("TIM PENGEMBANG").size(10.0).color(text_muted()).strong());
+    });
+    ui.add_space(10.0);
+
+    // Team members data
+    struct TeamMember {
+        name: &'static str,
+        nim: &'static str,
+        photo_bytes: &'static [u8],
+        tex_id: &'static str,
+    }
+
+    let members = [
+        TeamMember {
+            name: "Rizma Indra Pramudya",
+            nim: "25051204370",
+            photo_bytes: include_bytes!("../assets/foto_rizma.png"),
+            tex_id: "about_foto_rizma",
+        },
+        TeamMember {
+            name: "Izora Elverda Narulita Putri",
+            nim: "25051204287",
+            photo_bytes: include_bytes!("../assets/foto_izora.png"),
+            tex_id: "about_foto_izora",
+        },
+        TeamMember {
+            name: "Putera Al Khalidi",
+            nim: "25051204362",
+            photo_bytes: include_bytes!("../assets/foto_putera.png"),
+            tex_id: "about_foto_putera",
+        },
+        TeamMember {
+            name: "Muhammad Abdullah Ro'in",
+            nim: "25051204270",
+            photo_bytes: include_bytes!("../assets/foto_abdullah.png"),
+            tex_id: "about_foto_abdullah",
+        },
+    ];
+
+    for (idx, member) in members.iter().enumerate() {
+        ui.horizontal(|ui| {
+            ui.add_space(pad);
+
+            let row_h = 72.0;
+            let (row_rect, row_resp) = ui.allocate_exact_size(Vec2::new(card_w, row_h), egui::Sense::hover());
+            let border = if row_resp.hovered() { border_hover() } else { border_default() };
+            filled_rect(ui, row_rect, bg_card(), Stroke::new(0.5, border), 18.0);
+
+            // Profile photo (circular)
+            let photo_size = 48.0;
+            let photo_center = egui::pos2(row_rect.left() + 20.0 + photo_size / 2.0, row_rect.center().y);
+            let photo_rect = egui::Rect::from_center_size(photo_center, Vec2::splat(photo_size));
+
+            // Colors per member
+            let colors = [
+                Color32::from_rgb(129, 140, 248),  // indigo
+                Color32::from_rgb(52, 211, 153),    // emerald
+                Color32::from_rgb(251, 191, 36),    // amber
+                Color32::from_rgb(244, 114, 182),   // pink
+            ];
+            let accent = colors[idx % colors.len()];
+
+            // Try to load the member photo
+            if let Some(texture) = load_image_texture(ui, member.tex_id, member.photo_bytes) {
+                // Photo loaded - render circular
+                draw_circular_image_with_border(
+                    ui, &texture, photo_center, photo_size / 2.0,
+                    2.0, accent, false,
+                );
+            } else {
+                // Fallback: colored circle with initial
+                ui.painter().circle_filled(photo_center, photo_size / 2.0,
+                    Color32::from_rgba_unmultiplied(accent.r(), accent.g(), accent.b(), 30));
+                ui.painter().circle_stroke(photo_center, photo_size / 2.0,
+                    Stroke::new(2.0, accent));
+                let initial = member.name.chars().next().unwrap_or('?').to_uppercase().to_string();
+                ui.painter().text(photo_center, egui::Align2::CENTER_CENTER, &initial,
+                    FontId::new(20.0, FontFamily::Proportional), accent);
+            }
+
+            // Name and NIM
+            let text_x = photo_rect.right() + 14.0;
+            ui.painter().text(egui::pos2(text_x, row_rect.center().y - 10.0), egui::Align2::LEFT_CENTER,
+                member.name,
+                FontId::new(14.0, FontFamily::Proportional), text_primary());
+            ui.painter().text(egui::pos2(text_x, row_rect.center().y + 10.0), egui::Align2::LEFT_CENTER,
+                &format!("NIM: {}", member.nim),
+                FontId::new(11.0, FontFamily::Proportional), text_muted());
+
+            // Badge number
+            let badge_rect = egui::Rect::from_center_size(
+                egui::pos2(row_rect.right() - 28.0, row_rect.center().y), Vec2::splat(28.0));
+            filled_rect(ui, badge_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 20), Stroke::NONE, 14.0);
+            ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER,
+                &format!("{}", idx + 1),
+                FontId::new(12.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
+        });
+        ui.add_space(8.0);
+    }
+
+    ui.add_space(16.0);
+
+    // ── Footer ──
+    ui.vertical_centered(|ui| {
+        ui.label(egui::RichText::new("© 2025 Aegis Vault Team").size(11.0).color(text_muted()));
+        ui.add_space(4.0);
+        ui.label(egui::RichText::new("Dibuat dengan ❤️ menggunakan Rust").size(10.0).color(Color32::from_rgb(71, 77, 102)));
     });
 }
 

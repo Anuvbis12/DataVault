@@ -45,6 +45,7 @@ pub enum DashboardTab {
     Settings,
     Profile,
     Notifications,
+    AboutUs,
 }
 
 #[derive(PartialEq, Clone)]

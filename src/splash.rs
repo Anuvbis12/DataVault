@@ -59,21 +59,33 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
             let actual_size = Vec2::splat(80.0 * pop_scale);
             let logo_rect = egui::Rect::from_center_size(fixed_rect.center(), actual_size);
 
-            // Outer glow ring
-            let glow_ring_rect = logo_rect.expand(16.0 * pop_scale);
-            filled_rect(ui, glow_ring_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::NONE, 36.0 * pop_scale);
-
-            // Logo background
-            filled_rect(ui, logo_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 28.0 * pop_scale);
-
-            // Shield icon
-            ui.painter().text(
-                logo_rect.center(),
-                egui::Align2::CENTER_CENTER,
-                "🛡",
-                FontId::new((36.0 * pop_scale).max(0.1), FontFamily::Proportional),
-                Color32::WHITE,
-            );
+            // Logo background + circular image
+            {
+                let logo_bytes: &[u8] = include_bytes!("../assets/logo.jpg");
+                if let Some(texture) = crate::view::load_image_texture(ui, "splash_logo", logo_bytes) {
+                    let radius = 40.0 * pop_scale;
+                    // Glow ring
+                    let glow_ring_rect = logo_rect.expand(16.0 * pop_scale);
+                    filled_rect(ui, glow_ring_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::NONE, 36.0 * pop_scale);
+                    // Draw circular image
+                    crate::view::draw_circular_image_with_border(
+                        ui, &texture, logo_rect.center(), radius,
+                        2.5, Color32::from_rgb(129, 140, 248), true,
+                    );
+                } else {
+                    // Fallback
+                    let glow_ring_rect = logo_rect.expand(16.0 * pop_scale);
+                    filled_rect(ui, glow_ring_rect, Color32::from_rgba_unmultiplied(99, 102, 241, 20), Stroke::NONE, 36.0 * pop_scale);
+                    filled_rect(ui, logo_rect, Color32::from_rgb(99, 102, 241), Stroke::NONE, 28.0 * pop_scale);
+                    ui.painter().text(
+                        logo_rect.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "🛡",
+                        FontId::new((36.0 * pop_scale).max(0.1), FontFamily::Proportional),
+                        Color32::WHITE,
+                    );
+                }
+            }
 
             // ── Fade in for text ──
             let text_alpha = ((elapsed - 0.3) / 0.5).clamp(0.0, 1.0);
