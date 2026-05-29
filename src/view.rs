@@ -2606,12 +2606,6 @@ fn render_decrypt_panel(
 
 // ── Screen: TOTP Setup (QR code + verifikasi awal) ────────
 fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
-    if let Some(st) = state.totp_setup_time {
-        if st.elapsed().as_secs() >= 30 {
-            ctrl.begin_totp_setup(state);
-            return;
-        }
-    }
     let avail = ui.available_rect_before_wrap();
 
     egui::Frame::none()
@@ -2655,11 +2649,6 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                 // QR Code
                 if let Some(matrix) = &state.totp_qr {
                     crate::totp::draw_qr(ui, matrix, 200.0);
-                    if let Some(st) = state.totp_setup_time {
-                        let left = 30u64.saturating_sub(st.elapsed().as_secs());
-                        ui.add_space(4.0);
-                        ui.label(egui::RichText::new(format!("⏳ QR berganti dalam {} detik", left)).size(11.0).color(warn_color()));
-                    }
                 } else {
                     ui.label(egui::RichText::new("Gagal generate QR code").color(error_color()));
                 }
@@ -2685,12 +2674,6 @@ fn render_totp_setup(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller)
                             .size(12.0).color(teal_faint())
                             .text_style(egui::TextStyle::Monospace));
                     });
-                    
-                if let Some(st) = state.totp_setup_time {
-                    let left = 30u64.saturating_sub(st.elapsed().as_secs());
-                    ui.add_space(4.0);
-                    ui.label(egui::RichText::new(format!("⏳ Kunci berganti dalam {} detik", left)).size(11.0).color(warn_color()));
-                }
 
                 ui.add_space(20.0);
 
