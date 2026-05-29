@@ -163,6 +163,13 @@ pub struct AppState {
     pub request_android_file_picker: bool,
     pub android_file_picker_result: Option<String>,
 
+    // Custom File Picker Pure Rust
+    pub custom_file_picker_open: bool,
+    pub custom_file_picker_current_dir: std::path::PathBuf,
+    pub custom_file_picker_files: Vec<std::path::PathBuf>,
+    pub custom_file_picker_search: String,
+    pub custom_file_picker_error: Option<String>,
+
     // Notifications Tab
     pub audit_logs: Vec<AuditLog>,
 
@@ -218,6 +225,9 @@ pub struct AppState {
     pub storage_pin_error: Option<String>,
     pub storage_path: String,
 
+    // Cache texture agar tidak decode JPEG setiap frame
+    pub texture_cache: std::collections::HashMap<String, eframe::egui::TextureHandle>,
+
     // Rename Modal States
     pub rename_modal_open: bool,
     pub rename_target_id: String,
@@ -263,7 +273,7 @@ impl Default for AppState {
             totp_secret:      None,
             totp_secret_b32:  String::new(),
             totp_qr:          None,
-            totp_code:        String::new(),
+            totp_code:       String::new(),
             totp_error:       None,
             totp_setup_time:  None,
             show_reset_confirm: false,
@@ -279,6 +289,12 @@ impl Default for AppState {
 
             request_android_file_picker: false,
             android_file_picker_result: None,
+
+            custom_file_picker_open: false,
+            custom_file_picker_current_dir: std::path::PathBuf::new(),
+            custom_file_picker_files: Vec::new(),
+            custom_file_picker_search: String::new(),
+            custom_file_picker_error: None,
 
             audit_logs: Vec::new(),
             is_light_mode: false,
@@ -313,6 +329,7 @@ impl Default for AppState {
             storage_pin: String::new(),
             storage_pin_error: None,
             storage_path: "vault_storage/ - Lokal".to_string(),
+            texture_cache: std::collections::HashMap::new(),
 
             rename_modal_open: false,
             rename_target_id: String::new(),

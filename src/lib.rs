@@ -167,6 +167,8 @@ impl eframe::App for VaultMvc {
         // PENTING: Tidak melakukan logout — sesi tetap aktif.
         // Layar hitam hanya mencegah isi brankas terlihat saat app tidak di foreground.
         // Logout hanya terjadi via: inactivity timer 2 menit, tombol Lock, atau double-Esc.
+        // Logout hanya terjadi via: inactivity timer 2 menit, tombol Lock, atau double-Esc.
+        #[cfg(not(target_os = "android"))]
         if !ctx.input(|i| i.focused) {
             let screen_rect = ctx.screen_rect();
             let painter = ctx.layer_painter(eframe::egui::LayerId::new(
@@ -231,6 +233,8 @@ fn android_main(app: android_activity::AndroidApp) {
         #[cfg(target_os = "android")]
         {
             options.renderer = eframe::Renderer::Glow;
+            options.multisampling = 0; // Matikan MSAA agar jauh lebih enteng di HP
+            options.depth_buffer = 0;  // Tidak butuh depth buffer untuk UI 2D
         }
         
         let app_clone = app_for_panic.clone();

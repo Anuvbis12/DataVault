@@ -1071,6 +1071,62 @@ impl Controller {
         state.device_disk_total = total_disk;
         state.device_disk_free = free_disk;
     }
+
+    // ── Custom File Picker Pure Rust ──────────────────────────
+
+    pub fn open_custom_file_picker(&self, state: &mut AppState) {
+        state.custom_file_picker_open = true;
+        state.custom_file_picker_search.clear();
+        state.custom_file_picker_error = None;
+
+        let mut start_dir = std::path::PathBuf::from("/storage/emulated/0");
+        if !start_dir.exists() {
+            start_dir = std::path::PathBuf::from("/sdcard");
+        }
+        if !start_dir.exists() {
+            if let Some(ext_path) = crate::controller::external_dir() {
+                start_dir = ext_path.to_path_buf();
+            } else {
+                start_dir = std::env::current_dir().unwrap_or_else(|_| std::path::PathBuf::from("."));
+            }
+        }
+        self.navigate_custom_file_picker(state, start_dir);
+    }
+
+    pub fn navigate_custom_file_picker(&self, state: &mut AppState, dir: std::path::PathBuf) {
+        state.custom_file_picker_current_dir = dir.clone();
+        state.custom_file_picker_error = None;
+
+        let mut paths = Vec::new();
+        match std::fs::read_dir(&dir) {
+            Ok(entries) => {
+                for entry in entries {
+                    if let Ok(entry) = entry {
+                        paths.push(entry.path());
+                    }
+                }
+                // Sort folders first, then files alphabetically
+                paths.sort_by(|a, b| {
+                    let a_is_dir = a.is_dir();
+                    let b_is_dir = b.is_dir();
+                    if a_is_dir && !b_is_dir {
+                        std::cmp::Ordering::Less
+                    } else if !a_is_dir && b_is_dir {
+                        std::cmp::Ordering::Greater
+                    } else {
+                        let a_name = a.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+                        let b_name = b.file_name().unwrap_or_default().to_string_lossy().to_lowercase();
+                        a_name.cmp(&b_name)
+                    }
+                });
+                state.custom_file_picker_files = paths;
+            }
+            Err(e) => {
+                state.custom_file_picker_error = Some(format!("Akses ditolak: {}", e));
+                state.custom_file_picker_files.clear();
+            }
+        }
+    }
 }
 
 // ── Timestamp helper ──────────────────────────────────────
