@@ -975,7 +975,11 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     ui.add_space(8.0);
     let card_w = avail.width() - pad * 2.0;
     let card_h = 160.0;
-    let (card_rect, _) = ui.allocate_exact_size(Vec2::new(card_w, card_h), egui::Sense::hover());
+    let card_rect = egui::Rect::from_min_size(
+        egui::pos2(avail.min.x + pad, ui.cursor().min.y),
+        Vec2::new(card_w, card_h)
+    );
+    let _ = ui.allocate_rect(card_rect, egui::Sense::hover());
     
     // Background gradient (simulated using circles and base dark color)
     filled_rect(ui, card_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, Color32::from_rgba_unmultiplied(129, 140, 248, 30)), 24.0);
