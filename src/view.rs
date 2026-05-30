@@ -66,7 +66,13 @@ pub fn render(
 
     if let Some(uri) = state.android_file_picker_result.take() {
         if !uri.is_empty() {
-            controller.encrypt_file(state, std::path::PathBuf::from(uri));
+            let path = std::path::PathBuf::from(uri);
+            if state.always_use_active_folder {
+                controller.encrypt_file(state, path, state.active_folder_id.clone());
+            } else {
+                state.pending_encrypt_path = Some(path);
+                state.select_folder_modal_open = true;
+            }
         }
     }
 
@@ -113,7 +119,7 @@ pub fn render(
 
     // Overlay Storage Modals
     if state.storage_pin_modal_open || state.storage_path_modal_open {
-        render_storage_modals(ctx, state);
+        render_storage_modals(ctx, state, controller);
     }
 
     // Overlay Context Menu
@@ -141,9 +147,18 @@ pub fn render(
         render_delete_folder_modal(ctx, state, controller);
     }
 
+    // Overlay Folder Authentication Modal
+    if state.folder_auth_modal_open {
+        render_folder_auth_modal(ctx, state, controller);
+    }
+
     // Overlay Custom File Picker (Pure Rust/egui)
     if state.custom_file_picker_open {
         render_custom_file_picker(ctx, state, controller);
+    }
+
+    if state.select_folder_modal_open {
+        render_select_folder_modal(ctx, state, controller);
     }
 }
 
@@ -326,7 +341,7 @@ fn render_login(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
 }
 // ── Screen: Login PIN ─────────────────────────────────────
 // 100% match to datavault_aegis_v5.html #s-login-pin
-fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller) {
+fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     let avail = ui.available_rect_before_wrap();
 
     ui.allocate_new_ui(egui::UiBuilder::new().max_rect(avail), |ui| {
@@ -446,7 +461,7 @@ fn render_login_pin(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller)
             });
 
             if state.login_pin.len() == 6 {
-                state.screen = AppScreen::Dashboard;
+                ctrl.verify_login_pin(state);
             }
 
             // HTML: .pin-hint { font-size:12px; color:--muted; margin-top:18px }
@@ -830,7 +845,12 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                 let path: Option<std::path::PathBuf> = { ctrl.open_custom_file_picker(state); None };
                 
                 if let Some(path) = path {
-                    ctrl.encrypt_file(state, path);
+                    if state.always_use_active_folder {
+                        ctrl.encrypt_file(state, path, state.active_folder_id.clone());
+                    } else {
+                        state.pending_encrypt_path = Some(path);
+                        state.select_folder_modal_open = true;
+                    }
                 }
             }
             if lock_resp.clicked() { ctrl.logout(state); }
@@ -942,7 +962,12 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
                 let path: Option<std::path::PathBuf> = { ctrl.open_custom_file_picker(state); None };
                 
                 if let Some(path) = path {
-                    ctrl.encrypt_file(state, path);
+                    if state.always_use_active_folder {
+                        ctrl.encrypt_file(state, path, state.active_folder_id.clone());
+                    } else {
+                        state.pending_encrypt_path = Some(path);
+                        state.select_folder_modal_open = true;
+                    }
                 }
             }
         } else {
@@ -1313,6 +1338,17 @@ fn render_tab_vault(
                     let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
                     let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
                     filled_rect(ui, r, bg_card(), Stroke::new(1.0, b), 16.0);
+
+                    if f.pin_lock_enabled {
+                        let lock_icon = if state.unlocked_folders.contains(&f.id) { "🔓" } else { "🔒" };
+                        ui.painter().text(
+                            egui::pos2(r.right() - 16.0, r.top() + 16.0),
+                            egui::Align2::CENTER_CENTER,
+                            lock_icon,
+                            FontId::new(12.0, FontFamily::Proportional),
+                            Color32::from_rgb(244, 63, 94)
+                        );
+                    }
                     
                     let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 30.0, r.center().y), Vec2::splat(36.0));
                     filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 20), Stroke::NONE, 12.0);
@@ -1322,7 +1358,16 @@ fn render_tab_vault(
                     ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y + 10.0), egui::Align2::LEFT_CENTER, &file_lbl, FontId::new(11.0, FontFamily::Proportional), text_muted());
                     
                     if resp.clicked() {
-                        state.active_folder_id = Some(f.id.clone());
+                        if f.pin_lock_enabled && !state.unlocked_folders.contains(&f.id) {
+                            state.folder_auth_target_id = f.id.clone();
+                            state.folder_auth_pin.clear();
+                            state.totp_code.clear();
+                            state.folder_auth_error = None;
+                            state.folder_auth_tab = 0;
+                            state.folder_auth_modal_open = true;
+                        } else {
+                            state.active_folder_id = Some(f.id.clone());
+                        }
                     }
                 } else {
                     let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
@@ -1353,6 +1398,17 @@ fn render_tab_vault(
                     let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
                     let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
                     filled_rect(ui, r, bg_card(), Stroke::new(1.0, b), 16.0);
+
+                    if f.pin_lock_enabled {
+                        let lock_icon = if state.unlocked_folders.contains(&f.id) { "🔓" } else { "🔒" };
+                        ui.painter().text(
+                            egui::pos2(r.right() - 16.0, r.top() + 16.0),
+                            egui::Align2::CENTER_CENTER,
+                            lock_icon,
+                            FontId::new(12.0, FontFamily::Proportional),
+                            Color32::from_rgb(244, 63, 94)
+                        );
+                    }
                     
                     let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 30.0, r.center().y), Vec2::splat(36.0));
                     filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 20), Stroke::NONE, 12.0);
@@ -1362,7 +1418,16 @@ fn render_tab_vault(
                     ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y + 10.0), egui::Align2::LEFT_CENTER, &file_lbl, FontId::new(11.0, FontFamily::Proportional), text_muted());
                     
                     if resp.clicked() {
-                        state.active_folder_id = Some(f.id.clone());
+                        if f.pin_lock_enabled && !state.unlocked_folders.contains(&f.id) {
+                            state.folder_auth_target_id = f.id.clone();
+                            state.folder_auth_pin.clear();
+                            state.totp_code.clear();
+                            state.folder_auth_error = None;
+                            state.folder_auth_tab = 0;
+                            state.folder_auth_modal_open = true;
+                        } else {
+                            state.active_folder_id = Some(f.id.clone());
+                        }
                     }
                 } else {
                     let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
@@ -1459,6 +1524,24 @@ fn render_folder_detail_view(
     
     if btn_resp.clicked() {
         ctrl.open_custom_file_picker(state);
+    }
+
+    // Tombol aksi Toggle Lock Folder
+    let lock_btn_rect = egui::Rect::from_center_size(egui::pos2(card_rect.right() - 201.0, card_rect.center().y), Vec2::new(44.0, 32.0));
+    let lock_btn_resp = ui.allocate_rect(lock_btn_rect, egui::Sense::click());
+    let lock_btn_bg = if lock_btn_resp.is_pointer_button_down_on() {
+        Color32::from_rgba_unmultiplied(129, 140, 248, 100)
+    } else if lock_btn_resp.hovered() {
+        Color32::from_rgba_unmultiplied(129, 140, 248, 60)
+    } else {
+        Color32::from_rgba_unmultiplied(129, 140, 248, 30)
+    };
+    filled_rect(ui, lock_btn_rect, lock_btn_bg, Stroke::NONE, 10.0);
+    let lock_lbl = if folder.pin_lock_enabled { "🔒" } else { "🔓" };
+    ui.painter().text(lock_btn_rect.center(), egui::Align2::CENTER_CENTER, lock_lbl, FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+
+    if lock_btn_resp.clicked() {
+        ctrl.set_folder_pin_lock(state, &folder.id, !folder.pin_lock_enabled);
     }
 
     // Tombol aksi Hapus Folder
@@ -3018,17 +3101,28 @@ fn render_decrypt_panel(
                         record.sha256_hash.clone()
                     };
 
-                    for (k, v, val_color, is_bold) in &[
-                        ("Vault",       "Primary Vault",                    text_primary(), true),
-                        ("Status",      "Terkunci",                         Color32::from_rgb(129, 140, 248), true),
-                        ("Enkripsi",    "AES-256-CBC",                      text_primary(), true),
-                        ("Hash SHA-256", &hash_display,                     Color32::from_rgb(52, 211, 153), true),
-                        ("Ukuran",      &format_size(record.file_size as u64), text_primary(), true),
-                    ] {
+                    let vault_name = if let Some(fid) = &record.folder_id {
+                        state.folders_list.iter()
+                            .find(|f| &f.id == fid)
+                            .map(|f| f.name.clone())
+                            .unwrap_or_else(|| "Primary Vault".to_string())
+                    } else {
+                        "Primary Vault".to_string()
+                    };
+
+                    let details = [
+                        ("Vault".to_string(),       vault_name,                         text_primary(), true),
+                        ("Status".to_string(),      "Terkunci".to_string(),             Color32::from_rgb(129, 140, 248), true),
+                        ("Enkripsi".to_string(),    "AES-256-CBC".to_string(),          text_primary(), true),
+                        ("Hash SHA-256".to_string(), hash_display,                      Color32::from_rgb(52, 211, 153), true),
+                        ("Ukuran".to_string(),      format_size(record.file_size as u64), text_primary(), true),
+                    ];
+
+                    for (k, v, val_color, is_bold) in &details {
                         ui.horizontal(|ui| {
-                            ui.label(egui::RichText::new(*k).size(12.0).color(text_muted()));
+                            ui.label(egui::RichText::new(k).size(12.0).color(text_muted()));
                             ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                                let mut text = egui::RichText::new(*v).size(12.0).color(*val_color);
+                                let mut text = egui::RichText::new(v).size(12.0).color(*val_color);
                                 if *is_bold { text = text.strong(); }
                                 ui.label(text);
                             });
@@ -3047,7 +3141,7 @@ fn render_decrypt_panel(
                 ui.add_space(12.0);
             }
 
-            // 2x2 Grid of Action Buttons
+            // 3-Row Action Buttons Layout
             ui.vertical(|ui| {
                 let btn_w = (ui.available_width() - 12.0) / 2.0;
 
@@ -3108,42 +3202,60 @@ fn render_decrypt_panel(
 
                 ui.add_space(12.0);
 
-                // Baris 2: Salin hash & Hapus
+                // Baris 2: Pindah Folder & Salin hash
                 ui.horizontal(|ui| {
-                    // Tombol 3: Salin hash (Outline style)
+                    // Tombol 3: Pindah Folder (Outline style)
                     let (rect3, resp3) = ui.allocate_exact_size(Vec2::new(btn_w, 48.0), egui::Sense::click());
                     let border_c = if resp3.hovered() { border_hover() } else { border_default() };
                     filled_rect(ui, rect3, bg_surface(), Stroke::new(1.0, border_c), 12.0);
                     ui.painter().text(
                         rect3.center(),
                         egui::Align2::CENTER_CENTER,
-                        "📋  Salin hash",
+                        "📁  Pindah Folder",
                         FontId::new(13.0, FontFamily::Proportional),
                         Color32::WHITE
                     );
                     if resp3.clicked() {
-                        ui.ctx().copy_text(record.sha256_hash.clone());
-                        state.set_status("Hash SHA-256 berhasil disalin!", true);
+                        state.move_to_folder_target_id = record.id.clone();
+                        state.move_to_folder_modal_open = true;
                     }
 
                     ui.add_space(12.0);
 
-                    // Tombol 4: Hapus (Outline style dengan teks/ikon merah)
+                    // Tombol 4: Salin hash (Outline style)
                     let (rect4, resp4) = ui.allocate_exact_size(Vec2::new(btn_w, 48.0), egui::Sense::click());
-                    let border_c = if resp4.hovered() { Color32::from_rgb(239, 68, 68) } else { Color32::from_rgba_unmultiplied(239, 68, 68, 80) };
+                    let border_c = if resp4.hovered() { border_hover() } else { border_default() };
                     filled_rect(ui, rect4, bg_surface(), Stroke::new(1.0, border_c), 12.0);
                     ui.painter().text(
                         rect4.center(),
                         egui::Align2::CENTER_CENTER,
-                        "🗑  Hapus",
+                        "📋  Salin hash",
                         FontId::new(13.0, FontFamily::Proportional),
-                        Color32::from_rgb(239, 68, 68)
+                        Color32::WHITE
                     );
                     if resp4.clicked() {
-                        ctrl.soft_delete_file(state, &record.id);
-                        state.screen = AppScreen::Dashboard;
+                        ui.ctx().copy_text(record.sha256_hash.clone());
+                        state.set_status("Hash SHA-256 berhasil disalin!", true);
                     }
                 });
+
+                ui.add_space(12.0);
+
+                // Baris 3: Hapus (Full width, Outline style dengan teks/ikon merah)
+                let (rect5, resp5) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 48.0), egui::Sense::click());
+                let border_c = if resp5.hovered() { Color32::from_rgb(239, 68, 68) } else { Color32::from_rgba_unmultiplied(239, 68, 68, 80) };
+                filled_rect(ui, rect5, bg_surface(), Stroke::new(1.0, border_c), 12.0);
+                ui.painter().text(
+                    rect5.center(),
+                    egui::Align2::CENTER_CENTER,
+                    "🗑  Hapus",
+                    FontId::new(13.0, FontFamily::Proportional),
+                    Color32::from_rgb(239, 68, 68)
+                );
+                if resp5.clicked() {
+                    ctrl.soft_delete_file(state, &record.id);
+                    state.screen = AppScreen::Dashboard;
+                }
             });
         });
 }
@@ -3575,6 +3687,12 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
 
 // ── Screen: System Trash Scanner ──────────────────────────
 fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
+    #[cfg(target_os = "android")]
+    if state.android_delete_confirmed {
+        state.android_delete_confirmed = false;
+        ctrl.scan_system_trash(state);
+    }
+
     let avail = ui.available_rect_before_wrap();
     let pad   = 16.0;
 
@@ -3612,11 +3730,40 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         Vec2::new(avail.width() - pad * 2.0, 44.0),
     );
     filled_rect(ui, banner_rect, Color32::from_rgb(25, 25, 15), Stroke::new(0.5, Color32::from_rgb(250, 190, 88)), 8.0);
+    
+    #[cfg(target_os = "android")]
+    let system_name = "Android MediaStore Trash";
+    #[cfg(not(target_os = "android"))]
+    let system_name = "Recycle Bin Windows";
+
     ui.painter().text(banner_rect.center(), egui::Align2::CENTER_CENTER,
-                      &format!("🔍 {} file ditemukan di Recycle Bin Windows", state.system_trash_items.len()),
+                      &format!("🔍 {} file ditemukan di {}", state.system_trash_items.len(), system_name),
                       FontId::new(12.0, FontFamily::Proportional), Color32::from_rgb(250, 190, 88));
 
-    cursor_y += 58.0;
+    cursor_y += 54.0;
+
+    let mut delete_all_perm = false;
+    if !state.system_trash_items.is_empty() {
+        let btn_rect = egui::Rect::from_min_size(
+            egui::pos2(avail.left() + pad, cursor_y),
+            Vec2::new(avail.width() - pad * 2.0, 36.0),
+        );
+        let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+        let btn_fill = if btn_resp.hovered() { Color32::from_rgb(45, 15, 15) } else { Color32::from_rgb(28, 10, 10) };
+        let btn_stroke = if btn_resp.hovered() { Stroke::new(1.0, Color32::from_rgb(248, 113, 113)) } else { Stroke::new(0.5, Color32::from_rgb(150, 50, 50)) };
+        filled_rect(ui, btn_rect, btn_fill, btn_stroke, 8.0);
+        ui.painter().text(
+            btn_rect.center(),
+            egui::Align2::CENTER_CENTER,
+            "🗑️ HAPUS PERMANEN SEMUA FILE",
+            FontId::new(13.0, FontFamily::Proportional),
+            Color32::from_rgb(248, 113, 113),
+        );
+        if btn_resp.clicked() {
+            delete_all_perm = true;
+        }
+        cursor_y += 46.0;
+    }
 
     let scroll_rect = egui::Rect::from_min_max(
         egui::pos2(avail.left(), cursor_y),
@@ -3627,6 +3774,7 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
     let mut restore_custom_idx: Option<usize> = None;
     let mut preview_idx: Option<usize> = None;
     let mut secure_idx: Option<usize> = None;
+    let mut delete_perm_idx: Option<usize> = None;
 
     egui::ScrollArea::vertical()
         .id_salt("system_trash_scroll")
@@ -3638,16 +3786,19 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
                                   if state.system_trash_loading { "Memindai..." } else { "Recycle Bin kosong atau tidak dapat diakses" },
                                   FontId::new(16.0, FontFamily::Proportional), text_muted());
             } else {
-                let card_h   = 78.0;
+                let is_mobile = avail.width() < 480.0;
                 let card_gap = 8.0;
+                let mut current_y = scroll_rect.top() + 4.0;
                 for (idx, item) in state.system_trash_items.clone().iter().enumerate() {
-                    let card_y = scroll_rect.top() + idx as f32 * (card_h + card_gap) + 4.0;
-                    if card_y + card_h > scroll_rect.bottom() + 200.0 { break; }
+                    let card_h = if is_mobile { 104.0 } else { 78.0 };
+                    if current_y + card_h > scroll_rect.bottom() + 200.0 { break; }
 
                     let card_rect = egui::Rect::from_min_size(
-                        egui::pos2(avail.left() + pad, card_y),
+                        egui::pos2(avail.left() + pad, current_y),
                         Vec2::new(avail.width() - pad * 2.0, card_h),
                     );
+                    current_y += card_h + card_gap;
+
                     let card_hovered = ui.rect_contains_pointer(card_rect);
                     let card_fill    = if card_hovered { bg_card() } else { bg_surface() };
                     let card_stroke  = if card_hovered {
@@ -3664,76 +3815,90 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
                     } else {
                         file_badge(ext)
                     };
-                    let badge_rect = egui::Rect::from_min_size(
-                        egui::pos2(card_rect.left() + 14.0, card_rect.center().y - 18.0),
-                        Vec2::splat(36.0),
-                    );
+                    let badge_rect = if is_mobile {
+                        egui::Rect::from_min_size(
+                            egui::pos2(card_rect.left() + 14.0, card_rect.top() + 14.0),
+                            Vec2::splat(36.0),
+                        )
+                    } else {
+                        egui::Rect::from_min_size(
+                            egui::pos2(card_rect.left() + 14.0, card_rect.center().y - 18.0),
+                            Vec2::splat(36.0),
+                        )
+                    };
                     filled_rect(ui, badge_rect, badge.0, Stroke::new(0.5, badge.1), 8.0);
                     ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, icon,
                                       FontId::new(16.0, FontFamily::Proportional), badge.1);
 
                     // Info
                     let info_x = badge_rect.right() + 12.0;
-                    let name_truncated = if item.file_name.len() > 24 {
-                        format!("{}…", &item.file_name[..22])
+                    let max_name_len = if is_mobile { 32 } else { 24 };
+                    let name_truncated = if item.file_name.len() > max_name_len {
+                        format!("{}…", &item.file_name[..max_name_len - 2])
                     } else {
                         item.file_name.clone()
                     };
-                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 16.0),
+                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 14.0),
                                       egui::Align2::LEFT_TOP, &name_truncated,
                                       FontId::new(14.0, FontFamily::Proportional), text_primary());
                     
                     let size_str = format_size(item.file_size);
                     let meta = format!("{}  ·  Dihapus: {}", size_str, &item.deleted_at);
-                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 36.0),
+                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 32.0),
                                       egui::Align2::LEFT_TOP, &meta,
                                       FontId::new(11.0, FontFamily::Proportional), text_muted());
 
                     // Truncated original path
-                    let orig_path = if item.original_path.len() > 40 {
-                        format!("...{}", &item.original_path[item.original_path.len()-37..])
+                    let orig_path_max = if is_mobile { 45 } else { 40 };
+                    let orig_path = if item.original_path.len() > orig_path_max {
+                        format!("...{}", &item.original_path[item.original_path.len() - (orig_path_max - 3)..])
                     } else {
                         item.original_path.clone()
                     };
-                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 52.0),
+                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 48.0),
                                       egui::Align2::LEFT_TOP, &orig_path,
                                       FontId::new(10.0, FontFamily::Proportional), Color32::from_rgb(120, 120, 140));
 
-                    if !item.is_directory {
-                        // Secure button
-                        let secure_rect = egui::Rect::from_min_size(
-                            egui::pos2(card_rect.right() - 182.0, card_rect.center().y - 16.0),
-                            Vec2::new(38.0, 32.0),
-                        );
-                        let secure_resp = ui.allocate_rect(secure_rect, egui::Sense::click());
-                        let secure_border = if secure_resp.hovered() { warn_color() } else { border_default() };
-                        let secure_icon_c = if secure_resp.hovered() { warn_color() } else { text_muted() };
-                        filled_rect(ui, secure_rect, bg_surface(), Stroke::new(0.5, secure_border), 7.0);
-                        ui.painter().text(secure_rect.center(), egui::Align2::CENTER_CENTER, "🔒",
-                                          FontId::new(14.0, FontFamily::Proportional), secure_icon_c);
-                        if secure_resp.clicked() {
-                            secure_idx = Some(idx);
-                        }
+                    // Buttons y-pos
+                    let btn_y = if is_mobile {
+                        card_rect.top() + 62.0
+                    } else {
+                        card_rect.center().y - 16.0
+                    };
 
-                        // Preview button
-                        let preview_rect = egui::Rect::from_min_size(
-                            egui::pos2(card_rect.right() - 138.0, card_rect.center().y - 16.0),
-                            Vec2::new(38.0, 32.0),
-                        );
-                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
-                        let preview_border = if preview_resp.hovered() { teal_strong() } else { border_default() };
-                        let preview_icon_c = if preview_resp.hovered() { teal_strong() } else { text_muted() };
-                        filled_rect(ui, preview_rect, bg_surface(), Stroke::new(0.5, preview_border), 7.0);
-                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁",
-                                          FontId::new(16.0, FontFamily::Proportional), preview_icon_c);
-                        if preview_resp.clicked() {
-                            preview_idx = Some(idx);
-                        }
+                    // Delete Permanent button (far right)
+                    let delete_perm_rect = egui::Rect::from_min_size(
+                        egui::pos2(card_rect.right() - 50.0, btn_y),
+                        Vec2::new(38.0, 32.0),
+                    );
+                    let delete_perm_resp = ui.allocate_rect(delete_perm_rect, egui::Sense::click());
+                    let delete_border = if delete_perm_resp.hovered() { Color32::from_rgb(248, 113, 113) } else { border_default() };
+                    let delete_icon_c = if delete_perm_resp.hovered() { Color32::from_rgb(248, 113, 113) } else { text_muted() };
+                    filled_rect(ui, delete_perm_rect, bg_surface(), Stroke::new(0.5, delete_border), 7.0);
+                    ui.painter().text(delete_perm_rect.center(), egui::Align2::CENTER_CENTER, "🗑",
+                                      FontId::new(14.0, FontFamily::Proportional), delete_icon_c);
+                    if delete_perm_resp.clicked() {
+                        delete_perm_idx = Some(idx);
+                    }
+
+                    // Restore to custom folder button
+                    let restore_custom_rect = egui::Rect::from_min_size(
+                        egui::pos2(card_rect.right() - 94.0, btn_y),
+                        Vec2::new(38.0, 32.0),
+                    );
+                    let restore_custom_resp = ui.allocate_rect(restore_custom_rect, egui::Sense::click());
+                    let custom_border = if restore_custom_resp.hovered() { Color32::from_rgb(96, 165, 250) } else { border_default() };
+                    let custom_icon_c = if restore_custom_resp.hovered() { Color32::from_rgb(96, 165, 250) } else { text_muted() };
+                    filled_rect(ui, restore_custom_rect, bg_surface(), Stroke::new(0.5, custom_border), 7.0);
+                    ui.painter().text(restore_custom_rect.center(), egui::Align2::CENTER_CENTER, "📂",
+                                      FontId::new(14.0, FontFamily::Proportional), custom_icon_c);
+                    if restore_custom_resp.clicked() {
+                        restore_custom_idx = Some(idx);
                     }
 
                     // Restore to original button
                     let restore_orig_rect = egui::Rect::from_min_size(
-                        egui::pos2(card_rect.right() - 94.0, card_rect.center().y - 16.0),
+                        egui::pos2(card_rect.right() - 138.0, btn_y),
                         Vec2::new(38.0, 32.0),
                     );
                     let restore_orig_resp = ui.allocate_rect(restore_orig_rect, egui::Sense::click());
@@ -3746,19 +3911,36 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
                         restore_original_idx = Some(idx);
                     }
 
-                    // Restore to custom folder button
-                    let restore_custom_rect = egui::Rect::from_min_size(
-                        egui::pos2(card_rect.right() - 50.0, card_rect.center().y - 16.0),
-                        Vec2::new(38.0, 32.0),
-                    );
-                    let restore_custom_resp = ui.allocate_rect(restore_custom_rect, egui::Sense::click());
-                    let custom_border = if restore_custom_resp.hovered() { Color32::from_rgb(96, 165, 250) } else { border_default() };
-                    let custom_icon_c = if restore_custom_resp.hovered() { Color32::from_rgb(96, 165, 250) } else { text_muted() };
-                    filled_rect(ui, restore_custom_rect, bg_surface(), Stroke::new(0.5, custom_border), 7.0);
-                    ui.painter().text(restore_custom_rect.center(), egui::Align2::CENTER_CENTER, "📂",
-                                      FontId::new(14.0, FontFamily::Proportional), custom_icon_c);
-                    if restore_custom_resp.clicked() {
-                        restore_custom_idx = Some(idx);
+                    if !item.is_directory {
+                        // Preview button
+                        let preview_rect = egui::Rect::from_min_size(
+                            egui::pos2(card_rect.right() - 182.0, btn_y),
+                            Vec2::new(38.0, 32.0),
+                        );
+                        let preview_resp = ui.allocate_rect(preview_rect, egui::Sense::click());
+                        let preview_border = if preview_resp.hovered() { teal_strong() } else { border_default() };
+                        let preview_icon_c = if preview_resp.hovered() { teal_strong() } else { text_muted() };
+                        filled_rect(ui, preview_rect, bg_surface(), Stroke::new(0.5, preview_border), 7.0);
+                        ui.painter().text(preview_rect.center(), egui::Align2::CENTER_CENTER, "👁",
+                                          FontId::new(16.0, FontFamily::Proportional), preview_icon_c);
+                        if preview_resp.clicked() {
+                            preview_idx = Some(idx);
+                        }
+
+                        // Secure button
+                        let secure_rect = egui::Rect::from_min_size(
+                            egui::pos2(card_rect.right() - 226.0, btn_y),
+                            Vec2::new(38.0, 32.0),
+                        );
+                        let secure_resp = ui.allocate_rect(secure_rect, egui::Sense::click());
+                        let secure_border = if secure_resp.hovered() { warn_color() } else { border_default() };
+                        let secure_icon_c = if secure_resp.hovered() { warn_color() } else { text_muted() };
+                        filled_rect(ui, secure_rect, bg_surface(), Stroke::new(0.5, secure_border), 7.0);
+                        ui.painter().text(secure_rect.center(), egui::Align2::CENTER_CENTER, "🔒",
+                                          FontId::new(14.0, FontFamily::Proportional), secure_icon_c);
+                        if secure_resp.clicked() {
+                            secure_idx = Some(idx);
+                        }
                     }
                 }
             }
@@ -3781,6 +3963,12 @@ fn render_system_trash(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controlle
         if let Some(dest_dir) = dest_dir {
             ctrl.restore_system_trash_custom(state, idx, dest_dir);
         }
+    }
+    if let Some(idx) = delete_perm_idx {
+        ctrl.delete_system_trash_item_permanent(state, idx);
+    }
+    if delete_all_perm {
+        ctrl.delete_all_system_trash_items_permanent(state);
     }
 
 }
@@ -3992,7 +4180,7 @@ fn render_security_violation(ctx: &egui::Context, details: &str) {
 
 // ── Screen Overlay: Modals ─────────────────────────────────
 
-fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
+fn render_storage_modals(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
     if state.storage_pin_modal_open {
         egui::Area::new(egui::Id::new("storage_pin_modal"))
             .fixed_pos(egui::pos2(0.0, 0.0))
@@ -4096,18 +4284,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                         });
                         
                         if state.storage_pin.len() == 6 {
-                            state.storage_pin_modal_open = false;
-                            state.storage_path_modal_open = true;
-                            state.storage_pin.clear();
-                            
-                            if state.storage_path.starts_with("vault_storage") {
-                                state.storage_location_type = 0;
-                            } else if state.storage_path.starts_with("/sdcard") {
-                                state.storage_location_type = 1;
-                            } else {
-                                state.storage_location_type = 2;
-                                state.storage_custom_path = state.storage_path.clone();
-                            }
+                            ctrl.verify_storage_pin(state);
                         }
                     });
                 });
@@ -4524,6 +4701,205 @@ fn render_delete_folder_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &
         });
 }
 
+fn render_folder_auth_modal(
+    ctx: &egui::Context,
+    state: &mut AppState,
+    ctrl: &Controller,
+) {
+    egui::Area::new(egui::Id::new("folder_auth_modal"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+
+            let modal_size = if state.folder_auth_tab == 0 {
+                Vec2::new(340.0, 490.0)
+            } else {
+                Vec2::new(340.0, 310.0)
+            };
+            let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.folder_auth_modal_open = false;
+                state.folder_auth_pin.clear();
+                state.totp_code.clear();
+                state.folder_auth_error = None;
+            }
+
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
+                ui.vertical_centered(|ui| {
+                    let folder = state.folders_list.iter().find(|f| f.id == state.folder_auth_target_id).cloned();
+                    let (folder_icon, folder_name) = match &folder {
+                        Some(f) => (f.icon.as_str(), f.name.as_str()),
+                        None => ("🔒", "Folder Terkunci"),
+                    };
+
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 25.0), Vec2::splat(44.0));
+                    filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 25), Stroke::NONE, 14.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, folder_icon, FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
+
+                    ui.add_space(55.0);
+                    ui.label(egui::RichText::new(format!("Buka {}", folder_name)).size(17.0).color(text_primary()).strong());
+                    ui.add_space(10.0);
+
+                    if state.totp_enabled {
+                        ui.horizontal(|ui| {
+                            let total_w = ui.available_width();
+                            let tab_w = total_w / 2.0;
+
+                            let pin_tab_active = state.folder_auth_tab == 0;
+                            let pin_tab_bg = if pin_tab_active { Color32::from_rgba_unmultiplied(129, 140, 248, 35) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 10) };
+                            let (pin_tab_rect, pin_tab_resp) = ui.allocate_exact_size(Vec2::new(tab_w - 4.0, 32.0), egui::Sense::click());
+                            filled_rect(ui, pin_tab_rect, pin_tab_bg, if pin_tab_active { Stroke::new(1.0, Color32::from_rgb(129, 140, 248)) } else { Stroke::NONE }, 8.0);
+                            ui.painter().text(pin_tab_rect.center(), egui::Align2::CENTER_CENTER, "🔢 PIN / Password", FontId::new(12.0, FontFamily::Proportional), if pin_tab_active { Color32::WHITE } else { text_muted() });
+
+                            if pin_tab_resp.clicked() {
+                                state.folder_auth_tab = 0;
+                                state.folder_auth_error = None;
+                            }
+
+                            let totp_tab_active = state.folder_auth_tab == 1;
+                            let totp_tab_bg = if totp_tab_active { Color32::from_rgba_unmultiplied(129, 140, 248, 35) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 10) };
+                            let (totp_tab_rect, totp_tab_resp) = ui.allocate_exact_size(Vec2::new(tab_w - 4.0, 32.0), egui::Sense::click());
+                            filled_rect(ui, totp_tab_rect, totp_tab_bg, if totp_tab_active { Stroke::new(1.0, Color32::from_rgb(129, 140, 248)) } else { Stroke::NONE }, 8.0);
+                            ui.painter().text(totp_tab_rect.center(), egui::Align2::CENTER_CENTER, "📱 QR TOTP", FontId::new(12.0, FontFamily::Proportional), if totp_tab_active { Color32::WHITE } else { text_muted() });
+
+                            if totp_tab_resp.clicked() {
+                                state.folder_auth_tab = 1;
+                                state.folder_auth_error = None;
+                            }
+                        });
+                        ui.add_space(14.0);
+                    } else {
+                        state.folder_auth_tab = 0;
+                    }
+
+                    if state.folder_auth_tab == 0 {
+                        ui.horizontal(|ui| {
+                            ui.add_space(10.0);
+                            let text_edit = egui::TextEdit::singleline(&mut state.folder_auth_pin)
+                                .desired_width(ui.available_width() - 20.0)
+                                .margin(egui::Margin::symmetric(10.0, 8.0))
+                                .password(true)
+                                .hint_text("Masukkan PIN/Password...");
+                            let edit_resp = ui.add(text_edit);
+                            if state.folder_auth_pin.is_empty() {
+                                edit_resp.request_focus();
+                            }
+                        });
+
+                        ui.add_space(12.0);
+
+                        let btn_w = 60.0;
+                        let btn_h = 36.0;
+                        let gap = 8.0;
+                        let numpad_w = 3.0 * btn_w + 2.0 * gap;
+                        let mut btn_idx = 1;
+                        for _row in 0..3 {
+                            ui.horizontal(|ui| {
+                                ui.add_space(((ui.available_width() - numpad_w) / 2.0).max(0.0));
+                                for _col in 0..3 {
+                                    let btn_lbl = btn_idx.to_string();
+                                    let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
+                                    let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 15) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                                    let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 10);
+                                    ui.painter().rect(rect, Rounding::same(12.0), bg, Stroke::new(1.0, border_c));
+                                    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, &btn_lbl, FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+                                    if resp.clicked() {
+                                        state.folder_auth_pin.push_str(&btn_lbl);
+                                    }
+                                    if _col < 2 { ui.add_space(gap); }
+                                    btn_idx += 1;
+                                }
+                            });
+                            ui.add_space(gap);
+                        }
+                        ui.horizontal(|ui| {
+                            ui.add_space(((ui.available_width() - numpad_w) / 2.0).max(0.0));
+                            {
+                                let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
+                                let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 15) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                                let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 10);
+                                ui.painter().rect(rect, Rounding::same(12.0), bg, Stroke::new(1.0, border_c));
+                                ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "⌫", FontId::new(14.0, FontFamily::Proportional), text_muted());
+                                if resp.clicked() {
+                                    state.folder_auth_pin.pop();
+                                }
+                            }
+                            ui.add_space(gap);
+                            {
+                                let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
+                                let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 15) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                                let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 10);
+                                ui.painter().rect(rect, Rounding::same(12.0), bg, Stroke::new(1.0, border_c));
+                                ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "0", FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+                                if resp.clicked() {
+                                    state.folder_auth_pin.push('0');
+                                }
+                            }
+                            ui.add_space(gap);
+                            {
+                                let (rect, resp) = ui.allocate_exact_size(Vec2::new(btn_w, btn_h), egui::Sense::click());
+                                let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 15) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                                let border_c = Color32::from_rgba_unmultiplied(255, 255, 255, 10);
+                                ui.painter().rect(rect, Rounding::same(12.0), bg, Stroke::new(1.0, border_c));
+                                ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, "C", FontId::new(12.0, FontFamily::Proportional), text_muted());
+                                if resp.clicked() {
+                                    state.folder_auth_pin.clear();
+                                }
+                            }
+                        });
+                    } else {
+                        ui.add_space(10.0);
+                        ui.label(egui::RichText::new("Masukkan 6-digit kode TOTP dari Google Authenticator").size(12.0).color(text_muted()));
+                        ui.add_space(12.0);
+
+                        ui.horizontal(|ui| {
+                            ui.add_space(10.0);
+                            let text_edit = egui::TextEdit::singleline(&mut state.totp_code)
+                                .desired_width(ui.available_width() - 20.0)
+                                .margin(egui::Margin::symmetric(10.0, 8.0))
+                                .hint_text("000000");
+                            let edit_resp = ui.add(text_edit);
+                            if state.totp_code.is_empty() {
+                                edit_resp.request_focus();
+                            }
+                        });
+                        ui.add_space(20.0);
+                    }
+
+                    if let Some(err) = &state.folder_auth_error {
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new(err).color(error_color()).size(13.0).strong());
+                    }
+
+                    ui.add_space(16.0);
+
+                    ui.horizontal(|ui| {
+                        let w = ui.available_width();
+                        if ghost_btn(ui, "Batal", (w - 12.0) * 0.4).clicked() {
+                            state.folder_auth_modal_open = false;
+                            state.folder_auth_pin.clear();
+                            state.totp_code.clear();
+                            state.folder_auth_error = None;
+                        }
+                        ui.add_space(12.0);
+                        if teal_btn(ui, "Verifikasi", (w - 12.0) * 0.6).clicked() {
+                            if state.folder_auth_tab == 0 {
+                                ctrl.verify_folder_pin(state);
+                            } else {
+                                ctrl.verify_folder_totp(state);
+                            }
+                        }
+                    });
+                });
+            });
+        });
+}
+
 // ── SCREEN: CUSTOM FILE PICKER (PURE RUST/EGUI) ─────────────────────────
 fn render_custom_file_picker(
     ctx: &egui::Context,
@@ -4693,7 +5069,12 @@ fn render_custom_file_picker(
                                     } else {
                                         // Select file!
                                         state.custom_file_picker_open = false;
-                                        ctrl.encrypt_file(state, path.clone());
+                                        if state.always_use_active_folder {
+                                            ctrl.encrypt_file(state, path.clone(), state.active_folder_id.clone());
+                                        } else {
+                                            state.pending_encrypt_path = Some(path.clone());
+                                            state.select_folder_modal_open = true;
+                                        }
                                     }
                                 }
                             }
@@ -4756,4 +5137,109 @@ fn render_custom_file_picker(
             });
         });
     });
+}
+
+fn render_select_folder_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    egui::Area::new(egui::Id::new("select_folder_modal"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+            
+            let modal_size = Vec2::new(320.0, 420.0);
+            let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+            
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.select_folder_modal_open = false;
+                state.pending_encrypt_path = None;
+            }
+            
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+            
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
+                ui.vertical_centered(|ui| {
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(44.0));
+                    filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(129, 140, 248, 25), Stroke::NONE, 14.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🔒", FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(129, 140, 248));
+                    
+                    ui.add_space(60.0);
+                    ui.label(egui::RichText::new("Amankan Berkas ke Brangkas").size(16.0).color(text_primary()).strong());
+                    ui.add_space(4.0);
+                    
+                    let file_name = if let Some(path) = &state.pending_encrypt_path {
+                        path.file_name().unwrap_or_default().to_string_lossy().to_string()
+                    } else {
+                        "".to_string()
+                    };
+                    let file_name_truncated = if file_name.len() > 30 {
+                        format!("{}…", &file_name[..28])
+                    } else {
+                        file_name.clone()
+                    };
+                    ui.label(egui::RichText::new(file_name_truncated).size(12.0).color(text_dimmed()));
+                    ui.add_space(14.0);
+                });
+                
+                egui::ScrollArea::vertical()
+                    .max_height(160.0)
+                    .id_salt("select_folder_scroll")
+                    .show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            // Option: Tanpa Folder
+                            let (r_none, resp_none) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 40.0), egui::Sense::click());
+                            let bg_none = if resp_none.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
+                            filled_rect(ui, r_none, bg_none, Stroke::NONE, 8.0);
+                            
+                            let ico_r_none = egui::Rect::from_center_size(egui::pos2(r_none.left() + 20.0, r_none.center().y), Vec2::splat(24.0));
+                            ui.painter().text(ico_r_none.center(), egui::Align2::CENTER_CENTER, "📁", FontId::new(12.0, FontFamily::Proportional), Color32::GRAY);
+                            ui.painter().text(egui::pos2(ico_r_none.right() + 10.0, r_none.center().y), egui::Align2::LEFT_CENTER, "Tanpa Folder (Umum)", FontId::new(13.0, FontFamily::Proportional), Color32::WHITE);
+                            
+                            if resp_none.clicked() {
+                                if let Some(path) = state.pending_encrypt_path.take() {
+                                    ctrl.encrypt_file(state, path, None);
+                                }
+                                state.select_folder_modal_open = false;
+                            }
+                            
+                            let folders = state.folders_list.clone();
+                            for f in &folders {
+                                let folder_color = color_from_hex(&f.color_hex);
+                                let (r, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 40.0), egui::Sense::click());
+                                let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
+                                filled_rect(ui, r, bg, Stroke::NONE, 8.0);
+                                
+                                let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 20.0, r.center().y), Vec2::splat(24.0));
+                                filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 20), Stroke::NONE, 6.0);
+                                ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, &f.icon, FontId::new(12.0, FontFamily::Proportional), folder_color);
+                                
+                                ui.painter().text(egui::pos2(ico_r.right() + 10.0, r.center().y), egui::Align2::LEFT_CENTER, &f.name, FontId::new(13.0, FontFamily::Proportional), Color32::WHITE);
+                                
+                                if resp.clicked() {
+                                    if let Some(path) = state.pending_encrypt_path.take() {
+                                        ctrl.encrypt_file(state, path, Some(f.id.clone()));
+                                    }
+                                    state.select_folder_modal_open = false;
+                                }
+                            }
+                        });
+                    });
+                
+                ui.add_space(12.0);
+                
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut state.always_use_active_folder, "Selalu gunakan folder aktif (Otomatis)");
+                });
+                
+                ui.add_space(14.0);
+                
+                ui.horizontal(|ui| {
+                    let w = ui.available_width();
+                    if ghost_btn(ui, "Batal", w).clicked() {
+                        state.select_folder_modal_open = false;
+                        state.pending_encrypt_path = None;
+                    }
+                });
+            });
+        });
 }

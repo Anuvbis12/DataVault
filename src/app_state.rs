@@ -247,6 +247,28 @@ pub struct AppState {
     pub move_to_folder_target_id: String,
     pub delete_folder_modal_open: bool,
     pub delete_folder_target_id: String,
+
+    // Folder Security Locks
+    pub unlocked_folders: std::collections::HashSet<String>,
+    pub folder_auth_modal_open: bool,
+    pub folder_auth_target_id: String,
+    pub folder_auth_pin: String,
+    pub folder_auth_error: Option<String>,
+    pub folder_auth_tab: u8, // 0 = PIN/Password, 1 = QR TOTP
+
+    // Pemilihan Folder Saat Enkripsi
+    pub pending_encrypt_path: Option<std::path::PathBuf>,
+    pub select_folder_modal_open: bool,
+    pub always_use_active_folder: bool,
+
+    // Android MediaStore — Hapus Permanen via Dialog Sistem
+    // Diisi oleh Controller saat user meminta hapus item di Trash Scanner;
+    // dibaca oleh lib.rs untuk meneruskan ke Kotlin launchDeleteRequest().
+    #[cfg(target_os = "android")]
+    pub request_android_delete_uris: Vec<String>,
+    // Set true oleh JNI callback onDeleteConfirmedNative() setelah user menekan OK
+    #[cfg(target_os = "android")]
+    pub android_delete_confirmed: bool,
 }
 
 impl Default for AppState {
@@ -363,6 +385,22 @@ impl Default for AppState {
             move_to_folder_target_id: String::new(),
             delete_folder_modal_open: false,
             delete_folder_target_id: String::new(),
+
+            unlocked_folders: std::collections::HashSet::new(),
+            folder_auth_modal_open: false,
+            folder_auth_target_id: String::new(),
+            folder_auth_pin: String::new(),
+            folder_auth_error: None,
+            folder_auth_tab: 0,
+
+            pending_encrypt_path: None,
+            select_folder_modal_open: false,
+            always_use_active_folder: false,
+
+            #[cfg(target_os = "android")]
+            request_android_delete_uris: Vec::new(),
+            #[cfg(target_os = "android")]
+            android_delete_confirmed: false,
         }
     }
 }

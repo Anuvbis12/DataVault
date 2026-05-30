@@ -161,6 +161,10 @@ impl Controller {
         let pwd_hash = hash_pin(&state.setup_password, &salt);
         let salt_hex = hex::encode(salt);
 
+        let pin_salt = generate_salt();
+        let pin_hash = hash_pin(&state.setup_pin, &pin_salt);
+        let pin_salt_hex = hex::encode(pin_salt);
+
         {
             let db = self.db.lock().unwrap();
             db.set_user(
@@ -169,6 +173,9 @@ impl Controller {
                 &pwd_hash,
                 &salt_hex,
             ).expect("Gagal simpan akun");
+
+            db.set_meta("pin_hash", &pin_hash).expect("Gagal simpan PIN hash");
+            db.set_meta("pin_salt", &pin_salt_hex).expect("Gagal simpan PIN salt");
         }
 
         let key            = derive_key(&state.setup_password, &salt);
@@ -177,6 +184,8 @@ impl Controller {
         state.display_name = state.setup_display_name.trim().to_string();
         state.setup_password.zeroize();
         state.setup_password_confirm.zeroize();
+        state.setup_pin.zeroize();
+        state.setup_pin.clear();
         state.setup_error = None;
         self.load_files(state);
         self.log_action("SETUP", &format!("Akun '{}' berhasil dibuat.", state.setup_username.trim()));
@@ -195,6 +204,14 @@ impl Controller {
         state.screen         = AppScreen::Login;
         state.decrypt_target = None;
         state.status         = None;
+
+        // Clean folder security locks state
+        state.unlocked_folders.clear();
+        state.folder_auth_modal_open = false;
+        state.folder_auth_target_id.clear();
+        state.folder_auth_pin.clear();
+        state.folder_auth_error = None;
+        state.folder_auth_tab = 0;
     }
 
     /// Reset Vault: Hapus semua file terenkripsi dan reset database.
@@ -237,7 +254,7 @@ impl Controller {
     }
 
     /// Enkripsi file/folder dan simpan record ke DB
-    pub fn encrypt_file(&self, state: &mut AppState, source_path: PathBuf) {
+    pub fn encrypt_file(&self, state: &mut AppState, source_path: PathBuf, target_folder_id: Option<String>) {
         let key = match state.session_key_bytes() {
             Some(k) => k,
             None    => { state.set_status("Sesi tidak valid. Login ulang.", false); return; }
@@ -281,7 +298,7 @@ impl Controller {
                     is_deleted:     false,
                     deleted_at:     None,
                     is_folder:      is_dir,
-                    folder_id:      state.active_folder_id.clone(),
+                    folder_id:      target_folder_id,
                 };
 
                 let db  = self.db.lock().unwrap();
@@ -484,7 +501,12 @@ impl Controller {
         let ext = crate::theme::file_ext(&item.file_name).to_lowercase();
         if ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt" {
             // Pratinjau gambar dan teks di dalam aplikasi
-            match std::fs::read(&item.recycle_path) {
+            #[cfg(not(target_os = "android"))]
+            let read_res = std::fs::read(&item.recycle_path);
+            #[cfg(target_os = "android")]
+            let read_res = crate::recycle_bin::read_recycle_bin_item_bytes(&item);
+
+            match read_res {
                 Ok(data) => {
                     state.preview_bytes = Some(data);
                     state.preview_filename = item.file_name.clone();
@@ -497,14 +519,21 @@ impl Controller {
             }
         } else {
             // Untuk Word, PDF, Video, dll buka via aplikasi default OS
-            let path = &item.recycle_path;
-            if let Err(e) = std::process::Command::new("explorer")
-                .arg(path)
-                .spawn()
+            #[cfg(not(target_os = "android"))]
             {
-                state.set_status(&format!("Gagal membuka file dengan aplikasi eksternal: {}", e), false);
-            } else {
-                state.set_status(&format!("Membuka '{}' di aplikasi eksternal.", item.file_name), true);
+                let path = &item.recycle_path;
+                if let Err(e) = std::process::Command::new("explorer")
+                    .arg(path)
+                    .spawn()
+                {
+                    state.set_status(&format!("Gagal membuka file dengan aplikasi eksternal: {}", e), false);
+                } else {
+                    state.set_status(&format!("Membuka '{}' di aplikasi eksternal.", item.file_name), true);
+                }
+            }
+            #[cfg(target_os = "android")]
+            {
+                state.set_status("Pratinjau format ini belum didukung di Android.", false);
             }
         }
     }
@@ -531,9 +560,27 @@ impl Controller {
         };
 
         let vault_dir_path = crate::controller::vault_dir();
-        let source_path = Path::new(&item.recycle_path);
+        
+        #[cfg(not(target_os = "android"))]
+        let source_path = PathBuf::from(&item.recycle_path);
 
-        match crate::crypto::secure_encrypt_file(source_path, vault_dir_path, &key) {
+        #[cfg(target_os = "android")]
+        let (temp_path, source_path) = match crate::recycle_bin::read_recycle_bin_item_bytes(&item) {
+            Ok(bytes) => {
+                let p = std::env::temp_dir().join(&item.file_name);
+                if let Err(e) = std::fs::write(&p, bytes) {
+                    state.set_status(&format!("❌ Gagal menulis file sementara: {}", e), false);
+                    return;
+                }
+                (Some(p.clone()), p)
+            }
+            Err(e) => {
+                state.set_status(&format!("❌ Gagal membaca file: {}", e), false);
+                return;
+            }
+        };
+
+        match crate::crypto::secure_encrypt_file(&source_path, vault_dir_path, &key) {
             Ok(result) => {
                 let record = FileRecord {
                     id:             uuid::Uuid::new_v4().to_string(),
@@ -555,26 +602,167 @@ impl Controller {
                 let err = db.insert_file(&record).err();
                 drop(db);
 
+                #[cfg(target_os = "android")]
+                if let Some(p) = temp_path {
+                    let _ = std::fs::remove_file(p);
+                }
+
                 if let Some(e) = err {
                     state.set_status(&format!("Berhasil enkripsi tapi gagal simpan DB: {}", e), false);
                     return;
                 }
 
-                // Hapus dari Windows Recycle Bin setelah berhasil diamankan
-                let i_filename = source_path.file_name()
-                    .unwrap_or_default()
-                    .to_string_lossy()
-                    .replacen("$R", "$I", 1);
-                let i_path = source_path.parent().unwrap_or(Path::new("")).join(i_filename);
-                let _ = std::fs::remove_file(source_path);
-                let _ = std::fs::remove_file(i_path);
+                #[cfg(not(target_os = "android"))]
+                {
+                    let i_filename = source_path.file_name()
+                        .unwrap_or_default()
+                        .to_string_lossy()
+                        .replacen("$R", "$I", 1);
+                    let i_path = source_path.parent().unwrap_or(Path::new("")).join(i_filename);
+                    let _ = std::fs::remove_file(&source_path);
+                    let _ = std::fs::remove_file(i_path);
+                }
+                #[cfg(target_os = "android")]
+                {
+                    // File sudah di-enkripsi ke vault.
+                    // Sekarang minta penghapusan permanen dari MediaStore via dialog sistem.
+                    match crate::recycle_bin::android_request_delete(&item) {
+                        Ok(token) => {
+                            // Token dikirim ke Kotlin melalui update loop di lib.rs.
+                            state.request_android_delete_uris.push(token);
+                            // Scan ulang setelah konfirmasi diterima (lihat android_delete_confirmed handler di lib.rs)
+                        }
+                        Err(e) => {
+                            // Enkripsi sudah sukses, hanya delete dari MediaStore yang gagal.
+                            // Tidak fatal — item mungkin masih ada di sampah sistem tapi sudah ada di vault.
+                            log::warn!("android_request_delete gagal (tidak fatal): {}", e);
+                        }
+                    }
+                }
 
                 self.load_files(state);
+                #[cfg(not(target_os = "android"))]
                 self.scan_system_trash(state);
                 self.log_action("SECURE_SYS_TRASH", &format!("File '{}' diamankan dari Recycle Bin ke Vault.", item.file_name));
                 state.set_status(&format!("✅ Berhasil: '{}' diamankan ke dalam Vault.", item.file_name), true);
             }
-            Err(e) => state.set_status(&format!("❌ Gagal enkripsi: {}", e), false),
+            Err(e) => {
+                #[cfg(target_os = "android")]
+                if let Some(p) = temp_path {
+                    let _ = std::fs::remove_file(p);
+                }
+                state.set_status(&format!("❌ Gagal enkripsi: {}", e), false);
+            }
+        }
+    }
+
+    /// Menghapus satu item MediaStore Trash secara permanen via dialog konfirmasi sistem Android.
+    /// Di Windows, langsung hapus $R + $I dari Recycle Bin.
+    pub fn delete_system_trash_item_permanent(&self, state: &mut AppState, index: usize) {
+        if index >= state.system_trash_items.len() {
+            state.set_status("Item tidak ditemukan.", false);
+            return;
+        }
+        let item = state.system_trash_items[index].clone();
+
+        #[cfg(not(target_os = "android"))]
+        {
+            // Windows: hapus $R dan $I langsung dari filesystem
+            let r_path = std::path::Path::new(&item.recycle_path);
+            let i_name = r_path.file_name()
+                .unwrap_or_default()
+                .to_string_lossy()
+                .replacen("$R", "$I", 1);
+            let i_path = r_path.parent().unwrap_or(std::path::Path::new("")).join(i_name);
+
+            let del_result = if item.is_directory {
+                std::fs::remove_dir_all(r_path).map_err(|e| e.to_string())
+            } else {
+                std::fs::remove_file(r_path).map_err(|e| e.to_string())
+            };
+            let _ = std::fs::remove_file(&i_path);
+
+            match del_result {
+                Ok(()) => {
+                    self.log_action("DELETE_SYS_TRASH", &format!("'{}' dihapus permanen dari Recycle Bin.", item.file_name));
+                    state.set_status(&format!("🗑️ '{}' dihapus permanen.", item.file_name), true);
+                    self.scan_system_trash(state);
+                }
+                Err(e) => state.set_status(&format!("❌ Gagal menghapus: {}", e), false),
+            }
+        }
+
+        #[cfg(target_os = "android")]
+        {
+            // Android 11+: gunakan createDeleteRequest → dialog sistem
+            match crate::recycle_bin::android_request_delete(&item) {
+                Ok(token) => {
+                    state.request_android_delete_uris.push(token);
+                    // Setelah user klik OK di dialog, onDeleteConfirmedNative() → android_delete_confirmed = true
+                    // View akan refresh system_trash_items saat flag itu terdeteksi.
+                    state.set_status(&format!("⏳ Menunggu konfirmasi hapus '{}'...", item.file_name), true);
+                }
+                Err(e) => {
+                    state.set_status(&format!("❌ Gagal memulai penghapusan: {}", e), false);
+                }
+            }
+        }
+    }
+
+    /// Menghapus semua item MediaStore Trash secara permanen.
+    /// Di Windows, hapus semua $R + $I langsung dari filesystem.
+    pub fn delete_all_system_trash_items_permanent(&self, state: &mut AppState) {
+        if state.system_trash_items.is_empty() {
+            state.set_status("Tidak ada file untuk dihapus.", false);
+            return;
+        }
+
+        #[cfg(not(target_os = "android"))]
+        {
+            let mut success_count = 0;
+            let mut fail_count = 0;
+            let items = state.system_trash_items.clone();
+            
+            for item in &items {
+                let r_path = std::path::Path::new(&item.recycle_path);
+                let i_name = r_path.file_name()
+                    .unwrap_or_default()
+                    .to_string_lossy()
+                    .replacen("$R", "$I", 1);
+                let i_path = r_path.parent().unwrap_or(std::path::Path::new("")).join(i_name);
+
+                let del_result = if item.is_directory {
+                    std::fs::remove_dir_all(r_path)
+                } else {
+                    std::fs::remove_file(r_path)
+                };
+                let _ = std::fs::remove_file(&i_path);
+
+                if del_result.is_ok() {
+                    success_count += 1;
+                } else {
+                    fail_count += 1;
+                }
+            }
+
+            self.log_action("DELETE_ALL_SYS_TRASH", &format!("Berhasil menghapus {} file, gagal {}.", success_count, fail_count));
+            state.set_status(&format!("🗑️ Berhasil menghapus permanen {} file (gagal {}).", success_count, fail_count), true);
+            self.scan_system_trash(state);
+        }
+
+        #[cfg(target_os = "android")]
+        {
+            // Android 11+: gunakan createDeleteRequest dengan seluruh URI item
+            let items = state.system_trash_items.clone();
+            match crate::recycle_bin::android_request_delete_multiple(&items) {
+                Ok(token) => {
+                    state.request_android_delete_uris.push(token);
+                    state.set_status(&format!("⏳ Menunggu konfirmasi hapus {} file...", items.len()), true);
+                }
+                Err(e) => {
+                    state.set_status(&format!("❌ Gagal memulai penghapusan massal: {}", e), false);
+                }
+            }
         }
     }
 
@@ -892,6 +1080,7 @@ impl Controller {
             icon,
             color_hex,
             created_at: timestamp_now(),
+            pin_lock_enabled: false,
         };
 
         let db = self.db.lock().unwrap();
@@ -1207,6 +1396,210 @@ impl Controller {
                 state.custom_file_picker_error = Some(format!("Akses ditolak: {}", e));
                 state.custom_file_picker_files.clear();
             }
+        }
+    }
+
+    pub fn set_folder_pin_lock(&self, state: &mut AppState, folder_id: &str, enabled: bool) {
+        let db = self.db.lock().unwrap();
+        match db.set_folder_pin_lock(folder_id, enabled) {
+            Ok(()) => {
+                drop(db);
+                self.load_files(state);
+                let status_msg = if enabled {
+                    "Kunci PIN folder berhasil diaktifkan."
+                } else {
+                    "Kunci PIN folder berhasil dinonaktifkan."
+                };
+                self.log_action("SET_FOLDER_PIN_LOCK", &format!("Folder ID {}: enabled={}", folder_id, enabled));
+                state.set_status(status_msg, true);
+            }
+            Err(e) => {
+                state.set_status(&format!("Gagal mengatur kunci folder: {}", e), false);
+            }
+        }
+    }
+
+    pub fn verify_folder_pin(&self, state: &mut AppState) -> bool {
+        let db = self.db.lock().unwrap();
+        let stored_hash     = db.get_meta("pin_hash").unwrap_or(None);
+        let salt_hex        = db.get_meta("pin_salt").unwrap_or(None);
+        drop(db);
+
+        let (Some(db_hash), Some(salt_hex)) = (stored_hash, salt_hex) else {
+            let folder_id = state.folder_auth_target_id.clone();
+            state.unlocked_folders.insert(folder_id.clone());
+            state.active_folder_id = Some(folder_id);
+            state.folder_auth_modal_open = false;
+            state.folder_auth_pin.clear();
+            state.folder_auth_error = None;
+            return true;
+        };
+
+        let salt_bytes = hex::decode(&salt_hex).unwrap_or_default();
+        if salt_bytes.len() != SALT_LEN {
+            state.folder_auth_error = Some("Data salt tidak valid.".into());
+            state.folder_auth_pin.clear();
+            return false;
+        }
+
+        let mut salt = [0u8; SALT_LEN];
+        salt.copy_from_slice(&salt_bytes);
+
+        let computed = hash_pin(&state.folder_auth_pin, &salt);
+        if computed == db_hash {
+            let folder_id = state.folder_auth_target_id.clone();
+            state.unlocked_folders.insert(folder_id.clone());
+            state.active_folder_id = Some(folder_id);
+            state.folder_auth_modal_open = false;
+            state.folder_auth_pin.clear();
+            state.folder_auth_error = None;
+            true
+        } else {
+            state.folder_auth_error = Some("PIN salah. Coba lagi.".into());
+            state.folder_auth_pin.clear();
+            false
+        }
+    }
+
+    pub fn verify_folder_totp(&self, state: &mut AppState) -> bool {
+        let db = self.db.lock().unwrap();
+        let secret_b32 = db.get_meta("totp_secret").unwrap_or(None);
+        drop(db);
+
+        let secret_b32 = match secret_b32 {
+            Some(s) => s,
+            None    => {
+                state.folder_auth_error = Some("TOTP tidak terkonfigurasi.".into());
+                state.totp_code.clear();
+                return false;
+            }
+        };
+        let secret = match crate::totp::from_base32(&secret_b32) {
+            Some(s) => s,
+            None    => {
+                state.folder_auth_error = Some("Data TOTP rusak.".into());
+                state.totp_code.clear();
+                return false;
+            }
+        };
+
+        if crate::totp::verify(&secret, &state.totp_code) {
+            let folder_id = state.folder_auth_target_id.clone();
+            state.unlocked_folders.insert(folder_id.clone());
+            state.active_folder_id = Some(folder_id);
+            state.folder_auth_modal_open = false;
+            state.totp_code.clear();
+            state.folder_auth_error = None;
+            true
+        } else {
+            state.folder_auth_error = Some("Kode TOTP salah.".into());
+            state.totp_code.clear();
+            false
+        }
+    }
+
+    pub fn verify_login_pin(&self, state: &mut AppState) -> bool {
+        let db = self.db.lock().unwrap();
+        let stored_hash = db.get_meta("pin_hash").unwrap_or(None);
+        let salt_hex = db.get_meta("pin_salt").unwrap_or(None);
+        drop(db);
+
+        let (Some(db_hash), Some(salt_hex)) = (stored_hash, salt_hex) else {
+            state.login_pin.clear();
+            if state.totp_enabled {
+                state.totp_code.clear();
+                state.totp_error = None;
+                state.screen = AppScreen::TotpVerify;
+            } else {
+                state.screen = AppScreen::Dashboard;
+            }
+            return true;
+        };
+
+        let salt_bytes = hex::decode(&salt_hex).unwrap_or_default();
+        if salt_bytes.len() != SALT_LEN {
+            state.toast_message = Some("Data PIN rusak.".into());
+            state.toast_timer = 3.0;
+            state.login_pin.clear();
+            return false;
+        }
+
+        let mut salt = [0u8; SALT_LEN];
+        salt.copy_from_slice(&salt_bytes);
+
+        let computed = hash_pin(&state.login_pin, &salt);
+        if computed == db_hash {
+            state.login_pin.clear();
+            if state.totp_enabled {
+                state.totp_code.clear();
+                state.totp_error = None;
+                state.screen = AppScreen::TotpVerify;
+            } else {
+                state.screen = AppScreen::Dashboard;
+            }
+            true
+        } else {
+            state.toast_message = Some("PIN salah. Coba lagi.".into());
+            state.toast_timer = 3.0;
+            state.login_pin.clear();
+            state.pin_shake_timer = 0.5;
+            false
+        }
+    }
+
+    pub fn verify_storage_pin(&self, state: &mut AppState) -> bool {
+        let db = self.db.lock().unwrap();
+        let stored_hash = db.get_meta("pin_hash").unwrap_or(None);
+        let salt_hex = db.get_meta("pin_salt").unwrap_or(None);
+        drop(db);
+
+        let (Some(db_hash), Some(salt_hex)) = (stored_hash, salt_hex) else {
+            state.storage_pin.clear();
+            state.storage_pin_error = None;
+            state.storage_pin_modal_open = false;
+            state.storage_path_modal_open = true;
+
+            if state.storage_path.starts_with("vault_storage") {
+                state.storage_location_type = 0;
+            } else if state.storage_path.starts_with("/sdcard") {
+                state.storage_location_type = 1;
+            } else {
+                state.storage_location_type = 2;
+                state.storage_custom_path = state.storage_path.clone();
+            }
+            return true;
+        };
+
+        let salt_bytes = hex::decode(&salt_hex).unwrap_or_default();
+        if salt_bytes.len() != SALT_LEN {
+            state.storage_pin_error = Some("Data PIN rusak.".into());
+            state.storage_pin.clear();
+            return false;
+        }
+
+        let mut salt = [0u8; SALT_LEN];
+        salt.copy_from_slice(&salt_bytes);
+
+        let computed = hash_pin(&state.storage_pin, &salt);
+        if computed == db_hash {
+            state.storage_pin.clear();
+            state.storage_pin_error = None;
+            state.storage_pin_modal_open = false;
+            state.storage_path_modal_open = true;
+
+            if state.storage_path.starts_with("vault_storage") {
+                state.storage_location_type = 0;
+            } else if state.storage_path.starts_with("/sdcard") {
+                state.storage_location_type = 1;
+            } else {
+                state.storage_location_type = 2;
+                state.storage_custom_path = state.storage_path.clone();
+            }
+            true
+        } else {
+            state.storage_pin_error = Some("PIN salah. Coba lagi.".into());
+            state.storage_pin.clear();
+            false
         }
     }
 }

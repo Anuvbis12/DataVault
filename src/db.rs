@@ -22,6 +22,7 @@ pub struct FolderRecord {
     pub icon:           String,
     pub color_hex:      String,
     pub created_at:     String,
+    pub pin_lock_enabled: bool,
 }
 
 #[derive(Debug, Clone)]
@@ -97,7 +98,8 @@ impl VaultDb {
                 name            TEXT NOT NULL,
                 icon            TEXT NOT NULL,
                 color_hex       TEXT NOT NULL,
-                created_at      TEXT NOT NULL
+                created_at      TEXT NOT NULL,
+                pin_lock_enabled BOOLEAN NOT NULL DEFAULT 0
             );
         ")?;
         
@@ -171,6 +173,23 @@ impl VaultDb {
             ");
         }
 
+        // Migrasi kolom pin_lock_enabled pada tabel folders jika belum ada
+        let mut has_pin_lock_enabled = false;
+        if let Ok(mut stmt) = self.conn.prepare("PRAGMA table_info(folders)") {
+            if let Ok(mut rows) = stmt.query([]) {
+                while let Ok(Some(row)) = rows.next() {
+                    if let Ok(col_name) = row.get::<_, String>(1) {
+                        if col_name == "pin_lock_enabled" {
+                            has_pin_lock_enabled = true;
+                        }
+                    }
+                }
+            }
+        }
+        if !has_pin_lock_enabled {
+            let _ = self.conn.execute("ALTER TABLE folders ADD COLUMN pin_lock_enabled BOOLEAN NOT NULL DEFAULT 0", []);
+        }
+
         // Seed folder bawaan jika masih kosong
         let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM folders", [], |row| row.get(0)).unwrap_or(0);
         if count == 0 {
@@ -184,7 +203,7 @@ impl VaultDb {
             let now = "2026-05-30 00:00:00".to_string();
             for &(id, name, icon, color) in default_folders {
                 let _ = self.conn.execute(
-                    "INSERT INTO folders (id, name, icon, color_hex, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    "INSERT INTO folders (id, name, icon, color_hex, created_at, pin_lock_enabled) VALUES (?1, ?2, ?3, ?4, ?5, 0)",
                     params![id, name, icon, color, now],
                 );
             }
@@ -455,7 +474,7 @@ impl VaultDb {
 
     pub fn get_all_folders(&self) -> Result<Vec<FolderRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, name, icon, color_hex, created_at FROM folders ORDER BY created_at ASC"
+            "SELECT id, name, icon, color_hex, created_at, pin_lock_enabled FROM folders ORDER BY created_at ASC"
         )?;
         let records = stmt.query_map([], |row| {
             Ok(FolderRecord {
@@ -464,6 +483,7 @@ impl VaultDb {
                 icon:           row.get(2)?,
                 color_hex:      row.get(3)?,
                 created_at:     row.get(4)?,
+                pin_lock_enabled: row.get(5)?,
             })
         })?.collect::<Result<Vec<_>>>()?;
         Ok(records)
@@ -471,8 +491,8 @@ impl VaultDb {
 
     pub fn insert_folder(&self, record: &FolderRecord) -> Result<()> {
         self.conn.execute(
-            "INSERT INTO folders (id, name, icon, color_hex, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
-            params![record.id, record.name, record.icon, record.color_hex, record.created_at],
+            "INSERT INTO folders (id, name, icon, color_hex, created_at, pin_lock_enabled) VALUES (?1, ?2, ?3, ?4, ?5, ?6)",
+            params![record.id, record.name, record.icon, record.color_hex, record.created_at, record.pin_lock_enabled],
         )?;
         Ok(())
     }
@@ -487,6 +507,26 @@ impl VaultDb {
             params![id],
         )?;
         Ok(())
+    }
+
+    pub fn set_folder_pin_lock(&self, folder_id: &str, enabled: bool) -> Result<()> {
+        self.conn.execute(
+            "UPDATE folders SET pin_lock_enabled = ?1 WHERE id = ?2",
+            params![enabled, folder_id],
+        )?;
+        Ok(())
+    }
+
+    pub fn get_folder_pin_lock(&self, folder_id: &str) -> Result<bool> {
+        let mut stmt = self.conn.prepare(
+            "SELECT pin_lock_enabled FROM folders WHERE id = ?1"
+        )?;
+        let result: rusqlite::Result<bool> = stmt.query_row(params![folder_id], |row| row.get(0));
+        match result {
+            Ok(enabled) => Ok(enabled),
+            Err(rusqlite::Error::QueryReturnedNoRows) => Ok(false),
+            Err(e) => Err(e),
+        }
     }
 
     // ── Update ────────────────────────────────────────────────
