@@ -192,6 +192,19 @@ pub fn teal_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
     resp
 }
 
+/// Tombol merah/bahaya utama dengan lebar custom
+pub fn red_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {
+    let desired       = Vec2::new(width, 42.0);
+    let (rect, resp)  = ui.allocate_exact_size(desired, egui::Sense::click());
+    let fill = if resp.is_pointer_button_down_on() { Color32::from_rgb(150, 30, 50) }
+               else if resp.hovered()               { Color32::from_rgb(220, 50, 70) }
+               else                                 { Color32::from_rgb(180, 40, 55) };
+    ui.painter().rect(rect, Rounding::same(8.0), fill, Stroke::NONE);
+    ui.painter().text(rect.center(), egui::Align2::CENTER_CENTER, label,
+                      FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+    resp
+}
+
 /// Tombol ghost (outline) — matches HTML .nbtn style
 /// border-radius:18px, glass bg, 1px solid border, hover shows glass2
 pub fn ghost_btn(ui: &mut egui::Ui, label: &str, width: f32) -> egui::Response {

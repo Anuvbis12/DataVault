@@ -136,6 +136,11 @@ pub fn render(
         render_move_to_folder_modal(ctx, state, controller);
     }
 
+    // Overlay Delete Folder Modal
+    if state.delete_folder_modal_open {
+        render_delete_folder_modal(ctx, state, controller);
+    }
+
     // Overlay Custom File Picker (Pure Rust/egui)
     if state.custom_file_picker_open {
         render_custom_file_picker(ctx, state, controller);
@@ -1440,7 +1445,7 @@ fn render_folder_detail_view(
     ui.painter().text(egui::pos2(ico_rect.right() + 16.0, card_rect.center().y + 12.0), egui::Align2::LEFT_CENTER, &folder_meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
     
     // Tombol aksi Tambah File
-    let btn_rect = egui::Rect::from_center_size(egui::pos2(card_rect.right() - 60.0, card_rect.center().y), Vec2::new(90.0, 32.0));
+    let btn_rect = egui::Rect::from_center_size(egui::pos2(card_rect.right() - 65.0, card_rect.center().y), Vec2::new(100.0, 32.0));
     let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
     let btn_bg = if btn_resp.is_pointer_button_down_on() {
         Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 100)
@@ -1454,6 +1459,24 @@ fn render_folder_detail_view(
     
     if btn_resp.clicked() {
         ctrl.open_custom_file_picker(state);
+    }
+
+    // Tombol aksi Hapus Folder
+    let del_btn_rect = egui::Rect::from_center_size(egui::pos2(card_rect.right() - 145.0, card_rect.center().y), Vec2::new(44.0, 32.0));
+    let del_btn_resp = ui.allocate_rect(del_btn_rect, egui::Sense::click());
+    let del_btn_bg = if del_btn_resp.is_pointer_button_down_on() {
+        Color32::from_rgba_unmultiplied(244, 63, 94, 100)
+    } else if del_btn_resp.hovered() {
+        Color32::from_rgba_unmultiplied(244, 63, 94, 60)
+    } else {
+        Color32::from_rgba_unmultiplied(244, 63, 94, 30)
+    };
+    filled_rect(ui, del_btn_rect, del_btn_bg, Stroke::NONE, 10.0);
+    ui.painter().text(del_btn_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+
+    if del_btn_resp.clicked() {
+        state.delete_folder_target_id = folder.id.clone();
+        state.delete_folder_modal_open = true;
     }
     
     ui.add_space(30.0);
@@ -4076,6 +4099,15 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                             state.storage_pin_modal_open = false;
                             state.storage_path_modal_open = true;
                             state.storage_pin.clear();
+                            
+                            if state.storage_path.starts_with("vault_storage") {
+                                state.storage_location_type = 0;
+                            } else if state.storage_path.starts_with("/sdcard") {
+                                state.storage_location_type = 1;
+                            } else {
+                                state.storage_location_type = 2;
+                                state.storage_custom_path = state.storage_path.clone();
+                            }
                         }
                     });
                 });
@@ -4090,7 +4122,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                 let rect = ctx.screen_rect();
                 filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
                 
-                let modal_size = Vec2::new(340.0, 420.0);
+                let modal_size = Vec2::new(340.0, 500.0);
                 let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
                 
                 if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
@@ -4112,9 +4144,7 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                     });
                     ui.add_space(24.0);
                     
-                    let mut path_option = state.storage_path.clone();
-                    
-                    let is_local = path_option.starts_with("vault_storage");
+                    let is_local = state.storage_location_type == 0;
                     let (r1, resp1) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 64.0), egui::Sense::click());
                     let b1 = if is_local { accent_mint() } else if resp1.hovered() { border_hover() } else { border_default() };
                     filled_rect(ui, r1, if is_local { accent_mint_a() } else { bg_surface() }, Stroke::new(if is_local { 1.5 } else { 0.5 }, b1), 16.0);
@@ -4126,11 +4156,11 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                     if is_local {
                         ui.painter().text(egui::pos2(r1.right()-20.0, r1.center().y), egui::Align2::RIGHT_CENTER, "✔️", FontId::new(14.0, FontFamily::Proportional), accent_mint());
                     }
-                    if resp1.clicked() { path_option = "vault_storage/ - Lokal".to_string(); }
+                    if resp1.clicked() { state.storage_location_type = 0; }
                     
                     ui.add_space(10.0);
                     
-                    let is_sdcard = path_option.starts_with("/sdcard");
+                    let is_sdcard = state.storage_location_type == 1;
                     let (r2, resp2) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 64.0), egui::Sense::click());
                     let b2 = if is_sdcard { accent_purple() } else if resp2.hovered() { border_hover() } else { border_default() };
                     filled_rect(ui, r2, if is_sdcard { accent_purple_a() } else { bg_surface() }, Stroke::new(if is_sdcard { 1.5 } else { 0.5 }, b2), 16.0);
@@ -4142,9 +4172,35 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                     if is_sdcard {
                         ui.painter().text(egui::pos2(r2.right()-20.0, r2.center().y), egui::Align2::RIGHT_CENTER, "✔️", FontId::new(14.0, FontFamily::Proportional), accent_purple());
                     }
-                    if resp2.clicked() { path_option = "/sdcard/DataVault/ - Eksternal".to_string(); }
+                    if resp2.clicked() { state.storage_location_type = 1; }
                     
-                    state.storage_path = path_option;
+                    ui.add_space(10.0);
+                    
+                    let is_custom = state.storage_location_type == 2;
+                    let (r3, resp3) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 64.0), egui::Sense::click());
+                    let b3 = if is_custom { accent_purple() } else if resp3.hovered() { border_hover() } else { border_default() };
+                    filled_rect(ui, r3, if is_custom { accent_purple_a() } else { bg_surface() }, Stroke::new(if is_custom { 1.5 } else { 0.5 }, b3), 16.0);
+                    let i3 = egui::Rect::from_center_size(egui::pos2(r3.left()+28.0, r3.center().y), Vec2::splat(36.0));
+                    filled_rect(ui, i3, accent_gold_a(), Stroke::NONE, 10.0);
+                    ui.painter().text(i3.center(), egui::Align2::CENTER_CENTER, "➕", FontId::new(16.0, FontFamily::Proportional), accent_gold());
+                    ui.painter().text(egui::pos2(i3.right()+12.0, r3.center().y - 10.0), egui::Align2::LEFT_CENTER, "Path Kustom", FontId::new(13.0, FontFamily::Proportional), text_primary());
+                    ui.painter().text(egui::pos2(i3.right()+12.0, r3.center().y + 10.0), egui::Align2::LEFT_CENTER, "Tentukan lokasi sendiri", FontId::new(11.0, FontFamily::Proportional), text_muted());
+                    if is_custom {
+                        ui.painter().text(egui::pos2(r3.right()-20.0, r3.center().y), egui::Align2::RIGHT_CENTER, "✔️", FontId::new(14.0, FontFamily::Proportional), accent_mint());
+                    }
+                    if resp3.clicked() { state.storage_location_type = 2; }
+                    
+                    if state.storage_location_type == 2 {
+                        ui.add_space(10.0);
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new("📁").size(20.0).color(accent_gold()));
+                            ui.add_space(4.0);
+                            let text_edit = egui::TextEdit::singleline(&mut state.storage_custom_path)
+                                .desired_width(ui.available_width())
+                                .margin(egui::Margin::symmetric(12.0, 10.0));
+                            ui.add(text_edit);
+                        });
+                    }
                     
                     ui.add_space(20.0);
                     
@@ -4159,6 +4215,13 @@ fn render_storage_modals(ctx: &egui::Context, state: &mut AppState) {
                         ui.add_space(12.0);
                         if teal_btn(ui, "Simpan", (w - 12.0)*0.6).clicked() {
                             state.storage_path_modal_open = false;
+                            if state.storage_location_type == 0 {
+                                state.storage_path = "vault_storage/ - Lokal".to_string();
+                            } else if state.storage_location_type == 1 {
+                                state.storage_path = "/sdcard/DataVault/ - Eksternal".to_string();
+                            } else {
+                                state.storage_path = state.storage_custom_path.clone();
+                            }
                             state.toast_message = Some(format!("Lokasi disimpan ke: {}", state.storage_path));
                             state.toast_timer = 2.0;
                         }
@@ -4406,6 +4469,54 @@ fn render_rename_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Control
                             let name = state.rename_new_name.clone();
                             ctrl.rename_file(state, &id, &name);
                             state.rename_modal_open = false;
+                        }
+                    });
+                });
+            });
+        });
+}
+
+fn render_delete_folder_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    egui::Area::new(egui::Id::new("delete_folder_modal"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+            
+            let modal_size = Vec2::new(320.0, 240.0);
+            let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+            
+            // Tutup jika klik di luar modal
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.delete_folder_modal_open = false;
+            }
+            
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+            
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
+                ui.vertical_centered(|ui| {
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(44.0));
+                    filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(244, 63, 94, 25), Stroke::NONE, 14.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(20.0, FontFamily::Proportional), Color32::from_rgb(244, 63, 94));
+                    
+                    ui.add_space(60.0);
+                    ui.label(egui::RichText::new("Hapus Folder").size(17.0).color(text_primary()).strong());
+                    ui.add_space(8.0);
+                    
+                    ui.label(egui::RichText::new("Apakah Anda yakin ingin menghapus folder ini?\nBerkas di dalamnya TIDAK akan dihapus.").size(12.0).color(text_muted()));
+                    ui.add_space(20.0);
+                    
+                    ui.horizontal(|ui| {
+                        let w = ui.available_width();
+                        if ghost_btn(ui, "Batal", (w - 12.0) * 0.4).clicked() {
+                            state.delete_folder_modal_open = false;
+                        }
+                        ui.add_space(12.0);
+                        if red_btn(ui, "Hapus", (w - 12.0) * 0.6).clicked() {
+                            let id = state.delete_folder_target_id.clone();
+                            ctrl.delete_folder(state, &id);
+                            state.delete_folder_modal_open = false;
                         }
                     });
                 });

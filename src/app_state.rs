@@ -225,6 +225,8 @@ pub struct AppState {
     pub storage_pin: String,
     pub storage_pin_error: Option<String>,
     pub storage_path: String,
+    pub storage_location_type: u8, // 0 = Lokal, 1 = SD Card, 2 = Path Kustom
+    pub storage_custom_path: String,
 
     // Cache texture agar tidak decode JPEG setiap frame
     pub texture_cache: std::collections::HashMap<String, eframe::egui::TextureHandle>,
@@ -243,6 +245,8 @@ pub struct AppState {
     pub new_folder_icon: String,
     pub move_to_folder_modal_open: bool,
     pub move_to_folder_target_id: String,
+    pub delete_folder_modal_open: bool,
+    pub delete_folder_target_id: String,
 }
 
 impl Default for AppState {
@@ -341,6 +345,8 @@ impl Default for AppState {
             storage_pin: String::new(),
             storage_pin_error: None,
             storage_path: "vault_storage/ - Lokal".to_string(),
+            storage_location_type: 0,
+            storage_custom_path: "/data/user/0/vault/".to_string(),
             texture_cache: std::collections::HashMap::new(),
 
             rename_modal_open: false,
@@ -355,6 +361,8 @@ impl Default for AppState {
             new_folder_icon: "💼".to_string(),
             move_to_folder_modal_open: false,
             move_to_folder_target_id: String::new(),
+            delete_folder_modal_open: false,
+            delete_folder_target_id: String::new(),
         }
     }
 }

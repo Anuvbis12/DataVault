@@ -901,12 +901,17 @@ impl Controller {
                 self.load_files(state);
                 self.log_action("CREATE_FOLDER", &format!("Folder '{}' berhasil dibuat.", name_trimmed));
                 state.set_status(&format!("Folder '{}' berhasil dibuat.", name_trimmed), true);
+                // Reset form setelah berhasil
+                state.new_folder_name = String::new();
+                state.new_folder_icon = "💼".to_string();
+                state.new_folder_color = "#818cf8".to_string();
             }
             Err(e) => {
                 state.set_status(&format!("❌ Gagal membuat folder: {}", e), false);
             }
         }
     }
+
 
     pub fn update_file_folder(&self, state: &mut AppState, id: &str, folder_id: Option<&str>) {
         let db = self.db.lock().unwrap();
@@ -919,6 +924,24 @@ impl Controller {
             }
             Err(e) => {
                 state.set_status(&format!("❌ Gagal memindahkan file: {}", e), false);
+            }
+        }
+    }
+
+    pub fn delete_folder(&self, state: &mut AppState, folder_id: &str) {
+        let db = self.db.lock().unwrap();
+        match db.delete_folder(folder_id) {
+            Ok(()) => {
+                drop(db);
+                if state.active_folder_id.as_deref() == Some(folder_id) {
+                    state.active_folder_id = None;
+                }
+                self.load_files(state);
+                self.log_action("DELETE_FOLDER", &format!("Folder dengan ID '{}' berhasil dihapus.", folder_id));
+                state.set_status("Folder berhasil dihapus.", true);
+            }
+            Err(e) => {
+                state.set_status(&format!("❌ Gagal menghapus folder: {}", e), false);
             }
         }
     }

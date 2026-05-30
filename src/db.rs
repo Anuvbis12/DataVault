@@ -94,7 +94,7 @@ impl VaultDb {
 
             CREATE TABLE IF NOT EXISTS folders (
                 id              TEXT PRIMARY KEY NOT NULL,
-                name            TEXT NOT NULL UNIQUE,
+                name            TEXT NOT NULL,
                 icon            TEXT NOT NULL,
                 color_hex       TEXT NOT NULL,
                 created_at      TEXT NOT NULL
@@ -134,6 +134,41 @@ impl VaultDb {
         }
         if !has_folder_id {
             let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN folder_id TEXT", []);
+        }
+
+        // Migrasi: hapus UNIQUE constraint pada kolom 'name' di tabel folders jika masih ada.
+        // SQLite tidak support DROP CONSTRAINT langsung, jadi kita recreate tabelnya.
+        let has_unique_on_name: bool = {
+            let mut found = false;
+            // Cek apakah index unik pada 'name' ada di tabel folders
+            if let Ok(mut stmt) = self.conn.prepare("SELECT name FROM sqlite_master WHERE type='index' AND tbl_name='folders' AND sql LIKE '%UNIQUE%'") {
+                if let Ok(mut rows) = stmt.query([]) {
+                    if let Ok(Some(_)) = rows.next() {
+                        found = true;
+                    }
+                }
+            }
+            found
+        };
+
+        if has_unique_on_name {
+            // Recreate folders table tanpa UNIQUE pada name
+            let _ = self.conn.execute_batch("
+                PRAGMA foreign_keys = OFF;
+                BEGIN;
+                CREATE TABLE IF NOT EXISTS folders_new (
+                    id          TEXT PRIMARY KEY NOT NULL,
+                    name        TEXT NOT NULL,
+                    icon        TEXT NOT NULL,
+                    color_hex   TEXT NOT NULL,
+                    created_at  TEXT NOT NULL
+                );
+                INSERT OR IGNORE INTO folders_new SELECT id, name, icon, color_hex, created_at FROM folders;
+                DROP TABLE folders;
+                ALTER TABLE folders_new RENAME TO folders;
+                COMMIT;
+                PRAGMA foreign_keys = ON;
+            ");
         }
 
         // Seed folder bawaan jika masih kosong
@@ -438,6 +473,18 @@ impl VaultDb {
         self.conn.execute(
             "INSERT INTO folders (id, name, icon, color_hex, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
             params![record.id, record.name, record.icon, record.color_hex, record.created_at],
+        )?;
+        Ok(())
+    }
+
+    pub fn delete_folder(&self, id: &str) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_records SET folder_id = NULL WHERE folder_id = ?1",
+            params![id],
+        )?;
+        self.conn.execute(
+            "DELETE FROM folders WHERE id = ?1",
+            params![id],
         )?;
         Ok(())
     }
