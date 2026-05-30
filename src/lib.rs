@@ -311,15 +311,9 @@ fn android_main(app: android_activity::AndroidApp) {
         std::env::set_var("TMPDIR", &cache_path);
 
         // Set EXTERNAL_DIR_OVERRIDE for Android backup and decryption path fallbacks
-        if let Some(ext_path) = app.external_data_path() {
-            let decrypted_p = ext_path.join("Decrypted");
-            let _ = std::fs::create_dir_all(&decrypted_p);
-            let _ = crate::controller::EXTERNAL_DIR_OVERRIDE.set(decrypted_p);
-        } else {
-            let decrypted_p = data_path.join("Decrypted");
-            let _ = std::fs::create_dir_all(&decrypted_p);
-            let _ = crate::controller::EXTERNAL_DIR_OVERRIDE.set(decrypted_p);
-        }
+        let decrypted_p = std::path::PathBuf::from("/storage/emulated/0/Download/Aegis Vault/decrypt");
+        let _ = std::fs::create_dir_all(&decrypted_p);
+        let _ = crate::controller::EXTERNAL_DIR_OVERRIDE.set(decrypted_p);
 
         // Set absolute paths based on Android internal storage
         let vault_p = data_path.join("vault_storage");

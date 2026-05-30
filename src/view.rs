@@ -1992,8 +1992,7 @@ fn render_tab_kuat(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     ui.add_space(16.0);
     
     // Skor Utama Hero Card
-    ui.horizontal(|ui| {
-        ui.add_space(pad);
+    egui::Frame::none().inner_margin(egui::Margin::symmetric(pad, 0.0)).show(ui, |ui| {
         let frame = egui::Frame::none()
             .fill(Color32::from_rgba_unmultiplied(16, 185, 129, 15))
             .stroke(Stroke::new(1.0, Color32::from_rgba_unmultiplied(16, 185, 129, 64)))
@@ -2057,14 +2056,12 @@ fn render_tab_kuat(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     });
     
     ui.add_space(14.0);
-    ui.horizontal(|ui| {
-        ui.add_space(pad);
+    egui::Frame::none().inner_margin(egui::Margin::symmetric(pad, 0.0)).show(ui, |ui| {
         ui.label(egui::RichText::new("Ketuk kartu untuk penjelasan lengkap ↓").size(10.5).color(text_muted()).italics());
     });
     ui.add_space(10.0);
     
-    ui.horizontal(|ui| {
-        ui.add_space(pad);
+    egui::Frame::none().inner_margin(egui::Margin::symmetric(pad, 0.0)).show(ui, |ui| {
         ui.vertical(|ui| {
             // Live CPU usage
             let cpu_percent = (state.cpu_usage * 100.0).round() as i32;
