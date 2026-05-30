@@ -1,6 +1,6 @@
 Write-Host "Membangun Aegis Vault untuk Android..." -ForegroundColor Cyan
 
-$env:JAVA_HOME = "C:\Program Files\Android\Android Studio1\jbr"
+$env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 
 Write-Host "Kompilasi Rust libaegis_vault.so dengan cargo-ndk..." -ForegroundColor Cyan
 cargo ndk -t arm64-v8a -o ./android/app/src/main/jniLibs build --release --lib

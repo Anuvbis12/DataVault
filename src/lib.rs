@@ -5,7 +5,6 @@ pub mod controller;
 pub mod crypto;
 pub mod db;
 pub mod file_handler;
-pub mod recycle_bin;
 pub mod theme;
 pub mod totp;
 pub mod splash;
@@ -17,23 +16,6 @@ pub static PENDING_FILE_RESULT: std::sync::Mutex<Option<String>> = std::sync::Mu
 /// Flag yang diset oleh Kotlin setelah user mengkonfirmasi dialog hapus permanen.
 /// true  = user menekan "Izinkan" (file telah dihapus oleh sistem)
 /// false = user membatalkan atau belum ada konfirmasi
-#[cfg(target_os = "android")]
-pub static PENDING_DELETE_CONFIRMED: std::sync::atomic::AtomicBool =
-    std::sync::atomic::AtomicBool::new(false);
-
-/// JNI callback: dipanggil oleh Kotlin (onActivityResult REQUEST_DELETE_CONFIRM RESULT_OK)
-/// setelah user menekan "Izinkan" pada dialog hapus permanen sistem.
-#[cfg(target_os = "android")]
-#[allow(non_snake_case)]
-#[no_mangle]
-pub extern "C" fn Java_com_aegis_vault_MainActivity_onDeleteConfirmedNative(
-    _env: jni::JNIEnv,
-    _class: jni::objects::JClass,
-) {
-    PENDING_DELETE_CONFIRMED.store(true, std::sync::atomic::Ordering::SeqCst);
-    log::info!("JNI: onDeleteConfirmedNative dipanggil — penghapusan dikonfirmasi oleh pengguna.");
-}
-
 #[cfg(target_os = "android")]
 #[allow(non_snake_case)]
 #[no_mangle]
@@ -47,33 +29,6 @@ pub extern "C" fn Java_com_aegis_vault_MainActivity_onFileSelectedNative(
         if let Ok(mut pending) = PENDING_FILE_RESULT.lock() {
             *pending = Some(uri_string);
         }
-    }
-}
-
-/// Memanggil Kotlin `launchDeleteRequest(intentToken)` agar Kotlin bisa
-/// meneruskan PendingIntent yang sudah disimpan ke `startIntentSenderForResult`.
-#[cfg(target_os = "android")]
-pub fn launch_delete_request(app: &android_activity::AndroidApp, intent_token: &str) {
-    let vm = unsafe { jni::JavaVM::from_raw(app.vm_as_ptr() as *mut _).unwrap() };
-    let mut env = vm.attach_current_thread().unwrap();
-    let context_ptr = ndk_context::android_context().context();
-    let activity_obj = unsafe {
-        jni::objects::JObject::from_raw(context_ptr as jni::sys::jobject)
-    };
-    match env.new_string(intent_token) {
-        Ok(token_jstr) => {
-            let res = env.call_method(
-                &activity_obj,
-                "launchDeleteRequest",
-                "(Ljava/lang/String;)V",
-                &[jni::objects::JValue::Object(&token_jstr)],
-            );
-            if let Err(e) = res {
-                log::error!("JNI: Gagal memanggil launchDeleteRequest: {:?}", e);
-                let _ = env.exception_clear();
-            }
-        }
-        Err(e) => log::error!("JNI: Gagal buat JString token: {:?}", e),
     }
 }
 
@@ -225,32 +180,6 @@ impl eframe::App for VaultMvc {
                         self.state.android_file_picker_result = Some(uri);
                     }
                 }
-            }
-
-            // ── Trash Scanner: Kirim permintaan hapus permanen ke Kotlin ──
-            // Setiap token yang ada di request_android_delete_uris diteruskan satu per satu
-            // ke Kotlin launchDeleteRequest(); setelah dikirim, list dikosongkan.
-            if !self.state.request_android_delete_uris.is_empty() {
-                let uris: Vec<String> = self.state.request_android_delete_uris.drain(..).collect();
-                for token in &uris {
-                    crate::launch_delete_request(app, token);
-                }
-            }
-
-            // ── Trash Scanner: Konsumsi konfirmasi hapus dari Kotlin ──
-            // Kotlin memanggil onDeleteConfirmedNative() setelah user klik OK.
-            // Kita set flag ke AppState agar View bisa refresh daftar sampah.
-            if crate::PENDING_DELETE_CONFIRMED
-                .compare_exchange(
-                    true,
-                    false,
-                    std::sync::atomic::Ordering::SeqCst,
-                    std::sync::atomic::Ordering::SeqCst,
-                )
-                .is_ok()
-            {
-                self.state.android_delete_confirmed = true;
-                log::info!("AppState: android_delete_confirmed = true, refresh system_trash_items.");
             }
         }
 

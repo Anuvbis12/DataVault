@@ -4,7 +4,6 @@ import android.app.Activity
 import android.app.NativeActivity
 import android.app.PendingIntent
 import android.content.Intent
-import android.content.IntentSender
 import android.database.Cursor
 import android.net.Uri
 import android.os.Bundle
@@ -13,69 +12,27 @@ import android.util.Log
 import java.io.File
 import java.io.FileOutputStream
 
+/**
+ * MainActivity — NativeActivity utama Aegis Vault.
+ *
+ * Catatan penting: NativeActivity extends android.app.Activity (bukan
+ * androidx.activity.ComponentActivity), sehingga registerForActivityResult
+ * TIDAK tersedia di sini.
+ *
+ * Untuk dialog hapus permanen MediaStore digunakan DeleteConfirmActivity
+ * (AppCompatActivity transparan) sebagai trampoline agar bisa menggunakan
+ * ActivityResultLauncher dengan benar.
+ */
 class MainActivity : NativeActivity() {
 
     // ── Native method declarations ──────────────────────────────────────────
     private external fun onFileSelectedNative(path: String)
-    private external fun onDeleteConfirmedNative()
 
-    // ── PendingIntent dari Rust (disimpan saat storePendingDeleteIntent dipanggil) ──
-    @Volatile
-    private var pendingDeleteIntent: PendingIntent? = null
 
-    // ── URI MediaStore yang sedang menunggu konfirmasi hapus ──
-    @Volatile
-    private var pendingDeleteUri: String = ""
-
-    override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
-        instance = this
-    }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // Dipanggil dari Rust via JNI (recycle_bin.rs :: android_request_delete)
-    // Menyimpan PendingIntent yang dihasilkan oleh MediaStore.createDeleteRequest
-    // ─────────────────────────────────────────────────────────────────────────
-    fun storePendingDeleteIntent(intent: PendingIntent, uriString: String) {
-        Log.d(TAG, "storePendingDeleteIntent: uri=$uriString")
-        pendingDeleteIntent = intent
-        pendingDeleteUri   = uriString
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // Dipanggil dari Rust via JNI (lib.rs :: launch_delete_request)
-    // token bisa berupa "PENDING_DELETE:<uri>" atau token apapun —
-    // kita hanya gunakan sebagai sinyal bahwa PendingIntent sudah siap diluncurkan.
-    // ─────────────────────────────────────────────────────────────────────────
-    fun launchDeleteRequest(token: String) {
-        Log.d(TAG, "launchDeleteRequest dipanggil: token=$token")
-        runOnUiThread {
-            val pi = pendingDeleteIntent
-            if (pi == null) {
-                Log.w(TAG, "launchDeleteRequest: pendingDeleteIntent null, abaikan.")
-                return@runOnUiThread
-            }
-            try {
-                @Suppress("DEPRECATION")
-                startIntentSenderForResult(
-                    pi.intentSender,
-                    REQUEST_DELETE_CONFIRM,
-                    null,   // fillInIntent
-                    0,      // flagsMask
-                    0,      // flagsValues
-                    0       // extraFlags
-                )
-                Log.d(TAG, "launchDeleteRequest: startIntentSenderForResult berhasil dipanggil")
-            } catch (e: IntentSender.SendIntentException) {
-                Log.e(TAG, "launchDeleteRequest: SendIntentException: ${e.message}")
-            } catch (e: Exception) {
-                Log.e(TAG, "launchDeleteRequest: Exception: ${e.message}")
-            }
-        }
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    // File Picker
+    // File Picker — menggunakan startActivityForResult (deprecated tapi bekerja
+    // dengan NativeActivity karena onActivityResult tetap tersedia)
     // ─────────────────────────────────────────────────────────────────────────
     fun openFilePicker() {
         runOnUiThread {
@@ -136,45 +93,31 @@ class MainActivity : NativeActivity() {
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    // onActivityResult — menangani file picker DAN konfirmasi hapus permanen
+    // onActivityResult — hanya menangani file picker
+    // (hapus permanen ditangani oleh DeleteConfirmActivity)
     // ─────────────────────────────────────────────────────────────────────────
     @Suppress("DEPRECATION")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        when (requestCode) {
-            // ── File Picker ──────────────────────────────────────────────────
-            REQUEST_FILE_PICKER -> {
-                if (resultCode == Activity.RESULT_OK && data != null) {
-                    val uri: Uri? = data.data
-                    if (uri != null) {
+        if (requestCode == REQUEST_FILE_PICKER) {
+            if (resultCode == Activity.RESULT_OK && data != null) {
+                val uri: Uri? = data.data
+                if (uri != null) {
+                    try {
                         contentResolver.takePersistableUriPermission(
                             uri,
                             Intent.FLAG_GRANT_READ_URI_PERMISSION
                         )
-                        val realPath = getRealPathFromURI(uri) ?: copyToCache(uri) ?: ""
-                        onFileSelectedNative(realPath)
-                        return
+                    } catch (e: Exception) {
+                        Log.w(TAG, "takePersistableUriPermission gagal: ${e.message}")
                     }
-                }
-                onFileSelectedNative("")
-            }
-
-            // ── Konfirmasi Hapus Permanen MediaStore ─────────────────────────
-            REQUEST_DELETE_CONFIRM -> {
-                if (resultCode == Activity.RESULT_OK) {
-                    Log.i(TAG, "onActivityResult: Pengguna mengkonfirmasi hapus permanen uri=$pendingDeleteUri")
-                    // Bersihkan state
-                    pendingDeleteIntent = null
-                    pendingDeleteUri    = ""
-                    // Beritahu Rust bahwa penghapusan telah dikonfirmasi
-                    onDeleteConfirmedNative()
-                } else {
-                    Log.i(TAG, "onActivityResult: Pengguna membatalkan dialog hapus permanen (resultCode=$resultCode)")
-                    pendingDeleteIntent = null
-                    pendingDeleteUri    = ""
+                    val realPath = getRealPathFromURI(uri) ?: copyToCache(uri) ?: ""
+                    onFileSelectedNative(realPath)
+                    return
                 }
             }
+            onFileSelectedNative("")
         }
     }
 
@@ -230,12 +173,13 @@ class MainActivity : NativeActivity() {
     companion object {
         private const val TAG = "AegisVault"
 
-        private const val REQUEST_FILE_PICKER      = 1001
+        private const val REQUEST_FILE_PICKER        = 1001
         private const val REQUEST_STORAGE_PERMISSION = 1002
-        private const val REQUEST_DELETE_CONFIRM   = 1003
 
         @Volatile
         private var instance: MainActivity? = null
+
+
 
         @JvmStatic
         fun requestFilePicker() {

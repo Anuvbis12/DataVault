@@ -19,7 +19,6 @@ pub enum AppScreen {
     TotpSetup,          // setup QR + verifikasi awal
     TotpVerify,         // verifikasi 2FA saat login
     RecycleBin,         // fitur trash vault
-    SystemTrash,        // fitur scan Recycle Bin Windows
     PreviewMedia,
 }
 
@@ -78,16 +77,7 @@ pub struct StatusMsg {
     pub success: bool,
 }
 
-// ── System Recycle Bin Item ────────────────────────────────
-#[derive(Debug, Clone)]
-pub struct RecycleBinItem {
-    pub original_path: String,
-    pub file_name: String,
-    pub file_size: u64,
-    pub deleted_at: String,
-    pub recycle_path: String, // $R file path for restore
-    pub is_directory: bool,
-}
+
 
 // ── AppState (Model) ──────────────────────────────────────
 pub struct AppState {
@@ -122,9 +112,7 @@ pub struct AppState {
     pub file_list: Vec<FileRecord>,
     pub deleted_list: Vec<FileRecord>,
 
-    // System Recycle Bin
-    pub system_trash_items: Vec<RecycleBinItem>,
-    pub system_trash_loading: bool,
+
 
     // Status bar & Toast
     pub status: Option<StatusMsg>,
@@ -261,14 +249,6 @@ pub struct AppState {
     pub select_folder_modal_open: bool,
     pub always_use_active_folder: bool,
 
-    // Android MediaStore — Hapus Permanen via Dialog Sistem
-    // Diisi oleh Controller saat user meminta hapus item di Trash Scanner;
-    // dibaca oleh lib.rs untuk meneruskan ke Kotlin launchDeleteRequest().
-    #[cfg(target_os = "android")]
-    pub request_android_delete_uris: Vec<String>,
-    // Set true oleh JNI callback onDeleteConfirmedNative() setelah user menekan OK
-    #[cfg(target_os = "android")]
-    pub android_delete_confirmed: bool,
 }
 
 impl Default for AppState {
@@ -298,8 +278,7 @@ impl Default for AppState {
             file_list:        Vec::new(),
             deleted_list:     Vec::new(),
 
-            system_trash_items: Vec::new(),
-            system_trash_loading: false,
+
 
             status:           None,
             toast_message:    None,
@@ -397,10 +376,7 @@ impl Default for AppState {
             select_folder_modal_open: false,
             always_use_active_folder: false,
 
-            #[cfg(target_os = "android")]
-            request_android_delete_uris: Vec::new(),
-            #[cfg(target_os = "android")]
-            android_delete_confirmed: false,
+
         }
     }
 }
