@@ -16,6 +16,15 @@ pub struct AuditLog {
 }
 
 #[derive(Debug, Clone)]
+pub struct FolderRecord {
+    pub id:             String,
+    pub name:           String,
+    pub icon:           String,
+    pub color_hex:      String,
+    pub created_at:     String,
+}
+
+#[derive(Debug, Clone)]
 pub struct FileRecord {
     pub id:             String,
     pub original_name:  String,
@@ -29,6 +38,7 @@ pub struct FileRecord {
     pub is_deleted:     bool,
     pub deleted_at:     Option<String>,
     pub is_folder:      bool,
+    pub folder_id:      Option<String>,
 }
 
 // ── Database ──────────────────────────────────────────────
@@ -81,12 +91,21 @@ impl VaultDb {
                 description TEXT NOT NULL,
                 timestamp TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS folders (
+                id              TEXT PRIMARY KEY NOT NULL,
+                name            TEXT NOT NULL UNIQUE,
+                icon            TEXT NOT NULL,
+                color_hex       TEXT NOT NULL,
+                created_at      TEXT NOT NULL
+            );
         ")?;
         
         // Migrasi untuk tabel lama dengan memeriksa keberadaan kolom terlebih dahulu
         let mut has_is_deleted = false;
         let mut has_deleted_at = false;
         let mut has_is_folder = false;
+        let mut has_folder_id = false;
 
         if let Ok(mut stmt) = self.conn.prepare("PRAGMA table_info(file_records)") {
             if let Ok(mut rows) = stmt.query([]) {
@@ -96,6 +115,7 @@ impl VaultDb {
                             "is_deleted" => has_is_deleted = true,
                             "deleted_at" => has_deleted_at = true,
                             "is_folder" => has_is_folder = true,
+                            "folder_id" => has_folder_id = true,
                             _ => {}
                         }
                     }
@@ -111,6 +131,28 @@ impl VaultDb {
         }
         if !has_is_folder {
             let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN is_folder BOOLEAN NOT NULL DEFAULT 0", []);
+        }
+        if !has_folder_id {
+            let _ = self.conn.execute("ALTER TABLE file_records ADD COLUMN folder_id TEXT", []);
+        }
+
+        // Seed folder bawaan jika masih kosong
+        let count: i64 = self.conn.query_row("SELECT COUNT(*) FROM folders", [], |row| row.get(0)).unwrap_or(0);
+        if count == 0 {
+            let default_folders = &[
+                ("identitas", "Identitas", "💳", "#818cf8"),
+                ("dokumen_kerja", "Dokumen Kerja", "💼", "#10b981"),
+                ("foto_keluarga", "Foto Keluarga", "🖼️", "#f43f5e"),
+                ("keuangan", "Keuangan", "📄", "#fbbf24"),
+                ("kunci_akses", "Kunci & Akses", "🔑", "#38bdf8"),
+            ];
+            let now = "2026-05-30 00:00:00".to_string();
+            for &(id, name, icon, color) in default_folders {
+                let _ = self.conn.execute(
+                    "INSERT INTO folders (id, name, icon, color_hex, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+                    params![id, name, icon, color, now],
+                );
+            }
         }
         
         Ok(())
@@ -189,8 +231,8 @@ impl VaultDb {
         self.conn.execute(
             "INSERT INTO file_records
              (id, original_name, original_path, vault_filename,
-              sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder)
-             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12)",
+              sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder, folder_id)
+             VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11, ?12, ?13)",
             params![
                 record.id,
                 record.original_name,
@@ -204,6 +246,7 @@ impl VaultDb {
                 record.is_deleted,
                 record.deleted_at,
                 record.is_folder,
+                record.folder_id,
             ],
         )?;
         Ok(())
@@ -212,7 +255,7 @@ impl VaultDb {
     pub fn get_all_files(&self) -> Result<Vec<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename,
-                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder
+                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder, folder_id
              FROM file_records
              WHERE is_deleted = 0
              ORDER BY encrypted_at DESC"
@@ -232,6 +275,7 @@ impl VaultDb {
                 is_deleted:     row.get(9)?,
                 deleted_at:     row.get(10)?,
                 is_folder:      row.get(11)?,
+                folder_id:      row.get(12)?,
             })
         })?.collect::<Result<Vec<_>>>()?;
 
@@ -270,10 +314,18 @@ impl VaultDb {
         Ok(())
     }
 
+    pub fn update_file_folder(&self, id: &str, folder_id: Option<&str>) -> Result<()> {
+        self.conn.execute(
+            "UPDATE file_records SET folder_id = ?2 WHERE id = ?1",
+            params![id, folder_id],
+        )?;
+        Ok(())
+    }
+
     pub fn get_deleted_files(&self) -> Result<Vec<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename,
-                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder
+                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder, folder_id
              FROM file_records
              WHERE is_deleted = 1
              ORDER BY deleted_at DESC"
@@ -293,6 +345,7 @@ impl VaultDb {
                 is_deleted:     row.get(9)?,
                 deleted_at:     row.get(10)?,
                 is_folder:      row.get(11)?,
+                folder_id:      row.get(12)?,
             })
         })?.collect::<Result<Vec<_>>>()?;
 
@@ -303,7 +356,7 @@ impl VaultDb {
     pub fn find_by_vault_filename(&self, vault_filename: &str) -> Result<Option<FileRecord>> {
         let mut stmt = self.conn.prepare(
             "SELECT id, original_name, original_path, vault_filename,
-                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder
+                    sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder, folder_id
              FROM file_records WHERE vault_filename = ?1"
         )?;
 
@@ -321,6 +374,7 @@ impl VaultDb {
                 is_deleted:     row.get(9)?,
                 deleted_at:     row.get(10)?,
                 is_folder:      row.get(11)?,
+                folder_id:      row.get(12)?,
             })
         });
 
@@ -339,7 +393,7 @@ impl VaultDb {
 
     pub fn get_file(&self, vault_filename: &str) -> Result<Option<FileRecord>> {
         let mut stmt = self.conn.prepare(
-            "SELECT id, original_name, original_path, vault_filename, sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder 
+            "SELECT id, original_name, original_path, vault_filename, sha256_hash, file_size, iv_hex, salt_hex, encrypted_at, is_deleted, deleted_at, is_folder, folder_id 
              FROM file_records WHERE vault_filename = ?1 AND is_deleted = 0"
         )?;
         let mut rows = stmt.query([vault_filename])?;
@@ -357,10 +411,35 @@ impl VaultDb {
                 is_deleted: row.get(9)?,
                 deleted_at: row.get(10)?,
                 is_folder: row.get(11)?,
+                folder_id: row.get(12)?,
             }))
         } else {
             Ok(None)
         }
+    }
+
+    pub fn get_all_folders(&self) -> Result<Vec<FolderRecord>> {
+        let mut stmt = self.conn.prepare(
+            "SELECT id, name, icon, color_hex, created_at FROM folders ORDER BY created_at ASC"
+        )?;
+        let records = stmt.query_map([], |row| {
+            Ok(FolderRecord {
+                id:             row.get(0)?,
+                name:           row.get(1)?,
+                icon:           row.get(2)?,
+                color_hex:      row.get(3)?,
+                created_at:     row.get(4)?,
+            })
+        })?.collect::<Result<Vec<_>>>()?;
+        Ok(records)
+    }
+
+    pub fn insert_folder(&self, record: &FolderRecord) -> Result<()> {
+        self.conn.execute(
+            "INSERT INTO folders (id, name, icon, color_hex, created_at) VALUES (?1, ?2, ?3, ?4, ?5)",
+            params![record.id, record.name, record.icon, record.color_hex, record.created_at],
+        )?;
+        Ok(())
     }
 
     // ── Update ────────────────────────────────────────────────

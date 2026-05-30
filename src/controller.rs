@@ -17,7 +17,7 @@ use crate::crypto::{
     secure_decrypt_file, secure_encrypt_file,
     SALT_LEN,
 };
-use crate::db::{FileRecord, VaultDb};
+use crate::db::{FileRecord, VaultDb, FolderRecord};
 
 pub static VAULT_DIR_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
 pub static DB_PATH_OVERRIDE: std::sync::OnceLock<PathBuf> = std::sync::OnceLock::new();
@@ -233,6 +233,7 @@ impl Controller {
     pub fn load_files(&self, state: &mut AppState) {
         let db = self.db.lock().unwrap();
         state.file_list = db.get_all_files().unwrap_or_default();
+        state.folders_list = db.get_all_folders().unwrap_or_default();
     }
 
     /// Enkripsi file/folder dan simpan record ke DB
@@ -280,6 +281,7 @@ impl Controller {
                     is_deleted:     false,
                     deleted_at:     None,
                     is_folder:      is_dir,
+                    folder_id:      state.active_folder_id.clone(),
                 };
 
                 let db  = self.db.lock().unwrap();
@@ -546,6 +548,7 @@ impl Controller {
                     is_deleted:     false,
                     deleted_at:     None,
                     is_folder:      false,
+                    folder_id:      None,
                 };
 
                 let db  = self.db.lock().unwrap();
@@ -872,6 +875,50 @@ impl Controller {
             }
             Err(e) => {
                 state.set_status(&format!("❌ Gagal mengubah nama: {}", e), false);
+            }
+        }
+    }
+
+    pub fn create_folder(&self, state: &mut AppState, name: String, icon: String, color_hex: String) {
+        let name_trimmed = name.trim();
+        if name_trimmed.is_empty() {
+            state.set_status("Nama folder tidak boleh kosong.", false);
+            return;
+        }
+
+        let record = FolderRecord {
+            id: Uuid::new_v4().to_string(),
+            name: name_trimmed.to_string(),
+            icon,
+            color_hex,
+            created_at: timestamp_now(),
+        };
+
+        let db = self.db.lock().unwrap();
+        match db.insert_folder(&record) {
+            Ok(()) => {
+                drop(db);
+                self.load_files(state);
+                self.log_action("CREATE_FOLDER", &format!("Folder '{}' berhasil dibuat.", name_trimmed));
+                state.set_status(&format!("Folder '{}' berhasil dibuat.", name_trimmed), true);
+            }
+            Err(e) => {
+                state.set_status(&format!("❌ Gagal membuat folder: {}", e), false);
+            }
+        }
+    }
+
+    pub fn update_file_folder(&self, state: &mut AppState, id: &str, folder_id: Option<&str>) {
+        let db = self.db.lock().unwrap();
+        match db.update_file_folder(id, folder_id) {
+            Ok(()) => {
+                drop(db);
+                self.load_files(state);
+                self.log_action("MOVE_FILE_FOLDER", &format!("File dengan ID '{}' dipindahkan ke folder '{:?}'.", id, folder_id));
+                state.set_status("File berhasil dipindahkan.", true);
+            }
+            Err(e) => {
+                state.set_status(&format!("❌ Gagal memindahkan file: {}", e), false);
             }
         }
     }

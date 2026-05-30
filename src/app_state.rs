@@ -4,7 +4,7 @@
 // View hanya membaca state untuk render.
 
 use crate::crypto::{KEY_LEN, SALT_LEN};
-use crate::db::{FileRecord, AuditLog};
+use crate::db::{FileRecord, AuditLog, FolderRecord};
 
 // ── Screen enum ───────────────────────────────────────────
 #[derive(Default, PartialEq, Clone)]
@@ -233,6 +233,16 @@ pub struct AppState {
     pub rename_modal_open: bool,
     pub rename_target_id: String,
     pub rename_new_name: String,
+
+    // Folder States
+    pub folders_list: Vec<FolderRecord>,
+    pub active_folder_id: Option<String>,
+    pub show_add_folder_modal: bool,
+    pub new_folder_name: String,
+    pub new_folder_color: String,
+    pub new_folder_icon: String,
+    pub move_to_folder_modal_open: bool,
+    pub move_to_folder_target_id: String,
 }
 
 impl Default for AppState {
@@ -336,6 +346,15 @@ impl Default for AppState {
             rename_modal_open: false,
             rename_target_id: String::new(),
             rename_new_name: String::new(),
+
+            folders_list: Vec::new(),
+            active_folder_id: None,
+            show_add_folder_modal: false,
+            new_folder_name: String::new(),
+            new_folder_color: "#818cf8".to_string(),
+            new_folder_icon: "💼".to_string(),
+            move_to_folder_modal_open: false,
+            move_to_folder_target_id: String::new(),
         }
     }
 }

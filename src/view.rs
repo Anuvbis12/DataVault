@@ -126,9 +126,31 @@ pub fn render(
         render_rename_modal(ctx, state, controller);
     }
 
+    // Overlay Add Folder Modal
+    if state.show_add_folder_modal {
+        render_add_folder_modal(ctx, state, controller);
+    }
+
+    // Overlay Move to Folder Modal
+    if state.move_to_folder_modal_open {
+        render_move_to_folder_modal(ctx, state, controller);
+    }
+
     // Overlay Custom File Picker (Pure Rust/egui)
     if state.custom_file_picker_open {
         render_custom_file_picker(ctx, state, controller);
+    }
+}
+
+pub fn color_from_hex(hex: &str) -> Color32 {
+    let hex = hex.trim_start_matches('#');
+    if hex.len() == 6 {
+        let r = u8::from_str_radix(&hex[0..2], 16).unwrap_or(255);
+        let g = u8::from_str_radix(&hex[2..4], 16).unwrap_or(255);
+        let b = u8::from_str_radix(&hex[4..6], 16).unwrap_or(255);
+        Color32::from_rgb(r, g, b)
+    } else {
+        Color32::LIGHT_GRAY
     }
 }
 
@@ -1202,7 +1224,18 @@ fn render_tab_home(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, 
     }
 }
 
-fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, _to_decrypt: &mut Option<String>, _to_soft_delete: &mut Option<String>) {
+fn render_tab_vault(
+    ui: &mut egui::Ui,
+    state: &mut AppState,
+    ctrl: &Controller,
+    to_decrypt: &mut Option<String>,
+    to_soft_delete: &mut Option<String>,
+) {
+    if let Some(folder_id) = state.active_folder_id.clone() {
+        render_folder_detail_view(ui, state, ctrl, &folder_id, to_decrypt, to_soft_delete);
+        return;
+    }
+
     let pad = 24.0;
     let avail = ui.available_rect_before_wrap();
     ui.add_space(8.0);
@@ -1210,7 +1243,11 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
     let total_w = avail.width() - pad * 2.0;
     
     // Vault 1: Primary Vault
-    let (v1_rect, resp1) = ui.allocate_exact_size(Vec2::new(total_w, 86.0), egui::Sense::click());
+    let (allocated_rect, resp1) = ui.allocate_exact_size(Vec2::new(avail.width(), 86.0), egui::Sense::click());
+    let v1_rect = egui::Rect::from_min_max(
+        egui::pos2(allocated_rect.left() + pad, allocated_rect.top()),
+        egui::pos2(allocated_rect.right() - pad, allocated_rect.bottom()),
+    );
     let border1 = if resp1.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
     filled_rect(ui, v1_rect, bg_card(), Stroke::new(1.0, border1), 20.0);
     
@@ -1251,60 +1288,451 @@ fn render_tab_vault(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller,
     let card_w2 = (total_w - gap) / 2.0;
     let card_h2 = 72.0;
     
-    let folders = [
-        ("Identitas", "👤", Color32::from_rgb(129, 140, 248), "6 file"),
-        ("Dokumen Kerja", "💼", Color32::from_rgb(16, 185, 129), "12 file"),
-        ("Foto Keluarga", "🖼", Color32::from_rgb(244, 63, 94), "4 file"),
-        ("Keuangan", "📄", Color32::from_rgb(251, 191, 36), "2 file"),
-        ("Kunci & Akses", "🔑", Color32::from_rgb(56, 189, 248), "0 file"),
-    ];
-    
+    let total_elements = state.folders_list.len() + 1;
     let mut i = 0;
-    while i < folders.len() {
+    while i < total_elements {
         ui.horizontal(|ui| {
             ui.add_space(pad);
             // Column 1
-            if i < folders.len() {
-                let f = folders[i];
-                let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
-                let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
-                filled_rect(ui, r, bg_card(), Stroke::new(1.0, b), 16.0);
-                
-                let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 30.0, r.center().y), Vec2::splat(36.0));
-                filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(f.2.r(), f.2.g(), f.2.b(), 20), Stroke::NONE, 12.0);
-                ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, f.1, FontId::new(18.0, FontFamily::Proportional), f.2);
-                
-                ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y - 8.0), egui::Align2::LEFT_CENTER, f.0, FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
-                ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y + 10.0), egui::Align2::LEFT_CENTER, f.3, FontId::new(11.0, FontFamily::Proportional), text_muted());
+            if i < total_elements {
+                if i < state.folders_list.len() {
+                    let f = &state.folders_list[i];
+                    let folder_color = color_from_hex(&f.color_hex);
+                    let file_count = state.file_list.iter().filter(|rec| rec.folder_id.as_deref() == Some(&f.id)).count();
+                    let file_lbl = format!("{} file", file_count);
+                    
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                    let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                    filled_rect(ui, r, bg_card(), Stroke::new(1.0, b), 16.0);
+                    
+                    let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 30.0, r.center().y), Vec2::splat(36.0));
+                    filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 20), Stroke::NONE, 12.0);
+                    ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, &f.icon, FontId::new(18.0, FontFamily::Proportional), folder_color);
+                    
+                    ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y - 8.0), egui::Align2::LEFT_CENTER, &f.name, FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+                    ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y + 10.0), egui::Align2::LEFT_CENTER, &file_lbl, FontId::new(11.0, FontFamily::Proportional), text_muted());
+                    
+                    if resp.clicked() {
+                        state.active_folder_id = Some(f.id.clone());
+                    }
+                } else {
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                    let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 30) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 10) };
+                    filled_rect(ui, r, Color32::TRANSPARENT, Stroke::new(1.0, b), 16.0);
+                    ui.painter().text(egui::pos2(r.center().x, r.center().y - 8.0), egui::Align2::CENTER_CENTER, "➕", FontId::new(16.0, FontFamily::Proportional), text_muted());
+                    ui.painter().text(egui::pos2(r.center().x, r.center().y + 12.0), egui::Align2::CENTER_CENTER, "Folder baru", FontId::new(12.0, FontFamily::Proportional), text_muted());
+                    
+                    if resp.clicked() {
+                        state.new_folder_name.clear();
+                        state.new_folder_color = "#818cf8".to_string();
+                        state.new_folder_icon = "💼".to_string();
+                        state.show_add_folder_modal = true;
+                    }
+                }
             }
             
             ui.add_space(gap);
             
             // Column 2
-            if i + 1 < folders.len() {
-                let f = folders[i + 1];
-                let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
-                let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
-                filled_rect(ui, r, bg_card(), Stroke::new(1.0, b), 16.0);
-                
-                let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 30.0, r.center().y), Vec2::splat(36.0));
-                filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(f.2.r(), f.2.g(), f.2.b(), 20), Stroke::NONE, 12.0);
-                ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, f.1, FontId::new(18.0, FontFamily::Proportional), f.2);
-                
-                ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y - 8.0), egui::Align2::LEFT_CENTER, f.0, FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
-                ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y + 10.0), egui::Align2::LEFT_CENTER, f.3, FontId::new(11.0, FontFamily::Proportional), text_muted());
-            } else if i + 1 == folders.len() {
-                // The "Folder baru" button
-                let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
-                let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 30) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 10) };
-                filled_rect(ui, r, Color32::TRANSPARENT, Stroke::new(1.0, b), 16.0); // Wait, dashed borders are hard in egui without custom paths. We'll use a normal border but transparent bg.
-                ui.painter().text(egui::pos2(r.center().x, r.center().y - 8.0), egui::Align2::CENTER_CENTER, "➕", FontId::new(16.0, FontFamily::Proportional), text_muted());
-                ui.painter().text(egui::pos2(r.center().x, r.center().y + 12.0), egui::Align2::CENTER_CENTER, "Folder baru", FontId::new(12.0, FontFamily::Proportional), text_muted());
+            if i + 1 < total_elements {
+                if i + 1 < state.folders_list.len() {
+                    let f = &state.folders_list[i + 1];
+                    let folder_color = color_from_hex(&f.color_hex);
+                    let file_count = state.file_list.iter().filter(|rec| rec.folder_id.as_deref() == Some(&f.id)).count();
+                    let file_lbl = format!("{} file", file_count);
+                    
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                    let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 20) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 5) };
+                    filled_rect(ui, r, bg_card(), Stroke::new(1.0, b), 16.0);
+                    
+                    let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 30.0, r.center().y), Vec2::splat(36.0));
+                    filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 20), Stroke::NONE, 12.0);
+                    ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, &f.icon, FontId::new(18.0, FontFamily::Proportional), folder_color);
+                    
+                    ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y - 8.0), egui::Align2::LEFT_CENTER, &f.name, FontId::new(14.0, FontFamily::Proportional), Color32::WHITE);
+                    ui.painter().text(egui::pos2(ico_r.right() + 12.0, r.center().y + 10.0), egui::Align2::LEFT_CENTER, &file_lbl, FontId::new(11.0, FontFamily::Proportional), text_muted());
+                    
+                    if resp.clicked() {
+                        state.active_folder_id = Some(f.id.clone());
+                    }
+                } else {
+                    let (r, resp) = ui.allocate_exact_size(Vec2::new(card_w2, card_h2), egui::Sense::click());
+                    let b = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 30) } else { Color32::from_rgba_unmultiplied(255, 255, 255, 10) };
+                    filled_rect(ui, r, Color32::TRANSPARENT, Stroke::new(1.0, b), 16.0);
+                    ui.painter().text(egui::pos2(r.center().x, r.center().y - 8.0), egui::Align2::CENTER_CENTER, "➕", FontId::new(16.0, FontFamily::Proportional), text_muted());
+                    ui.painter().text(egui::pos2(r.center().x, r.center().y + 12.0), egui::Align2::CENTER_CENTER, "Folder baru", FontId::new(12.0, FontFamily::Proportional), text_muted());
+                    
+                    if resp.clicked() {
+                        state.new_folder_name.clear();
+                        state.new_folder_color = "#818cf8".to_string();
+                        state.new_folder_icon = "💼".to_string();
+                        state.show_add_folder_modal = true;
+                    }
+                }
             }
         });
         ui.add_space(gap);
         i += 2;
     }
+}
+
+fn render_folder_detail_view(
+    ui: &mut egui::Ui,
+    state: &mut AppState,
+    ctrl: &Controller,
+    folder_id: &str,
+    to_decrypt: &mut Option<String>,
+    to_soft_delete: &mut Option<String>,
+) {
+    let pad = 24.0;
+    let avail = ui.available_rect_before_wrap();
+    
+    // Temukan record folder
+    let folder = state.folders_list.iter().find(|f| f.id == folder_id).cloned();
+    if folder.is_none() {
+        state.active_folder_id = None;
+        return;
+    }
+    let folder = folder.unwrap();
+    let folder_color = color_from_hex(&folder.color_hex);
+    
+    // Header navigasi kembali
+    ui.add_space(8.0);
+    ui.horizontal(|ui| {
+        ui.add_space(pad);
+        let back_btn = egui::Button::new(
+            egui::RichText::new("◀  Brankas").size(13.0).color(text_muted())
+        ).frame(false);
+        if ui.add(back_btn).clicked() {
+            state.active_folder_id = None;
+        }
+    });
+    ui.add_space(12.0);
+    
+    // Kartu header folder premium
+    let card_h = 100.0;
+    let (allocated_rect, _resp) = ui.allocate_exact_size(Vec2::new(avail.width(), card_h), egui::Sense::hover());
+    let card_rect = egui::Rect::from_min_max(
+        egui::pos2(allocated_rect.left() + pad, allocated_rect.top()),
+        egui::pos2(allocated_rect.right() - pad, allocated_rect.bottom()),
+    );
+    
+    filled_rect(ui, card_rect, bg_card(), Stroke::new(1.0, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 40)), 20.0);
+    
+    let ico_rect = egui::Rect::from_center_size(egui::pos2(card_rect.left() + 40.0, card_rect.center().y), Vec2::splat(48.0));
+    filled_rect(ui, ico_rect, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 25), Stroke::NONE, 16.0);
+    ui.painter().text(ico_rect.center(), egui::Align2::CENTER_CENTER, &folder.icon, FontId::new(24.0, FontFamily::Proportional), folder_color);
+    
+    // Hitung file di dalam folder
+    let folder_files: Vec<FileRecord> = state.file_list.iter()
+        .filter(|rec| rec.folder_id.as_deref() == Some(&folder.id))
+        .cloned()
+        .collect();
+    
+    let total_size: u64 = folder_files.iter().map(|rec| rec.file_size as u64).sum();
+    let folder_meta = format!("{} file · {}", folder_files.len(), format_size(total_size));
+    
+    ui.painter().text(egui::pos2(ico_rect.right() + 16.0, card_rect.center().y - 12.0), egui::Align2::LEFT_CENTER, &folder.name, FontId::new(18.0, FontFamily::Proportional), Color32::WHITE);
+    ui.painter().text(egui::pos2(ico_rect.right() + 16.0, card_rect.center().y + 12.0), egui::Align2::LEFT_CENTER, &folder_meta, FontId::new(12.0, FontFamily::Proportional), text_muted());
+    
+    // Tombol aksi Tambah File
+    let btn_rect = egui::Rect::from_center_size(egui::pos2(card_rect.right() - 60.0, card_rect.center().y), Vec2::new(90.0, 32.0));
+    let btn_resp = ui.allocate_rect(btn_rect, egui::Sense::click());
+    let btn_bg = if btn_resp.is_pointer_button_down_on() {
+        Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 100)
+    } else if btn_resp.hovered() {
+        Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 60)
+    } else {
+        Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 35)
+    };
+    filled_rect(ui, btn_rect, btn_bg, Stroke::NONE, 10.0);
+    ui.painter().text(btn_rect.center(), egui::Align2::CENTER_CENTER, "➕ Pilih File", FontId::new(11.0, FontFamily::Proportional), Color32::WHITE);
+    
+    if btn_resp.clicked() {
+        ctrl.open_custom_file_picker(state);
+    }
+    
+    ui.add_space(30.0);
+    
+    // Daftar file
+    if folder_files.is_empty() {
+        ui.vertical_centered(|ui| {
+            ui.add_space(60.0);
+            ui.label(egui::RichText::new("📂").size(48.0).color(text_muted()));
+            ui.add_space(10.0);
+            ui.label(egui::RichText::new("Belum ada file di dalam folder ini").color(text_body()).size(14.0));
+            ui.add_space(4.0);
+            ui.label(egui::RichText::new("Klik tombol 'Pilih File' di atas untuk mengamankan file.").color(text_muted()).size(11.0));
+        });
+    } else {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                ui.add_space(pad);
+                ui.label(egui::RichText::new(format!("DAFTAR BERKAS ({})", folder_files.len())).size(11.0).color(text_muted()).strong());
+            });
+            ui.add_space(8.0);
+            
+            for record in folder_files {
+                let rect = egui::Rect::from_min_size(
+                    egui::pos2(avail.left() + pad, ui.cursor().top()),
+                    Vec2::new(avail.width() - pad * 2.0, 72.0),
+                );
+                let resp = ui.allocate_rect(rect, egui::Sense::click());
+                let is_hover = resp.hovered();
+                
+                let bg_color = if is_hover { Color32::from_rgba_unmultiplied(255, 255, 255, 5) } else { Color32::TRANSPARENT };
+                filled_rect(ui, rect, bg_color, Stroke::NONE, 12.0);
+                
+                let ext = file_ext(&record.original_name);
+                let (icon, badge) = file_badge(ext);
+                let icon_bg = Color32::from_rgba_unmultiplied(badge.1.r(), badge.1.g(), badge.1.b(), 25);
+                
+                let icon_rect = egui::Rect::from_center_size(egui::pos2(rect.left() + 28.0, rect.center().y), Vec2::splat(44.0));
+                filled_rect(ui, icon_rect, icon_bg, Stroke::NONE, 12.0);
+                ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, icon, FontId::new(20.0, FontFamily::Proportional), badge.1);
+                
+                let name_truncated = if record.original_name.len() > 28 { format!("{}…", &record.original_name[..26]) } else { record.original_name.clone() };
+                ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y - 12.0), egui::Align2::LEFT_CENTER, name_truncated, FontId::new(15.0, FontFamily::Proportional), Color32::WHITE);
+                
+                let vault_name = if record.vault_filename.contains("session") { "Session Vault" } else { "Primary Vault" };
+                let meta = format!("{} · {} · {}", format_size(record.file_size as u64), if record.encrypted_at.len() >= 10 { &record.encrypted_at[..10] } else { &record.encrypted_at }, vault_name);
+                ui.painter().text(egui::pos2(icon_rect.right() + 16.0, rect.center().y + 10.0), egui::Align2::LEFT_CENTER, meta, FontId::new(11.0, FontFamily::Proportional), text_muted());
+                
+                if is_hover {
+                    let del_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 80.0, rect.center().y), Vec2::splat(36.0));
+                    let del_resp = ui.allocate_rect(del_rect, egui::Sense::click());
+                    ui.painter().text(del_rect.center(), egui::Align2::CENTER_CENTER, "🗑", FontId::new(18.0, FontFamily::Proportional), if del_resp.hovered() { error_color() } else { text_muted() });
+                    
+                    let open_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 40.0, rect.center().y), Vec2::splat(36.0));
+                    let open_resp = ui.allocate_rect(open_rect, egui::Sense::click());
+                    ui.painter().text(open_rect.center(), egui::Align2::CENTER_CENTER, "🔓", FontId::new(18.0, FontFamily::Proportional), if open_resp.hovered() { Color32::from_rgb(129, 140, 248) } else { text_muted() });
+                    
+                    if del_resp.clicked() {
+                        *to_soft_delete = Some(record.id.clone());
+                    } else if open_resp.clicked() || (resp.clicked() && !del_resp.hovered() && !open_resp.hovered()) {
+                        *to_decrypt = Some(record.vault_filename.clone());
+                    }
+                } else {
+                    let opts_rect = egui::Rect::from_center_size(egui::pos2(rect.right() - 24.0, rect.center().y), Vec2::splat(32.0));
+                    ui.painter().text(opts_rect.center(), egui::Align2::CENTER_CENTER, "⋮", FontId::new(20.0, FontFamily::Proportional), text_muted());
+                }
+                if resp.secondary_clicked() {
+                    state.active_context_menu = Some(record.id.clone());
+                }
+                
+                let sep_rect = egui::Rect::from_min_size(egui::pos2(pad, ui.cursor().top()), Vec2::new(avail.width() - pad*2.0, 1.0));
+                filled_rect(ui, sep_rect, Color32::from_rgba_unmultiplied(255, 255, 255, 5), Stroke::NONE, 0.0);
+            }
+        });
+    }
+}
+
+fn render_add_folder_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    egui::Area::new(egui::Id::new("add_folder_modal"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+            
+            let modal_size = Vec2::new(340.0, 360.0);
+            let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+            
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.show_add_folder_modal = false;
+            }
+            
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+            
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
+                ui.vertical_centered(|ui| {
+                    let folder_color = color_from_hex(&state.new_folder_color);
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(44.0));
+                    filled_rect(ui, icon_rect, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 25), Stroke::NONE, 14.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, &state.new_folder_icon, FontId::new(20.0, FontFamily::Proportional), folder_color);
+                    
+                    ui.add_space(60.0);
+                    ui.label(egui::RichText::new("Buat Folder Baru").size(17.0).color(text_primary()).strong());
+                    ui.add_space(12.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        let text_edit = egui::TextEdit::singleline(&mut state.new_folder_name)
+                            .desired_width(ui.available_width() - 20.0)
+                            .margin(egui::Margin::symmetric(10.0, 8.0))
+                            .hint_text("Nama folder...");
+                        ui.add(text_edit);
+                    });
+                    ui.add_space(14.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        ui.label(egui::RichText::new("Warna:").size(12.0).color(text_muted()));
+                    });
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        let preset_colors = &[
+                            ("#818cf8"),
+                            ("#10b981"),
+                            ("#f43f5e"),
+                            ("#fbbf24"),
+                            ("#38bdf8"),
+                            ("#06b6d4"),
+                            ("#a855f7"),
+                        ];
+                        for &hex in preset_colors {
+                            let color = color_from_hex(hex);
+                            let size = Vec2::splat(22.0);
+                            let (c_rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
+                            let is_selected = state.new_folder_color == hex;
+                            
+                            if is_selected {
+                                ui.painter().circle_stroke(c_rect.center(), 13.0, Stroke::new(2.0, Color32::WHITE));
+                            } else if response.hovered() {
+                                ui.painter().circle_stroke(c_rect.center(), 13.0, Stroke::new(1.0, Color32::GRAY));
+                            }
+                            ui.painter().circle_filled(c_rect.center(), 9.0, color);
+                            
+                            if response.clicked() {
+                                state.new_folder_color = hex.to_string();
+                            }
+                            ui.add_space(4.0);
+                        }
+                    });
+                    ui.add_space(12.0);
+                    
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        ui.label(egui::RichText::new("Ikon:").size(12.0).color(text_muted()));
+                    });
+                    ui.add_space(4.0);
+                    ui.horizontal(|ui| {
+                        ui.add_space(10.0);
+                        let preset_icons = &["👤", "💼", "🖼️", "📄", "🔑", "🔒", "🎵", "🎬"];
+                        for &icon in preset_icons {
+                            let size = Vec2::splat(26.0);
+                            let (i_rect, response) = ui.allocate_exact_size(size, egui::Sense::click());
+                            let is_selected = state.new_folder_icon == icon;
+                            let bg_color = if is_selected {
+                                folder_color
+                            } else if response.hovered() {
+                                Color32::from_rgba_unmultiplied(255, 255, 255, 20)
+                            } else {
+                                Color32::from_rgba_unmultiplied(255, 255, 255, 8)
+                            };
+                            
+                            filled_rect(ui, i_rect, bg_color, Stroke::NONE, 6.0);
+                            ui.painter().text(
+                                i_rect.center(),
+                                egui::Align2::CENTER_CENTER,
+                                icon,
+                                FontId::new(14.0, FontFamily::Proportional),
+                                if is_selected { Color32::WHITE } else { text_primary() }
+                            );
+                            
+                            if response.clicked() {
+                                state.new_folder_icon = icon.to_string();
+                            }
+                            ui.add_space(4.0);
+                        }
+                    });
+                    ui.add_space(20.0);
+                    
+                    ui.horizontal(|ui| {
+                        let w = ui.available_width();
+                        if ghost_btn(ui, "Batal", (w - 12.0) * 0.4).clicked() {
+                            state.show_add_folder_modal = false;
+                        }
+                        ui.add_space(12.0);
+                        if teal_btn(ui, "Simpan", (w - 12.0) * 0.6).clicked() {
+                            ctrl.create_folder(state, state.new_folder_name.clone(), state.new_folder_icon.clone(), state.new_folder_color.clone());
+                            state.show_add_folder_modal = false;
+                        }
+                    });
+                });
+            });
+        });
+}
+
+fn render_move_to_folder_modal(ctx: &egui::Context, state: &mut AppState, ctrl: &Controller) {
+    egui::Area::new(egui::Id::new("move_to_folder_modal"))
+        .fixed_pos(egui::pos2(0.0, 0.0))
+        .order(egui::Order::Foreground)
+        .show(ctx, |ui| {
+            let rect = ctx.screen_rect();
+            filled_rect(ui, rect, Color32::from_black_alpha(200), Stroke::NONE, 0.0);
+            
+            let modal_size = Vec2::new(320.0, 380.0);
+            let modal_rect = egui::Rect::from_center_size(rect.center(), modal_size);
+            
+            if ui.input(|i| i.pointer.any_pressed()) && !modal_rect.contains(ui.input(|i| i.pointer.interact_pos().unwrap_or(egui::pos2(0.,0.)))) {
+                state.move_to_folder_modal_open = false;
+            }
+            
+            filled_rect(ui, modal_rect, Color32::from_rgb(18, 20, 28), Stroke::new(1.0, border_default()), 24.0);
+            
+            ui.allocate_new_ui(egui::UiBuilder::new().max_rect(modal_rect.shrink(20.0)), |ui| {
+                ui.vertical_centered(|ui| {
+                    let icon_rect = egui::Rect::from_center_size(egui::pos2(ui.cursor().left() + modal_rect.width()/2.0 - 20.0, ui.cursor().top() + 30.0), Vec2::splat(44.0));
+                    filled_rect(ui, icon_rect, accent_purple_a(), Stroke::NONE, 14.0);
+                    ui.painter().text(icon_rect.center(), egui::Align2::CENTER_CENTER, "📁", FontId::new(20.0, FontFamily::Proportional), accent_purple());
+                    
+                    ui.add_space(60.0);
+                    ui.label(egui::RichText::new("Pindahkan ke Folder").size(17.0).color(text_primary()).strong());
+                    ui.add_space(4.0);
+                    ui.label(egui::RichText::new("Pilih folder tujuan untuk berkas ini").size(11.0).color(text_muted()));
+                    ui.add_space(14.0);
+                });
+                
+                egui::ScrollArea::vertical()
+                    .max_height(160.0)
+                    .show(ui, |ui| {
+                        ui.vertical(|ui| {
+                            let (r_none, resp_none) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 40.0), egui::Sense::click());
+                            let bg_none = if resp_none.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
+                            filled_rect(ui, r_none, bg_none, Stroke::NONE, 8.0);
+                            
+                            let ico_r_none = egui::Rect::from_center_size(egui::pos2(r_none.left() + 20.0, r_none.center().y), Vec2::splat(24.0));
+                            ui.painter().text(ico_r_none.center(), egui::Align2::CENTER_CENTER, "❌", FontId::new(12.0, FontFamily::Proportional), Color32::GRAY);
+                            ui.painter().text(egui::pos2(ico_r_none.right() + 10.0, r_none.center().y), egui::Align2::LEFT_CENTER, "Tanpa Folder", FontId::new(13.0, FontFamily::Proportional), Color32::WHITE);
+                            
+                            if resp_none.clicked() {
+                                let fid = state.move_to_folder_target_id.clone();
+                                ctrl.update_file_folder(state, &fid, None);
+                                state.move_to_folder_modal_open = false;
+                            }
+                            
+                            let folders = state.folders_list.clone();
+                            for f in &folders {
+                                let (r, resp) = ui.allocate_exact_size(Vec2::new(ui.available_width(), 40.0), egui::Sense::click());
+                                let bg = if resp.hovered() { Color32::from_rgba_unmultiplied(255, 255, 255, 10) } else { Color32::TRANSPARENT };
+                                filled_rect(ui, r, bg, Stroke::NONE, 8.0);
+                                
+                                let folder_color = color_from_hex(&f.color_hex);
+                                let ico_r = egui::Rect::from_center_size(egui::pos2(r.left() + 20.0, r.center().y), Vec2::splat(24.0));
+                                filled_rect(ui, ico_r, Color32::from_rgba_unmultiplied(folder_color.r(), folder_color.g(), folder_color.b(), 25), Stroke::NONE, 6.0);
+                                ui.painter().text(ico_r.center(), egui::Align2::CENTER_CENTER, &f.icon, FontId::new(13.0, FontFamily::Proportional), folder_color);
+                                ui.painter().text(egui::pos2(ico_r.right() + 10.0, r.center().y), egui::Align2::LEFT_CENTER, &f.name, FontId::new(13.0, FontFamily::Proportional), Color32::WHITE);
+                                
+                                if resp.clicked() {
+                                    let fid = state.move_to_folder_target_id.clone();
+                                    ctrl.update_file_folder(state, &fid, Some(&f.id));
+                                    state.move_to_folder_modal_open = false;
+                                }
+                            }
+                        });
+                    });
+                
+                ui.add_space(16.0);
+                
+                ui.vertical_centered(|ui| {
+                    if ghost_btn(ui, "Batal", ui.available_width()).clicked() {
+                        state.move_to_folder_modal_open = false;
+                    }
+                });
+            });
+        });
 }
 
 fn var_card(
@@ -3792,6 +4220,11 @@ fn render_context_menu(ctx: &egui::Context, state: &mut AppState, ctrl: &Control
                 }
                 if draw_item(ui, "📡", "Bagikan via P2P", accent_sky()).clicked() {
                     ctrl.start_share(state, record.clone());
+                    state.active_context_menu = None;
+                }
+                if draw_item(ui, "📁", "Pindahkan ke Folder", text_primary()).clicked() {
+                    state.move_to_folder_target_id = record.id.clone();
+                    state.move_to_folder_modal_open = true;
                     state.active_context_menu = None;
                 }
                 
