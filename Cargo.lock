@@ -131,6 +131,7 @@ dependencies = [
  "hmac",
  "image",
  "jni 0.21.1",
+ "libc",
  "log",
  "ndk-context",
  "qrcode",
