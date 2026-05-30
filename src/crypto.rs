@@ -29,6 +29,7 @@ pub struct EncryptionResult {
     pub encrypted_filename: String,
     pub file_hash:          String,
     pub iv:                 [u8; 16],
+    pub original_deleted:   bool,
 }
 
 // ── Argon2id Key Derivation ─────────────────────────────────
@@ -148,13 +149,24 @@ pub fn secure_encrypt_file(
     dest_file.flush()?;
     let file_hash = hex::encode(hasher.finalize());
 
-    // Secure delete file asli (3-pass)
-    secure_delete(source_path)?;
+    // Tutup file handles agar lock dilepas sebelum menghapus file asli
+    drop(source_file);
+    drop(dest_file);
+
+    // Hapus file asli secara aman (3-pass). Jika gagal karena batasan izin OS, coba remove biasa.
+    // Jika semua gagal, tandai original_deleted = false dan jangan batalkan enkripsi.
+    let original_deleted = match secure_delete(source_path) {
+        Ok(()) => true,
+        Err(_) => {
+            std::fs::remove_file(source_path).is_ok()
+        }
+    };
 
     Ok(EncryptionResult {
         encrypted_filename,
         file_hash,
         iv,
+        original_deleted,
     })
 }
 

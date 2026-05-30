@@ -940,17 +940,7 @@ fn render_dashboard(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) 
     }
 
     if let Some(fname) = to_decrypt {
-        let is_previewable = if let Some(rec) = state.file_list.iter().find(|r| r.vault_filename == fname) {
-            let ext = crate::theme::file_ext(&rec.original_name).to_lowercase();
-            ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt"
-        } else {
-            false
-        };
-        if is_previewable {
-            ctrl.decrypt_to_memory(state, &fname);
-        } else {
-            ctrl.open_decrypt_panel(state, &fname);
-        }
+        ctrl.open_decrypt_panel(state, &fname);
     }
     if let Some(id) = to_soft_delete { ctrl.soft_delete_file(state, &id); }
 }
@@ -2464,149 +2454,241 @@ fn render_decrypt_panel(
         _ => { state.screen = AppScreen::Dashboard; return; }
     };
 
-    let avail = ui.available_rect_before_wrap();
     let pad   = 28.0;
 
     egui::Frame::none()
         .inner_margin(egui::Margin::symmetric(pad, 28.0))
         .show(ui, |ui| {
-            // Back + judul
+            // Tombol Kembali ke file (berbentuk tautan teks premium)
             ui.horizontal(|ui| {
-                let back_rect = egui::Rect::from_min_size(ui.cursor().min, Vec2::new(36.0, 30.0));
-                let back_resp = ui.allocate_rect(back_rect, egui::Sense::click());
-                filled_rect(ui, back_rect, Color32::TRANSPARENT, Stroke::new(0.5, border_default()), 7.0);
-                ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
-                                  FontId::new(15.0, FontFamily::Proportional), text_muted());
-                if back_resp.clicked() { state.screen = AppScreen::Dashboard; return; }
-                ui.add_space(10.0);
-                ui.label(egui::RichText::new("Pulihkan file").size(15.0).color(crate::theme::text_body()).strong());
-            });
-
-            ui.add_space(24.0);
-
-            // Info card file
-            theme::card_frame().show(ui, |ui| {
-                ui.horizontal(|ui| {
-                    let ext           = file_ext(&record.original_name);
-                    let (icon, badge) = file_badge(ext);
-                    let (badge_alloc, _) = ui.allocate_exact_size(Vec2::splat(34.0), egui::Sense::hover());
-                    filled_rect(ui, badge_alloc, badge.0, Stroke::new(0.5, badge.1), 8.0);
-                    ui.painter().text(badge_alloc.center(), egui::Align2::CENTER_CENTER, icon,
-                                      FontId::new(15.0, FontFamily::Proportional), badge.1);
-                    ui.add_space(10.0);
-                    ui.vertical(|ui| {
-                        ui.label(egui::RichText::new(&record.original_name)
-                            .size(14.0).color(text_primary()).strong());
-                        ui.label(egui::RichText::new(format_size(record.file_size as u64))
-                            .size(11.0).color(text_dimmed()));
-                    });
-                });
-
-                ui.add_space(10.0);
-                ui.painter().line_segment(
-                    [ui.cursor().min, ui.cursor().min + Vec2::new(ui.available_width(), 0.0)],
-                    Stroke::new(0.5, Color32::from_rgb(30, 34, 53)),
+                let (rect_back, resp_back) = ui.allocate_exact_size(Vec2::new(140.0, 24.0), egui::Sense::click());
+                let text_color = if resp_back.hovered() { Color32::from_rgb(165, 180, 252) } else { Color32::from_rgb(129, 140, 248) };
+                ui.painter().text(
+                    rect_back.left_center(),
+                    egui::Align2::LEFT_CENTER,
+                    "◀  Kembali ke file",
+                    FontId::new(14.0, FontFamily::Proportional),
+                    text_color
                 );
-                ui.add_space(10.0);
-
-                for (k, v) in &[
-                    ("Vault file", format!("{}…{}", &record.vault_filename[..8], ".vlt")),
-                    ("SHA-256",    format!("{}…", &record.sha256_hash[..8])),
-                    ("Dienkripsi", record.encrypted_at.clone()),
-                ] {
-                    ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new(*k).size(11.0).color(crate::theme::text_muted()));
-                        ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                            ui.label(egui::RichText::new(v).size(11.0).color(text_dimmed())
-                                .text_style(egui::TextStyle::Monospace));
-                        });
-                    });
+                if resp_back.clicked() {
+                    state.screen = AppScreen::Dashboard;
                 }
             });
 
             ui.add_space(20.0);
 
-            // Output name field
-            ui.label(egui::RichText::new("Nama file output").size(12.0).color(crate::theme::text_muted()));
-            ui.add_space(6.0);
-            egui::Frame::none()
-                .fill(crate::theme::bg_surface()).stroke(Stroke::new(0.5, border_default()))
-                .rounding(Rounding::same(8.0))
-                .inner_margin(egui::Margin::symmetric(14.0, 10.0))
+            // Info card file
+            theme::card_frame()
+                .rounding(Rounding::same(24.0)) // Lebih bulat sesuai mockup
                 .show(ui, |ui| {
+                    ui.add_space(6.0);
                     ui.horizontal(|ui| {
-                        ui.label(egui::RichText::new("📤").size(16.0).color(crate::theme::text_muted()));
-                        ui.add_space(8.0);
-                        ui.add(egui::TextEdit::singleline(&mut state.decrypt_out_name)
-                            .desired_width(ui.available_width())
-                            .hint_text("Nama file hasil dekripsi")
-                            .font(FontId::new(14.0, FontFamily::Proportional))
-                            .frame(false));
+                        // File icon bagde (besar dan elegan)
+                        let icon_size = 56.0;
+                        let (rect_icon, _) = ui.allocate_exact_size(Vec2::splat(icon_size), egui::Sense::hover());
+                        filled_rect(ui, rect_icon, Color32::from_rgba_unmultiplied(129, 140, 248, 15), Stroke::new(0.5, Color32::from_rgba_unmultiplied(129, 140, 248, 30)), 16.0);
+                        
+                        let ext           = file_ext(&record.original_name);
+                        let (icon, _)     = file_badge(ext);
+                        ui.painter().text(
+                            rect_icon.center(),
+                            egui::Align2::CENTER_CENTER,
+                            icon,
+                            FontId::new(26.0, FontFamily::Proportional),
+                            Color32::from_rgb(129, 140, 248)
+                        );
+
+                        ui.add_space(12.0);
+                        
+                        ui.vertical(|ui| {
+                            // File Name
+                            ui.label(egui::RichText::new(&record.original_name)
+                                .size(17.0).color(text_primary()).strong());
+                            
+                            // Subtitle: Tipe & Ukuran
+                            let ext_upper = ext.to_uppercase();
+                            let file_type_desc = if record.is_folder {
+                                "Folder".to_string()
+                            } else if ext_upper.is_empty() {
+                                "Berkas".to_string()
+                            } else {
+                                format!("Dokumen {}", ext_upper)
+                            };
+                            
+                            ui.label(egui::RichText::new(format!("{} · {}", file_type_desc, format_size(record.file_size as u64)))
+                                .size(12.0).color(text_dimmed()));
+                            
+                            ui.add_space(4.0);
+
+                            // Badges: SHA-256 OK & AES-256
+                            ui.horizontal(|ui| {
+                                // Badge 1: SHA-256 OK
+                                let (rect_b1, _) = ui.allocate_exact_size(Vec2::new(96.0, 20.0), egui::Sense::hover());
+                                filled_rect(ui, rect_b1, Color32::from_rgba_unmultiplied(16, 185, 129, 15), Stroke::new(0.5, Color32::from_rgb(16, 185, 129)), 10.0);
+                                ui.painter().text(
+                                    rect_b1.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    "🛡️ SHA-256 OK",
+                                    FontId::new(9.0, FontFamily::Proportional),
+                                    Color32::from_rgb(52, 211, 153)
+                                );
+
+                                ui.add_space(6.0);
+
+                                // Badge 2: AES-256
+                                let (rect_b2, _) = ui.allocate_exact_size(Vec2::new(76.0, 20.0), egui::Sense::hover());
+                                filled_rect(ui, rect_b2, Color32::from_rgba_unmultiplied(129, 140, 248, 15), Stroke::new(0.5, Color32::from_rgb(129, 140, 248)), 10.0);
+                                ui.painter().text(
+                                    rect_b2.center(),
+                                    egui::Align2::CENTER_CENTER,
+                                    "🔒 AES-256",
+                                    FontId::new(9.0, FontFamily::Proportional),
+                                    Color32::from_rgb(165, 180, 252)
+                                );
+                            });
+                        });
                     });
-                });
 
-            ui.add_space(16.0);
+                    ui.add_space(20.0);
+                    ui.painter().line_segment(
+                        [ui.cursor().min, ui.cursor().min + Vec2::new(ui.available_width(), 0.0)],
+                        Stroke::new(0.5, Color32::from_rgb(30, 34, 53)),
+                    );
+                    ui.add_space(16.0);
 
-            // Warning banner
-            egui::Frame::none()
-                .fill(Color32::from_rgb(26, 18, 8))
-                .stroke(Stroke::new(0.5, Color32::from_rgb(99, 56, 6)))
-                .rounding(Rounding::same(8.0))
-                .inner_margin(egui::Margin::symmetric(14.0, 10.0))
-                .show(ui, |ui| {
-                    ui.horizontal_top(|ui| {
-                        ui.label(egui::RichText::new("⚠").size(16.0).color(warn_color()));
-                        ui.add_space(8.0);
-                        ui.add(egui::Label::new(egui::RichText::new(
-                            "Hash SHA-256 divalidasi sebelum dekripsi. \
-                             File asli dihapus permanen dari vault setelah dipulihkan."
-                        ).size(12.0).color(Color32::from_rgb(186, 117, 23))).wrap());
-                    });
-                });
-
-            // Status
-            if let Some(s) = &state.status.clone() {
-                ui.add_space(12.0);
-                let color = if s.success { success_color() } else { error_color() };
-                ui.label(egui::RichText::new(&s.text).size(12.0).color(color));
-            }
-
-            // Push buttons ke bawah
-            let used_h    = ui.cursor().min.y - avail.top();
-            let remaining = (avail.height() - used_h - 80.0).max(12.0);
-            ui.add_space(remaining);
-
-            // Tombol aksi
-            ui.horizontal(|ui| {
-                let w         = ui.available_width();
-                let cancel_w  = (w - 12.0) * 0.35;
-                let confirm_w = (w - 12.0) * 0.65;
-
-                if ghost_btn(ui, "Batal", cancel_w).clicked() {
-                    state.screen = AppScreen::Dashboard;
-                }
-                ui.add_space(12.0);
-                if teal_btn(ui, "🔓  Pulihkan file", confirm_w).clicked() {
-                    let out_name = if state.decrypt_out_name.trim().is_empty() {
-                        record.original_name.clone()
+                    // Grid data detail
+                    let hash_display = if record.sha256_hash.len() >= 8 {
+                        format!("{}...{}", &record.sha256_hash[..4], &record.sha256_hash[record.sha256_hash.len() - 4..])
                     } else {
-                        state.decrypt_out_name.trim().to_string()
+                        record.sha256_hash.clone()
                     };
 
-                    #[cfg(not(target_os = "android"))]
-                    let out_dir = FileDialog::new()
-                        .set_title("Pilih folder tujuan")
-                        .pick_folder();
-                    #[cfg(target_os = "android")]
-                    let out_dir: Option<std::path::PathBuf> = crate::controller::external_dir().map(|p| p.to_path_buf());
-                    if let Some(out_dir) = out_dir
-                    {
-                        let rec = record.clone();
-                        ctrl.decrypt_file(state, &rec, out_dir, &out_name);
-                    } else {
-                        state.set_status("Batal: folder tidak dipilih.", false);
+                    for (k, v, val_color, is_bold) in &[
+                        ("Vault",       "Primary Vault",                    text_primary(), true),
+                        ("Status",      "Terkunci",                         Color32::from_rgb(129, 140, 248), true),
+                        ("Enkripsi",    "AES-256-CBC",                      text_primary(), true),
+                        ("Hash SHA-256", &hash_display,                     Color32::from_rgb(52, 211, 153), true),
+                        ("Ukuran",      &format_size(record.file_size as u64), text_primary(), true),
+                    ] {
+                        ui.horizontal(|ui| {
+                            ui.label(egui::RichText::new(*k).size(12.0).color(text_muted()));
+                            ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
+                                let mut text = egui::RichText::new(*v).size(12.0).color(*val_color);
+                                if *is_bold { text = text.strong(); }
+                                ui.label(text);
+                            });
+                        });
+                        ui.add_space(10.0);
                     }
-                }
+                    ui.add_space(2.0);
+                });
+
+            ui.add_space(24.0);
+
+            // Status message
+            if let Some(s) = &state.status.clone() {
+                let color = if s.success { success_color() } else { error_color() };
+                ui.label(egui::RichText::new(&s.text).size(12.0).color(color));
+                ui.add_space(12.0);
+            }
+
+            // 2x2 Grid of Action Buttons
+            ui.vertical(|ui| {
+                let btn_w = (ui.available_width() - 12.0) / 2.0;
+
+                // Baris 1: Buka file & Ekspor
+                ui.horizontal(|ui| {
+                    // Tombol 1: Buka file (Solid premium violet/indigo)
+                    let (rect1, resp1) = ui.allocate_exact_size(Vec2::new(btn_w, 48.0), egui::Sense::click());
+                    let bg_c = if resp1.is_pointer_button_down_on() {
+                        Color32::from_rgb(79, 70, 229)
+                    } else if resp1.hovered() {
+                        Color32::from_rgb(129, 140, 248)
+                    } else {
+                        Color32::from_rgb(99, 102, 241)
+                    };
+                    filled_rect(ui, rect1, bg_c, Stroke::NONE, 12.0);
+                    ui.painter().text(
+                        rect1.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "🔓  Buka file",
+                        FontId::new(13.0, FontFamily::Proportional),
+                        Color32::WHITE
+                    );
+                    if resp1.clicked() {
+                        ctrl.decrypt_to_memory(state, &record.vault_filename);
+                    }
+
+                    ui.add_space(12.0);
+
+                    // Tombol 2: Ekspor (Outline style)
+                    let (rect2, resp2) = ui.allocate_exact_size(Vec2::new(btn_w, 48.0), egui::Sense::click());
+                    let border_c = if resp2.hovered() { border_hover() } else { border_default() };
+                    filled_rect(ui, rect2, bg_surface(), Stroke::new(1.0, border_c), 12.0);
+                    ui.painter().text(
+                        rect2.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "📥  Ekspor",
+                        FontId::new(13.0, FontFamily::Proportional),
+                        Color32::WHITE
+                    );
+                    if resp2.clicked() {
+                        let out_name = record.original_name.clone();
+
+                        #[cfg(not(target_os = "android"))]
+                        let out_dir = FileDialog::new()
+                            .set_title("Pilih folder tujuan")
+                            .pick_folder();
+                        #[cfg(target_os = "android")]
+                        let out_dir: Option<std::path::PathBuf> = crate::controller::external_dir().map(|p| p.to_path_buf());
+                        
+                        if let Some(out_dir) = out_dir {
+                            let rec = record.clone();
+                            ctrl.decrypt_file(state, &rec, out_dir, &out_name);
+                        } else {
+                            state.set_status("Batal: folder tidak dipilih.", false);
+                        }
+                    }
+                });
+
+                ui.add_space(12.0);
+
+                // Baris 2: Salin hash & Hapus
+                ui.horizontal(|ui| {
+                    // Tombol 3: Salin hash (Outline style)
+                    let (rect3, resp3) = ui.allocate_exact_size(Vec2::new(btn_w, 48.0), egui::Sense::click());
+                    let border_c = if resp3.hovered() { border_hover() } else { border_default() };
+                    filled_rect(ui, rect3, bg_surface(), Stroke::new(1.0, border_c), 12.0);
+                    ui.painter().text(
+                        rect3.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "📋  Salin hash",
+                        FontId::new(13.0, FontFamily::Proportional),
+                        Color32::WHITE
+                    );
+                    if resp3.clicked() {
+                        ui.ctx().copy_text(record.sha256_hash.clone());
+                        state.set_status("Hash SHA-256 berhasil disalin!", true);
+                    }
+
+                    ui.add_space(12.0);
+
+                    // Tombol 4: Hapus (Outline style dengan teks/ikon merah)
+                    let (rect4, resp4) = ui.allocate_exact_size(Vec2::new(btn_w, 48.0), egui::Sense::click());
+                    let border_c = if resp4.hovered() { Color32::from_rgb(239, 68, 68) } else { Color32::from_rgba_unmultiplied(239, 68, 68, 80) };
+                    filled_rect(ui, rect4, bg_surface(), Stroke::new(1.0, border_c), 12.0);
+                    ui.painter().text(
+                        rect4.center(),
+                        egui::Align2::CENTER_CENTER,
+                        "🗑  Hapus",
+                        FontId::new(13.0, FontFamily::Proportional),
+                        Color32::from_rgb(239, 68, 68)
+                    );
+                    if resp4.clicked() {
+                        ctrl.soft_delete_file(state, &record.id);
+                        state.screen = AppScreen::Dashboard;
+                    }
+                });
             });
         });
 }
@@ -2940,7 +3022,11 @@ fn render_preview_panel(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controll
                 ui.painter().text(back_rect.center(), egui::Align2::CENTER_CENTER, "<",
                                   FontId::new(15.0, FontFamily::Proportional), text_muted());
                 if back_resp.clicked() { 
-                    state.screen = AppScreen::Dashboard; 
+                    if let Some(target) = &state.decrypt_target {
+                        state.screen = AppScreen::Decrypting(target.vault_filename.clone());
+                    } else {
+                        state.screen = AppScreen::Dashboard;
+                    }
                     state.preview_bytes = None; // free memory
                     return; 
                 }
@@ -3695,15 +3781,7 @@ fn render_context_menu(ctx: &egui::Context, state: &mut AppState, ctrl: &Control
                 };
                 
                 if draw_item(ui, "🔓", "Buka / Dekripsi", accent_purple()).clicked() {
-                    let is_previewable = {
-                        let ext = crate::theme::file_ext(&record.original_name).to_lowercase();
-                        ext == "png" || ext == "jpg" || ext == "jpeg" || ext == "txt"
-                    };
-                    if is_previewable {
-                        ctrl.decrypt_to_memory(state, &record.vault_filename);
-                    } else {
-                        ctrl.open_decrypt_panel(state, &record.vault_filename);
-                    }
+                    ctrl.open_decrypt_panel(state, &record.vault_filename);
                     state.active_context_menu = None;
                 }
                 if draw_item(ui, "✏️", "Ganti Nama", text_primary()).clicked() {

@@ -304,7 +304,11 @@ impl Controller {
                     state.set_status(&format!("✅ Berhasil: Folder {} diamankan.", file_name), true);
                 } else {
                     self.log_action("ENCRYPT", &format!("File '{}' diamankan.", file_name));
-                    state.set_status(&format!("✅ Berhasil: {} diamankan.", file_name), true);
+                    if result.original_deleted {
+                        state.set_status(&format!("✅ Berhasil: {} diamankan.", file_name), true);
+                    } else {
+                        state.set_status(&format!("⚠️ {} disimpan ke Vault, tetapi file asli tidak dapat dihapus (Izin Terbatas).", file_name), true);
+                    }
                 }
             }
             Err(e) => {

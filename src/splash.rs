@@ -25,13 +25,7 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
     // Force continuous repaint so the animation doesn't freeze on mobile
     ui.ctx().request_repaint();
 
-    let mut delay = 2.5;
-    #[cfg(target_os = "android")]
-    {
-        // Di Android, kurangi durasi splash screen menjadi sangat singkat (0.1 detik)
-        // agar aplikasi terasa sangat enteng dan langsung masuk ke layar utama.
-        delay = 0.1;
-    }
+    let delay = if cfg!(target_os = "android") { 0.1 } else { 2.5 };
 
     if elapsed >= delay {
         state.screen = AppScreen::Login;

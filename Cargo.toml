@@ -72,7 +72,7 @@ min_sdk_version = 24
 "android:windowSoftInputMode" = "adjustResize"
 
 [package.metadata.android.signing.release]
-path = "C:/Users/Rizma Indra/.android/debug.keystore"
+path = "C:/Users/alama/.android/debug.keystore"
 keystore_password = "android"
 key_password = "android"
 key_alias = "androiddebugkey"
