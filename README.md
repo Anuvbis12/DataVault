@@ -46,7 +46,7 @@
 
 **DataVault (Aegis Vault)** adalah brankas digital lintas platform (Desktop & Android) yang dirancang untuk mengamankan privasi data Anda di level tertinggi. Dibangun murni menggunakan bahasa pemrograman **Rust** yang tangguh dipadukan dengan framework GUI **`egui`**, aplikasi ini menghadirkan performa secepat kilat dengan tingkat keamanan kelas militer.
 
-DataVault tidak hanya sekadar mengenkripsi file, tetapi juga mendukung kompresi folder menyeluruh, sistem Autentikasi Dua Faktor (2FA), perlindungan keamanan per-folder, pemantauan perangkat (CPU/RAM) secara *real-time*, hingga kemampuan transfer file aman via *Peer-to-Peer* (P2P).
+DataVault tidak hanya sekadar mengenkripsi file, tetapi juga mendukung kompresi folder menyeluruh, sistem Autentikasi Dua Faktor (2FA), perlindungan keamanan per-folder.
 
 > 💡 **Misi Kami:** Menyediakan *Brankas Digital Terpadu* yang menyeimbangkan antara keamanan kriptografi modern (Argon2 & AES-256) dengan pengalaman antarmuka pengguna (UX) yang memukau, responsif, dan mudah diakses baik dari perangkat Desktop maupun Mobile.
 
