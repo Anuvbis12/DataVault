@@ -63,7 +63,7 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
 
             // Logo background + circular image
             {
-                let logo_bytes: &[u8] = include_bytes!("../assets/logo.jpg");
+                let logo_bytes: &[u8] = include_bytes!("../assets/logo.png");
                 if let Some(texture) = crate::view::load_image_texture(ui, state, "splash_logo", logo_bytes) {
                     let radius = 40.0 * pop_scale;
                     // Glow ring

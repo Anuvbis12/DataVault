@@ -2578,7 +2578,7 @@ pub fn draw_circular_image_with_border(
 
 // ── Helper: draw the app logo at a given rect (circular) ──
 fn draw_app_logo(ui: &egui::Ui, state: &mut AppState, center: egui::Pos2, size: f32) {
-    let logo_bytes: &[u8] = include_bytes!("../assets/logo.jpg");
+    let logo_bytes: &[u8] = include_bytes!("../assets/logo.png");
     if let Some(texture) = load_image_texture(ui, state, "app_logo_global", logo_bytes) {
         let radius = size / 2.0;
         draw_circular_image_with_border(
@@ -2614,7 +2614,7 @@ fn render_tab_about_us(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controll
 
     // ── App Logo (circular) ──
     {
-        let logo_bytes = include_bytes!("../assets/logo.jpg");
+        let logo_bytes = include_bytes!("../assets/logo.png");
         if let Some(texture) = load_image_texture(ui, state, "about_logo", logo_bytes) {
             ui.vertical_centered(|ui| {
                 let logo_size = 120.0;
