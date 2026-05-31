@@ -29,16 +29,14 @@
 ---
 
 <details open>
-<summary><b>📑 Daftar Isi</b> (Klik untuk menyembunyikan/menampilkan)</summary>
+<summary><b>📑 Daftar Isi</b> <i>(Klik untuk ekspansi)</i></summary>
 
-- [🌟 Tentang Proyek](#-tentang-proyek)
-- [✨ Fitur Unggulan](#-fitur-unggulan)
-- [🚀 Panduan Memulai (Quick Start)](#-panduan-memulai-quick-start)
-- [📖 Cara Penggunaan](#-cara-penggunaan)
-- [📂 Struktur Penyimpanan](#-struktur-penyimpanan)
-- [🏗️ Architecture Workflow](#️-architecture-workflow)
-- [🛠️ Teknologi yang Digunakan](#️-teknologi-yang-digunakan)
-- [👥 Tim Pengembang](#-tim-pengembang)
+> | 🚀 **Pengenalan & Panduan** | ⚙️ **Teknis & Referensi** |
+> | :--- | :--- |
+> | 🌟 [**Tentang Proyek**](#-tentang-proyek) | 📂 [**Struktur Penyimpanan**](#-struktur-penyimpanan) |
+> | ✨ [**Fitur Unggulan**](#-fitur-unggulan) | 🏗️ [**Architecture Workflow**](#️-architecture-workflow) |
+> | 🚀 [**Panduan Memulai**](#-panduan-memulai-quick-start) | 🛠️ [**Teknologi Digunakan**](#️-teknologi-yang-digunakan) |
+> | 📖 [**Cara Penggunaan**](#-cara-penggunaan) | 👥 [**Tim Pengembang**](#-tim-pengembang) |
 
 </details>
 
