@@ -84,59 +84,49 @@ DataVault tidak hanya sekadar mengenkripsi file, tetapi juga mendukung kompresi 
 Amankan data Anda hanya dalam beberapa langkah mudah!
 
 <details>
-<summary><b>🛠️ 1. Persiapan Sistem (Klik untuk melihat instruksi)</b></summary>
+<summary><b>🛠️ 1. Persiapan Sistem</b> <i>(Klik untuk melihat instruksi)</i></summary>
 <br>
-Pastikan Anda sudah menginstal <b>Rust</b> dan <b>Cargo</b>.
 
-```bash
-# Instalasi untuk Linux/macOS
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
-```
-> *Pengguna Windows dapat mengunduh installer `rustup-init.exe` dari [rustup.rs](https://rustup.rs/).*
+Pastikan Anda sudah menginstal **Rust** dan **Cargo**.
+- **Windows:** Unduh dan jalankan `rustup-init.exe` dari [rustup.rs](https://rustup.rs/).
+- **Linux/macOS:** Jalankan perintah berikut di terminal:
+  ```bash
+  curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+  ```
+
 </details>
 
 <details>
-<summary><b>📦 2. Kloning & Instalasi (Klik untuk melihat instruksi)</b></summary>
+<summary><b>📦 2. Kloning & Instalasi</b> <i>(Klik untuk melihat instruksi)</i></summary>
 <br>
 
+Buka terminal Anda dan jalankan perintah berikut:
 ```bash
-# Kloning repositori
-git clone https://github.com/username_kamu/DataVault.git
+git clone https://github.com/Anuvbis12/DataVault.git
 cd DataVault
 
-# Build proyek (Opsional namun disarankan untuk setup awal)
+# Melakukan kompilasi awal (Opsional)
 cargo build --release
 ```
+
 </details>
 
 ### 3. Jalankan Aplikasi (Lintas Platform)
 
 > [!IMPORTANT]
-> **Selalu jalankan dalam mode `--release`!** Operasi kriptografi membutuhkan komputasi berat. Mode release membuat aplikasi berjalan ratusan kali lebih cepat dibandingkan mode debug.
+> **Wajib dijalankan dalam mode `--release`!** Operasi kriptografi kelas militer membutuhkan komputasi yang berat. Mode *release* menjamin aplikasi berjalan dengan lancar dan cepat.
 
-**🖥️ Windows / Desktop:**
+**🖥️ Windows / macOS / Linux (Desktop):**
 ```bash
 cargo run --release
 ```
 
-**🤖 Android:**
-Pastikan `cargo-apk` sudah terinstal (`cargo install cargo-apk`).
+**🤖 Android (Native):**
+Pastikan tool `cargo-apk` sudah terinstal (`cargo install cargo-apk`), dan perangkat Android terhubung via USB Debugging.
 ```bash
 cargo apk run --lib --release
 ```
-
-**🍎 iOS (Wajib menggunakan macOS & Xcode):**
-1. Salin/kloning proyek ini ke komputer Mac Anda.
-2. Tambahkan arsitektur iOS:
-   ```bash
-   rustup target add aarch64-apple-ios aarch64-apple-ios-sim
-   ```
-3. Lakukan kompilasi ke *Static Library* (`.a`):
-   ```bash
-   cargo build --target aarch64-apple-ios --release
-   ```
-4. Buka **Xcode**, buat proyek *iOS App* baru dengan Swift, lalu tarik file `libaegis_vault.a` ke dalam proyek.
-5. Buat *Bridging Header* (`void start_app_ios();`), lalu panggil fungsi `start_app_ios()` tersebut dari *App Delegate* atau *SwiftUI* Anda.
+> *Catatan: Menjalankan di Android memerlukan Android NDK dan SDK yang telah terkonfigurasi pada `ANDROID_HOME` & `ANDROID_NDK_ROOT`.*
 
 <div align="right">
   <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
