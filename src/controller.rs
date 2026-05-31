@@ -114,9 +114,8 @@ impl Controller {
             if state.totp_enabled {
                 state.totp_code.clear();
                 state.totp_error = None;
-                state.screen = AppScreen::TotpVerify;
-                self.log_action("LOGIN", &format!("Berhasil login sebagai '{}'.", db_username));
-                state.screen = AppScreen::Dashboard;
+                self.log_action("LOGIN", &format!("Berhasil login sebagai '{}', menunggu verifikasi 2FA.", db_username));
+                state.screen = AppScreen::TotpVerify; // ← jangan langsung ke Dashboard!
             } else {
                 self.log_action("LOGIN", &format!("Berhasil login sebagai '{}'.", db_username));
                 state.screen = AppScreen::Dashboard;
