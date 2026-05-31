@@ -291,6 +291,17 @@ impl eframe::App for VaultMvc {
 }
 
 #[cfg(target_os = "android")]
+pub fn set_android_secure_flag(app: &android_activity::AndroidApp) {
+    // Gunakan fungsi native dari android_activity yang lebih aman dari thread-issues
+    // dibanding JNI manual yang seringkali diblokir oleh StrictMode atau salah thread.
+    app.set_window_flags(
+        android_activity::WindowManagerFlags::SECURE,
+        android_activity::WindowManagerFlags::empty(),
+    );
+    log::info!("✅ Berhasil mengaktifkan FLAG_SECURE secara native!");
+}
+
+#[cfg(target_os = "android")]
 #[no_mangle]
 fn android_main(app: android_activity::AndroidApp) {
     android_logger::init_once(
@@ -299,6 +310,9 @@ fn android_main(app: android_activity::AndroidApp) {
             .with_tag("rust.aegis_vault")
     );
     log::info!("Aegis Vault Android is starting...");
+    
+    // Pasang Privacy Screen untuk Android (FLAG_SECURE)
+    set_android_secure_flag(&app);
 
     let app_for_panic = app.clone();
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
