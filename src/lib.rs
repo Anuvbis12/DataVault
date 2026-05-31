@@ -143,6 +143,7 @@ pub struct VaultMvc {
     pub controller: controller::Controller,
     #[cfg(target_os = "android")]
     pub android_app: Option<android_activity::AndroidApp>,
+    pub has_been_focused: bool,
 }
 
 impl VaultMvc {
@@ -154,6 +155,7 @@ impl VaultMvc {
             controller: controller::Controller::new(db),
             #[cfg(target_os = "android")]
             android_app: None,
+            has_been_focused: false,
         }
     }
 }
@@ -267,8 +269,11 @@ impl eframe::App for VaultMvc {
         // Layar hitam hanya mencegah isi brankas terlihat saat app tidak di foreground.
         // Logout hanya terjadi via: inactivity timer 2 menit, tombol Lock, atau double-Esc.
         // Logout hanya terjadi via: inactivity timer 2 menit, tombol Lock, atau double-Esc.
-        #[cfg(not(target_os = "android"))]
-        if !ctx.input(|i| i.focused) {
+        if ctx.input(|i| i.focused) {
+            self.has_been_focused = true;
+        }
+
+        if !ctx.input(|i| i.focused) && self.has_been_focused {
             let screen_rect = ctx.screen_rect();
             let painter = ctx.layer_painter(eframe::egui::LayerId::new(
                 eframe::egui::Order::Tooltip,
@@ -291,17 +296,6 @@ impl eframe::App for VaultMvc {
 }
 
 #[cfg(target_os = "android")]
-pub fn set_android_secure_flag(app: &android_activity::AndroidApp) {
-    // Gunakan fungsi native dari android_activity yang lebih aman dari thread-issues
-    // dibanding JNI manual yang seringkali diblokir oleh StrictMode atau salah thread.
-    app.set_window_flags(
-        android_activity::WindowManagerFlags::SECURE,
-        android_activity::WindowManagerFlags::empty(),
-    );
-    log::info!("✅ Berhasil mengaktifkan FLAG_SECURE secara native!");
-}
-
-#[cfg(target_os = "android")]
 #[no_mangle]
 fn android_main(app: android_activity::AndroidApp) {
     android_logger::init_once(
@@ -310,9 +304,6 @@ fn android_main(app: android_activity::AndroidApp) {
             .with_tag("rust.aegis_vault")
     );
     log::info!("Aegis Vault Android is starting...");
-    
-    // Pasang Privacy Screen untuk Android (FLAG_SECURE)
-    set_android_secure_flag(&app);
 
     let app_for_panic = app.clone();
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
