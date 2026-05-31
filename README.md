@@ -257,7 +257,7 @@ Proyek ini dikembangkan dengan dedikasi oleh:
 | <img src="https://api.dicebear.com/8.x/open-peeps/svg?seed=Rizma&backgroundColor=c0aede&size=80" width="40"> | **Rizma Indra Pramudya** | `25051204370` |
 | <img src="https://api.dicebear.com/8.x/open-peeps/svg?seed=Aneka&backgroundColor=b6e3f4&size=80" width="40"> | **Izora Elverda Narulita Putri** | `25051204287` |
 | <img src="https://api.dicebear.com/9.x/open-peeps/svg?seed=Easton&backgroundColor=d1d4f9&size=80" width="40"> | **Putera Al Khalidi** | `25051204362` |
-| <img src="https://api.dicebear.com/9.x/open-peeps/svg?seed=Chase&backgroundColor=ffd5dc&size=80" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
+| <img src="https://api.dicebear.com/9.x/open-peeps/svg?seed=Chase&backgroundColor=ffd5dc&skinColor=614335,4b3124&size=80" width="40"> | **Muhammad Abdullah Ro'in** | `25051204270` |
 
 </div>
 
