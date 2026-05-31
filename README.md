@@ -204,22 +204,22 @@ sequenceDiagram
     participant DB as SQLite (Metadata)
     participant FS as Vault Storage
 
-    User->>GUI: Input PIN & Pilih File
+    User->>GUI: Input PIN & Pilih File/Folder
     GUI->>Core: Kirim Event Enkripsi
-    Core->>Auth: Validasi Kredensial (PBKDF2 & TOTP)
+    Core->>Auth: Validasi Kredensial (Argon2 & TOTP)
     
     alt Kredensial Tidak Valid
         Auth-->>Core: ❌ Akses Ditolak
         Core-->>GUI: Tampilkan Pesan Error
     else Kredensial Valid
-        Auth-->>Core: ✅ Master Key Diturunkan
+        Auth-->>Core: ✅ Master Key Diturunkan (Argon2)
         Core->>Crypto: Inisiasi AES-256-GCM dengan Key
-        Crypto->>FS: Baca Stream File Asli
+        Crypto->>FS: Baca Stream File Asli (atau Zip archive untuk Folder)
         Crypto->>Crypto: Proses Enkripsi Data
-        Crypto->>FS: Simpan Encrypted Blob (UUID)
-        Crypto->>DB: Simpan Metadata (Nama File Asli & Hash)
+        Crypto->>FS: Simpan Encrypted Blob (penamaan UUID v4)
+        Crypto->>DB: Simpan Metadata (Nama Asli, Tipe, & Hash)
         DB-->>Crypto: OK
-        Crypto-->>Core: File Berhasil Diamankan
+        Crypto-->>Core: Data Berhasil Diamankan
         Core-->>GUI: Update Tampilan Beranda
         GUI-->>User: Tampilkan Notifikasi Sukses
     end
@@ -235,11 +235,13 @@ sequenceDiagram
 
 Aplikasi ini didukung oleh ekosistem Rust yang luar biasa:
 
-* **[egui](https://github.com/emilk/egui)**: Framework GUI *Immediate Mode* yang cepat.
-* **[RustCrypto](https://github.com/RustCrypto)**: Implementasi murni Rust untuk algoritma kriptografi (`aes`, `pbkdf2`, `sha2`).
-* **[rusqlite](https://github.com/rusqlite/rusqlite)**: Binding aman untuk SQLite.
-* **[rfd](https://github.com/PolyMeilex/rfd)**: Dialog file *native* lintas platform.
-* **[totp](https://github.com/zantinon/totp-rs)**: Implementasi *Time-Based One-Time Password*.
+* **[egui](https://github.com/emilk/egui)** & **[eframe](https://github.com/emilk/egui/tree/master/crates/eframe)**: Framework GUI *Immediate Mode* yang cepat dan integrasi windowing lintas platform (Desktop & Android).
+* **[RustCrypto](https://github.com/RustCrypto)**: Implementasi murni Rust untuk algoritma kriptografi (`aes`, `argon2`, `hmac`, `sha2`).
+* **[rusqlite](https://github.com/rusqlite/rusqlite)**: Binding aman untuk manajemen metadata via SQLite.
+* **[rfd](https://github.com/PolyMeilex/rfd)**: Dialog file *native* untuk platform Desktop.
+* **[zip](https://github.com/zip-rs/zip)**: Utilitas kompresi folder secara *on-the-fly* sebelum dienkripsi.
+* **Custom TOTP (2FA)**: Menggunakan `sha1`, `data-encoding`, dan `qrcode` untuk implementasi 2FA yang ringan tanpa *library* eksternal besar.
+* **Android Native Integrations**: Menggunakan `android-activity` dan `jni` untuk dukungan *native* pada Android (Lifecycle, Storage Permissions).
 
 <div align="right">
   <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
