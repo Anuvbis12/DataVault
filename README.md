@@ -116,7 +116,14 @@ cargo build --release
 > [!IMPORTANT]
 > **Wajib dijalankan dalam mode `--release`!** Operasi kriptografi kelas militer membutuhkan komputasi yang berat. Mode *release* menjamin aplikasi berjalan dengan lancar dan cepat.
 
-**🖥️ Windows / macOS / Linux (Desktop):**
+**🍎 macOS (Apple Silicon & Intel):**
+Buka terminal macOS Anda dan jalankan perintah ini untuk menjalankan versi desktop:
+```bash
+cargo run --release
+```
+
+**🪟 Windows & 🐧 Linux:**
+Buka command prompt atau terminal Anda dan jalankan:
 ```bash
 cargo run --release
 ```
