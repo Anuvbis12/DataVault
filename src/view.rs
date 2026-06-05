@@ -1950,7 +1950,7 @@ fn var_card(
 }
 
 fn render_tab_kuat(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
-    let pad = 16.0;
+    let pad = 24.0;
     
     // Refresh active system hardware metrics from real OS performance
     ctrl.refresh_device_metrics(state);
@@ -2203,7 +2203,7 @@ fn render_tab_kuat(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
 }
 
 fn render_tab_storage(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller, to_decrypt: &mut Option<String>, to_soft_delete: &mut Option<String>) {
-    let pad = 16.0;
+    let pad = 24.0;
     let avail = ui.available_rect_before_wrap();
     
     ui.add_space(8.0);
@@ -2921,7 +2921,7 @@ fn render_tab_notifications(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Con
     });
     
     ui.add_space(30.0);
-    let pad = 20.0;
+    let pad = 24.0;
     let avail = ui.available_rect_before_wrap();
 
     if state.audit_logs.is_empty() {
@@ -3384,12 +3384,15 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
                 .rounding(Rounding::same(10.0))
                 .inner_margin(egui::Margin::symmetric(16.0, 14.0))
                 .show(ui, |ui| {
-                    ui.add(egui::TextEdit::singleline(&mut state.totp_code)
+                    let resp = ui.add(egui::TextEdit::singleline(&mut state.totp_code)
                         .desired_width(200.0)
                         .hint_text("000000")
                         .font(FontId::new(28.0, FontFamily::Monospace))
                         .horizontal_align(egui::Align::Center)
                         .frame(false));
+                    if resp.changed() {
+                        state.totp_error = None;
+                    }
                 });
 
             if let Some(err) = &state.totp_error {
@@ -3419,7 +3422,7 @@ fn render_totp_verify(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
 // ── Screen: Recycle Bin ───────────────────────────────────
 fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller) {
     let avail = ui.available_rect_before_wrap();
-    let pad   = 16.0;
+    let pad   = 24.0;
 
     // ─ Topbar ─
     let topbar_rect = egui::Rect::from_min_size(avail.min, Vec2::new(avail.width(), 52.0));
@@ -3460,95 +3463,100 @@ fn render_recycle_bin(ui: &mut egui::Ui, state: &mut AppState, ctrl: &Controller
     let mut to_perm_delete: Option<FileRecord> = None;
     let mut to_restore: Option<String> = None;
 
-    egui::ScrollArea::vertical()
-        .id_salt("trash_scroll")
-        .show_viewport(ui, |ui, _vp| {
-            ui.set_clip_rect(scroll_rect);
-            if state.deleted_list.is_empty() {
-                let c = scroll_rect.center();
-                ui.painter().text(c, egui::Align2::CENTER_CENTER,
-                                  "Recycle Bin Kosong",
-                                  FontId::new(16.0, FontFamily::Proportional), text_muted());
-            } else {
-                let card_h   = 68.0;
-                let card_gap = 8.0;
-                for (idx, record) in state.deleted_list.clone().iter().enumerate() {
-                    let card_y = scroll_rect.top() + idx as f32 * (card_h + card_gap) + 4.0;
-                    if card_y + card_h > scroll_rect.bottom() { break; }
+    ui.allocate_new_ui(egui::UiBuilder::new().max_rect(scroll_rect), |ui| {
+        egui::ScrollArea::vertical()
+            .id_salt("trash_scroll")
+            .show(ui, |ui| {
+                if state.deleted_list.is_empty() {
+                    ui.vertical_centered(|ui| {
+                        ui.add_space(40.0);
+                        ui.label(egui::RichText::new("🗑").size(36.0).color(text_muted()));
+                        ui.add_space(8.0);
+                        ui.label(egui::RichText::new("Recycle Bin Kosong").color(text_muted()).size(13.0));
+                    });
+                } else {
+                    ui.vertical(|ui| {
+                        let card_h = 68.0;
+                        for record in state.deleted_list.clone() {
+                            ui.horizontal(|ui| {
+                                ui.add_space(pad);
+                                let (card_rect, resp) = ui.allocate_exact_size(
+                                    Vec2::new(avail.width() - pad * 2.0, card_h),
+                                    egui::Sense::click(),
+                                );
+                                let card_hovered = resp.hovered();
+                                let card_fill = if card_hovered { bg_card() } else { bg_surface() };
+                                let card_stroke = if card_hovered {
+                                    Stroke::new(0.5, warn_color())
+                                } else {
+                                    Stroke::new(0.5, border_default())
+                                };
+                                filled_rect(ui, card_rect, card_fill, card_stroke, 10.0);
 
-                    let card_rect = egui::Rect::from_min_size(
-                        egui::pos2(avail.left() + pad, card_y),
-                        Vec2::new(avail.width() - pad * 2.0, card_h),
-                    );
-                    let card_hovered = ui.rect_contains_pointer(card_rect);
-                    let card_fill    = if card_hovered { bg_card() } else { bg_surface() };
-                    let card_stroke  = if card_hovered {
-                        Stroke::new(0.5, warn_color())
-                    } else {
-                        Stroke::new(0.5, border_default())
-                    };
-                    filled_rect(ui, card_rect, card_fill, card_stroke, 10.0);
+                                // Badge ikon
+                                let ext = file_ext(&record.original_name);
+                                let (icon, badge) = file_badge(ext);
+                                let badge_rect = egui::Rect::from_center_size(
+                                    egui::pos2(card_rect.left() + 32.0, card_rect.center().y),
+                                    Vec2::splat(36.0),
+                                );
+                                filled_rect(ui, badge_rect, badge.0, Stroke::new(0.5, badge.1), 8.0);
+                                ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, icon,
+                                                  FontId::new(16.0, FontFamily::Proportional), badge.1);
 
-                    // Badge ikon
-                    let ext         = file_ext(&record.original_name);
-                    let (icon, badge) = file_badge(ext);
-                    let badge_rect  = egui::Rect::from_min_size(
-                        egui::pos2(card_rect.left() + 14.0, card_rect.center().y - 18.0),
-                        Vec2::splat(36.0),
-                    );
-                    filled_rect(ui, badge_rect, badge.0, Stroke::new(0.5, badge.1), 8.0);
-                    ui.painter().text(badge_rect.center(), egui::Align2::CENTER_CENTER, icon,
-                                      FontId::new(16.0, FontFamily::Proportional), badge.1);
+                                // Info teks
+                                let info_x = badge_rect.right() + 12.0;
+                                let name_truncated = if record.original_name.len() > 28 {
+                                    format!("{}…", &record.original_name[..26])
+                                } else {
+                                    record.original_name.clone()
+                                };
+                                ui.painter().text(egui::pos2(info_x, card_rect.center().y - 10.0),
+                                                  egui::Align2::LEFT_CENTER, name_truncated,
+                                                  FontId::new(14.0, FontFamily::Proportional), text_primary());
+                                let meta = format!("{}…  ·  Dihapus: {}",
+                                                   &record.sha256_hash[..6],
+                                                   record.deleted_at.as_deref().unwrap_or(""));
+                                ui.painter().text(egui::pos2(info_x, card_rect.center().y + 10.0),
+                                                  egui::Align2::LEFT_CENTER, meta,
+                                                  FontId::new(11.0, FontFamily::Proportional), error_color());
 
-                    // Info teks
-                    let info_x = badge_rect.right() + 12.0;
-                    let name_truncated = if record.original_name.len() > 28 {
-                        format!("{}…", &record.original_name[..26])
-                    } else {
-                        record.original_name.clone()
-                    };
-                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 16.0),
-                                      egui::Align2::LEFT_TOP, &name_truncated,
-                                      FontId::new(14.0, FontFamily::Proportional), text_primary());
-                    let meta = format!("{}…  ·  Dihapus: {}",
-                                       &record.sha256_hash[..6],
-                                       record.deleted_at.as_deref().unwrap_or(""));
-                    ui.painter().text(egui::pos2(info_x, card_rect.top() + 36.0),
-                                      egui::Align2::LEFT_TOP, &meta,
-                                      FontId::new(11.0, FontFamily::Proportional), error_color());
+                                // Tombol Hapus Permanen
+                                let perm_del_rect = egui::Rect::from_center_size(
+                                    egui::pos2(card_rect.right() - 76.0, card_rect.center().y),
+                                    Vec2::new(38.0, 32.0),
+                                );
+                                let perm_del_resp = ui.allocate_rect(perm_del_rect, egui::Sense::click());
+                                let perm_del_border = if perm_del_resp.hovered() { error_color() } else { border_default() };
+                                let perm_del_icon_c = if perm_del_resp.hovered() { error_color() } else { text_muted() };
+                                filled_rect(ui, perm_del_rect, bg_surface(), Stroke::new(0.5, perm_del_border), 7.0);
+                                ui.painter().text(perm_del_rect.center(), egui::Align2::CENTER_CENTER, "❌",
+                                                  FontId::new(14.0, FontFamily::Proportional), perm_del_icon_c);
 
-                    // Tombol Hapus Permanen
-                    let perm_del_rect = egui::Rect::from_min_size(
-                        egui::pos2(card_rect.right() - 94.0, card_rect.center().y - 16.0),
-                        Vec2::new(38.0, 32.0),
-                    );
-                    let perm_del_resp = ui.allocate_rect(perm_del_rect, egui::Sense::click());
-                    let perm_del_border = if perm_del_resp.hovered() { error_color() } else { border_default() };
-                    let perm_del_icon_c = if perm_del_resp.hovered() { error_color() } else { text_muted() };
-                    filled_rect(ui, perm_del_rect, bg_surface(), Stroke::new(0.5, perm_del_border), 7.0);
-                    ui.painter().text(perm_del_rect.center(), egui::Align2::CENTER_CENTER, "❌",
-                                      FontId::new(14.0, FontFamily::Proportional), perm_del_icon_c);
-                    if perm_del_resp.clicked() {
-                        to_perm_delete = Some(record.clone());
-                    }
+                                // Tombol Restore
+                                let restore_rect = egui::Rect::from_center_size(
+                                    egui::pos2(card_rect.right() - 28.0, card_rect.center().y),
+                                    Vec2::new(38.0, 32.0),
+                                );
+                                let restore_resp = ui.allocate_rect(restore_rect, egui::Sense::click());
+                                let restore_border = if restore_resp.hovered() { teal_strong() } else { border_default() };
+                                let restore_icon_c = if restore_resp.hovered() { teal_strong() } else { text_muted() };
+                                filled_rect(ui, restore_rect, bg_surface(), Stroke::new(0.5, restore_border), 7.0);
+                                ui.painter().text(restore_rect.center(), egui::Align2::CENTER_CENTER, "♻",
+                                                  FontId::new(16.0, FontFamily::Proportional), restore_icon_c);
 
-                    // Tombol Restore
-                    let restore_rect = egui::Rect::from_min_size(
-                        egui::pos2(card_rect.right() - 50.0, card_rect.center().y - 16.0),
-                        Vec2::new(38.0, 32.0),
-                    );
-                    let restore_resp   = ui.allocate_rect(restore_rect, egui::Sense::click());
-                    let restore_border = if restore_resp.hovered() { teal_strong() } else { border_default() };
-                    let restore_icon_c = if restore_resp.hovered() { teal_strong() } else { text_muted() };
-                    filled_rect(ui, restore_rect, bg_surface(), Stroke::new(0.5, restore_border), 7.0);
-                    ui.painter().text(restore_rect.center(), egui::Align2::CENTER_CENTER, "♻",
-                                      FontId::new(16.0, FontFamily::Proportional), restore_icon_c);
-                    if restore_resp.clicked() {
-                        to_restore = Some(record.id.clone());
-                    }
+                                if perm_del_resp.clicked() {
+                                    to_perm_delete = Some(record.clone());
+                                } else if restore_resp.clicked() {
+                                    to_restore = Some(record.id.clone());
+                                }
+                            });
+                            ui.add_space(8.0);
+                        }
+                    });
                 }
-            }
-        });
+            });
+    });
 
     if let Some(record) = to_perm_delete {
         ctrl.permanent_delete_file(state, &record);
