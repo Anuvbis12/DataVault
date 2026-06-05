@@ -94,7 +94,7 @@ pub fn render_splash(ui: &mut egui::Ui, state: &mut AppState, _ctrl: &Controller
             
             // ── Name: 24px, weight 800, mt 24px ──
             ui.add_space(24.0);
-            ui.label(egui::RichText::new("DataVault Aegis")
+            ui.label(egui::RichText::new("Vault Defender")
                 .size(24.0)
                 .color(Color32::from_rgba_unmultiplied(255, 255, 255, (255.0 * text_alpha) as u8))
                 .strong());

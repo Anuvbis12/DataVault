@@ -2,7 +2,7 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=B185DB&height=150&section=header&animation=twinkling" />
 
-[![Typing SVG Title](https://readme-typing-svg.herokuapp.com?font=Syncopate&weight=700&size=45&pause=2000&color=B185DB&center=true&vCenter=true&width=800&height=80&lines=V+A+U+L+T+++D+E+F+E+N+D+E+R;D+A+T+A+++V+A+U+L+T)](https://git.io/typing-svg)
+[![Typing SVG Title](https://readme-typing-svg.herokuapp.com?font=Syncopate&weight=700&size=45&pause=2000&color=B185DB&center=true&vCenter=true&width=800&height=80&lines=V+A+U+L+T+++D+E+F+E+N+D+E+R)](https://git.io/typing-svg)
 
 [![Typing SVG Subtitle](https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=22&pause=1000&color=B185DB&center=true&vCenter=true&width=800&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
 
@@ -44,14 +44,14 @@
 
 ## 🌟 Tentang Proyek
 
-**DataVault (Aegis Vault)** adalah brankas digital lintas platform (Desktop & Android) yang dirancang untuk mengamankan privasi data Anda di level tertinggi. Dibangun murni menggunakan bahasa pemrograman **Rust** yang tangguh dipadukan dengan framework GUI **`egui`**, aplikasi ini menghadirkan performa secepat kilat dengan tingkat keamanan kelas militer.
+**Vault Defender** adalah brankas digital lintas platform (Desktop & Android) yang dirancang untuk mengamankan privasi data Anda di level tertinggi. Dibangun murni menggunakan bahasa pemrograman **Rust** yang tangguh dipadukan dengan framework GUI **`egui`**, aplikasi ini menghadirkan performa secepat kilat dengan tingkat keamanan kelas militer.
 
-DataVault tidak hanya sekadar mengenkripsi file, tetapi juga mendukung kompresi folder menyeluruh, sistem Autentikasi Dua Faktor (2FA), perlindungan keamanan per-folder.
+Vault Defender tidak hanya sekadar mengenkripsi file, tetapi juga mendukung kompresi folder menyeluruh, sistem Autentikasi Dua Faktor (2FA), perlindungan keamanan per-folder.
 
 > 💡 **Misi Kami:** Menyediakan *Brankas Digital Terpadu* yang menyeimbangkan antara keamanan kriptografi modern (Argon2 & AES-256) dengan pengalaman antarmuka pengguna (UX) yang memukau, responsif, dan mudah diakses baik dari perangkat Desktop maupun Mobile.
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---
@@ -74,7 +74,7 @@ DataVault tidak hanya sekadar mengenkripsi file, tetapi juga mendukung kompresi 
 | 🎨 **Desain Modern** | Antarmuka pengguna *glassmorphism* yang elegan, responsif, dan memanjakan mata dengan **egui**. |
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---
@@ -102,8 +102,8 @@ Pastikan Anda sudah menginstal **Rust** dan **Cargo**.
 
 Buka terminal Anda dan jalankan perintah berikut:
 ```bash
-git clone https://github.com/Anuvbis12/DataVault.git
-cd DataVault
+git clone https://github.com/Anuvbis12/VaultDefender.git
+cd VaultDefender
 
 # Melakukan kompilasi awal (Opsional)
 cargo build --release
@@ -136,7 +136,7 @@ cargo apk run --lib --release
 > *Catatan: Menjalankan di Android memerlukan Android NDK dan SDK yang telah terkonfigurasi pada `ANDROID_HOME` & `ANDROID_NDK_ROOT`.*
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---
@@ -153,21 +153,21 @@ cargo apk run --lib --release
    Klik ikon gembok pada file di dalam brankas, pilih lokasi penyimpanan tujuan, dan file Anda akan kembali ke format aslinya.
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---
 
 ## 📂 Struktur Penyimpanan
 
-DataVault mengelola file Anda dengan rapi dan aman di dalam direktori `vault_storage/`:
+Vault Defender mengelola file Anda dengan rapi dan aman di dalam direktori `vault_storage/`:
 
 <details>
 <summary><b>📂 Tampilkan Pohon Direktori</b></summary>
 <br>
 
 ```text
-📦 DataVault
+📦 Vault Defender
  ┣ 📂 src/                  # Source code aplikasi
  ┣ 📂 vault_storage/        # ⚠️ AREA TERENKRIPSI (JANGAN DIUBAH)
  ┃  ┣ 📜 vault.db           # Database metadata SQLite
@@ -181,14 +181,14 @@ DataVault mengelola file Anda dengan rapi dan aman di dalam direktori `vault_sto
 > **DILARANG KERAS** mengubah, menghapus, atau memindahkan file di dalam `vault_storage/` secara manual melalui File Explorer. Hal ini dapat menyebabkan kerusakan database dan kehilangan data permanen!
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---
 
 ## 🏗️ Architecture Workflow
 
-Berikut adalah alur kerja sistem keamanan **DataVault** dari sisi pengguna hingga ke penyimpanan:
+Berikut adalah alur kerja sistem keamanan **Vault Defender** dari sisi pengguna hingga ke penyimpanan:
 
 ```mermaid
 sequenceDiagram
@@ -223,7 +223,7 @@ sequenceDiagram
 ```
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---
@@ -241,7 +241,7 @@ Aplikasi ini didukung oleh ekosistem Rust yang luar biasa:
 * **Android Native Integrations**: Menggunakan `android-activity` dan `jni` untuk dukungan *native* pada Android (Lifecycle, Storage Permissions).
 
 <div align="right">
-  <a href="#-datavault-aegis-vault">⬆ Kembali ke Atas</a>
+  <a href="#-vault-defender">⬆ Kembali ke Atas</a>
 </div>
 
 ---

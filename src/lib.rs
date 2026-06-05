@@ -287,7 +287,7 @@ impl eframe::App for VaultMvc {
             painter.text(
                 screen_rect.center(),
                 eframe::egui::Align2::CENTER_CENTER,
-                "🔒 DataVault Secured",
+                "🔒 Vault Defender Secured",
                 eframe::egui::FontId::proportional(28.0),
                 eframe::egui::Color32::from_rgb(100, 100, 110),
             );
@@ -303,7 +303,7 @@ fn android_main(app: android_activity::AndroidApp) {
             .with_max_level(log::LevelFilter::Trace)
             .with_tag("rust.aegis_vault")
     );
-    log::info!("Aegis Vault Android is starting...");
+    log::info!("Vault Defender Android is starting...");
 
     let app_for_panic = app.clone();
     let res = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
@@ -316,7 +316,7 @@ fn android_main(app: android_activity::AndroidApp) {
         std::env::set_var("TMPDIR", &cache_path);
 
         // Set EXTERNAL_DIR_OVERRIDE for Android backup and decryption path fallbacks
-        let decrypted_p = std::path::PathBuf::from("/storage/emulated/0/Download/Aegis Vault/decrypt");
+        let decrypted_p = std::path::PathBuf::from("/storage/emulated/0/Download/Vault Defender/decrypt");
         let _ = std::fs::create_dir_all(&decrypted_p);
         let _ = crate::controller::EXTERNAL_DIR_OVERRIDE.set(decrypted_p);
 
@@ -343,7 +343,7 @@ fn android_main(app: android_activity::AndroidApp) {
 
         let app_clone2 = app_for_panic.clone();
         eframe::run_native(
-            "Aegis Vault",
+            "Vault Defender",
             options,
             Box::new(move |cc| {
                 crate::theme::apply(&cc.egui_ctx);
@@ -384,7 +384,7 @@ fn android_main(app: android_activity::AndroidApp) {
         if let Some(ext_path) = app_for_panic.external_data_path() {
             let _ = std::fs::create_dir_all(&ext_path);
             let log_file = ext_path.join("CRASH_LOG.txt");
-            let _ = std::fs::write(&log_file, format!("Aegis Vault Crash:\n{}", msg));
+            let _ = std::fs::write(&log_file, format!("Vault Defender Crash:\n{}", msg));
             log::error!("WROTE CRASH LOG TO: {:?}", log_file);
         }
         std::thread::sleep(std::time::Duration::from_secs(3));
@@ -401,7 +401,7 @@ pub extern "C" fn start_app_ios() {
     let options = eframe::NativeOptions::default();
 
     eframe::run_native(
-        "Aegis Vault",
+        "Vault Defender",
         options,
         Box::new(|cc| {
             theme::apply(&cc.egui_ctx);

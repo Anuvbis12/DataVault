@@ -931,7 +931,7 @@ impl Controller {
             }
         } else {
             // Untuk file lain, dekripsi ke folder Temp dan buka via aplikasi eksternal
-            let temp_dir = std::env::temp_dir().join("aegis_vault_preview");
+            let temp_dir = std::env::temp_dir().join("vault_defender_preview");
             let _ = std::fs::create_dir_all(&temp_dir);
             let temp_path = temp_dir.join(&record.original_name);
 
@@ -1391,7 +1391,7 @@ fn make_html_template(filename: &str, filesize: i64, error_msg: Option<&str>) ->
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Aegis Vault - Secure Share</title>
+    <title>Vault Defender - Secure Share</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {{
@@ -1594,7 +1594,7 @@ fn make_html_template(filename: &str, filesize: i64, error_msg: Option<&str>) ->
     <div class="card">
         <div class="logo-area">
             <span class="logo-icon">🔒</span>
-            <h1>Aegis Vault</h1>
+            <h1>Vault Defender</h1>
             <p class="subtitle">Secure Local Wi-Fi Share</p>
         </div>
 

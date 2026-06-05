@@ -24,7 +24,7 @@ fn main() -> Result<(), eframe::Error> {
     };
 
     eframe::run_native(
-        "Aegis Vault",
+        "Vault Defender",
         options,
         Box::new(|cc| {
             aegis_vault::theme::apply(&cc.egui_ctx);

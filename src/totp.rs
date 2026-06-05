@@ -81,7 +81,7 @@ pub fn seconds_left() -> u32 {
 /// Generate otpauth URI untuk QR code
 pub fn otpauth_uri(secret_b32: &str) -> String {
     format!(
-        "otpauth://totp/AegisVault:Vault?secret={}&issuer=AegisVault&algorithm=SHA1&digits=6&period=30",
+        "otpauth://totp/VaultDefender:Vault?secret={}&issuer=VaultDefender&algorithm=SHA1&digits=6&period=30",
         secret_b32
     )
 }

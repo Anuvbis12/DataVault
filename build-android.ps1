@@ -1,4 +1,4 @@
-Write-Host "Membangun Aegis Vault untuk Android..." -ForegroundColor Cyan
+Write-Host "Membangun Vault Defender untuk Android..." -ForegroundColor Cyan
 
 $env:JAVA_HOME = "C:\Program Files\Android\Android Studio\jbr"
 
@@ -16,7 +16,7 @@ Set-Location -Path "android"
 if (!(Test-Path "gradlew.bat")) {
     Write-Host "==================================================" -ForegroundColor Yellow
     Write-Host "PERHATIAN: Gradle Wrapper belum terpasang." -ForegroundColor Yellow
-    Write-Host "Silakan buka folder 'D:\DataVault\android' menggunakan Android Studio." -ForegroundColor Yellow
+    Write-Host "Silakan buka folder 'android' menggunakan Android Studio." -ForegroundColor Yellow
     Write-Host "Android Studio akan mengunduh Gradle secara otomatis." -ForegroundColor Yellow
     Write-Host "Setelah itu Anda bisa menekan tombol 'Run' (Segitiga Hijau) di Android Studio" -ForegroundColor Yellow
     Write-Host "Atau jalankan ulang script ini." -ForegroundColor Yellow

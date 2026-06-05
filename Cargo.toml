@@ -61,7 +61,7 @@ codegen-units = 1
 strip         = true
 
 [package.metadata.android]
-apk_label = "Aegis Vault"
+apk_label = "Vault Defender"
 target_sdk_version = 33
 min_sdk_version = 24
 icon = "assets/logo.png"

@@ -27,7 +27,7 @@ pub fn run_file_unlock(vlt_path: &str) -> Result<(), eframe::Error> {
     };
 
     eframe::run_native(
-        "Aegis Vault — File Terkunci",
+        "Vault Defender — File Terkunci",
         options,
         Box::new(move |cc| {
             crate::theme::apply(&cc.egui_ctx);
@@ -229,7 +229,7 @@ impl FileUnlockApp {
                 );
                 ui.add_space(2.0);
                 ui.label(
-                    egui::RichText::new("AEGIS VAULT")
+                    egui::RichText::new("VAULT DEFENDER")
                         .size(22.0).color(teal_light()).strong(),
                 );
 
@@ -440,7 +440,7 @@ impl FileUnlockApp {
                         .size(13.0).color(text_muted()),
                 );
                 ui.label(
-                    egui::RichText::new("AEGIS VAULT")
+                    egui::RichText::new("VAULT DEFENDER")
                         .size(22.0).color(teal_light()).strong(),
                 );
 
