@@ -2,7 +2,7 @@
 
 <img src="https://capsule-render.vercel.app/api?type=waving&color=B185DB&height=150&section=header&animation=twinkling" />
 
-[![Typing SVG Title](https://readme-typing-svg.herokuapp.com?font=Syncopate&weight=700&size=45&pause=2000&color=B185DB&center=true&vCenter=true&width=800&height=80&lines=A+E+G+I+S+++V+A+U+L+T;D+A+T+A+++V+A+U+L+T)](https://git.io/typing-svg)
+[![Typing SVG Title](https://readme-typing-svg.herokuapp.com?font=Syncopate&weight=700&size=45&pause=2000&color=B185DB&center=true&vCenter=true&width=800&height=80&lines=V+A+U+L+T+++D+E+F+E+N+D+E+R;D+A+T+A+++V+A+U+L+T)](https://git.io/typing-svg)
 
 [![Typing SVG Subtitle](https://readme-typing-svg.herokuapp.com?font=Fira+Code&weight=600&size=22&pause=1000&color=B185DB&center=true&vCenter=true&width=800&lines=Keamanan+Privasi+Tingkat+Tinggi;Standar+Enkripsi+AES-256;Brankas+Digital+Teraman+Anda;Cepat,+Ringan,+dan+Responsif!;Cross-Platform+Support+🚀)](https://git.io/typing-svg)
 
